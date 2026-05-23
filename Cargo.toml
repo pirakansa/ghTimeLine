@@ -12,7 +12,14 @@ name = "ghStreamListner"
 path = "src/main.rs"
 
 [dependencies]
+chrono = "0.4.44"
+dirs-next = "2.0.0"
 eframe = "0.33"
+open = "5.3.5"
+rusqlite = { version = "0.39.0", features = ["bundled"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_yaml = "0.9.34"
+thiserror = "2.0.18"
 
 [profile.release]
 codegen-units = 1

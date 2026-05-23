@@ -1,6 +1,7 @@
 use eframe::egui;
 
-use gh_stream_listner::{HelloWorldApp, APP_TITLE};
+use gh_stream_listner::app::GhStreamApp;
+use gh_stream_listner::APP_TITLE;
 
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
@@ -11,6 +12,6 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         APP_TITLE,
         options,
-        Box::new(|_cc| Ok(Box::new(HelloWorldApp))),
+        Box::new(|_cc| Ok(Box::new(GhStreamApp::new()))),
     )
 }

@@ -1,7 +1,8 @@
 # ghStreamListner
 
-`ghStreamListner` is a planned desktop tool for reading GitHub activity through
-saved search queries, inspired by [Jasper](https://github.com/jasperapp/jasper).
+`ghStreamListner` is a desktop tool under development for reading GitHub
+activity through saved search queries, inspired by
+[Jasper](https://github.com/jasperapp/jasper).
 
 I have used Jasper as part of my regular GitHub workflow. It shaped the way I
 think about search-query based issue and pull request tracking, but it is no
@@ -22,12 +23,17 @@ labels, authors, review states, milestones, repositories, or query fragments
 that represent a working queue. `ghStreamListner` treats those searches as
 first-class subscriptions.
 
-Planned usage:
+Current implemented foundation:
 
-- Save named GitHub search queries.
-- Refresh each query and show the latest matching results.
-- Separate unread or newly seen results from already reviewed ones.
-- Keep local state on the machine running the app.
+- First-run setup for one GitHub.com or GHES host.
+- Plain text YAML settings for host, PAT, UI, sort, and polling interval.
+- SQLite storage for saved queries, stream items, query matches, unread state,
+  bookmarks, and archives.
+- A two-pane `egui` shell with library views, saved query management, local item
+  actions, filters, and external browser opening.
+
+GitHub API refresh and GraphQL enrichment are scaffolded but not yet implemented.
+The v1 product and storage contract is tracked in [docs/plan/v1.md](docs/plan/v1.md).
 
 ## Development
 
