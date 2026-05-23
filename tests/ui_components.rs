@@ -3,7 +3,7 @@ use egui_kittest::Harness;
 use gh_stream_listner::app::components;
 use gh_stream_listner::app::stream::{ItemAction, StreamEvent, StreamState};
 use gh_stream_listner::models::{
-    AppConfig, ItemType, SavedQuery, Selection, SortOrder, StreamItem,
+    AppConfig, ItemType, LibraryCounts, SavedQuery, Selection, SortOrder, StreamItem,
 };
 
 #[test]
@@ -44,12 +44,18 @@ fn left_pane_saved_query_click_emits_selection_event() {
             components::left_pane::show(
                 ctx,
                 &mut state.stream,
+                &state.library_counts,
                 &state.saved_queries,
                 &mut state.event,
             );
         },
         LeftPaneHarness {
             stream: StreamState::default(),
+            library_counts: LibraryCounts {
+                inbox_unread_count: 5,
+                bookmark_unread_count: 2,
+                archived_unread_count: 1,
+            },
             saved_queries: vec![SavedQuery {
                 id: 7,
                 name: "Reviews".to_owned(),
@@ -63,6 +69,9 @@ fn left_pane_saved_query_click_emits_selection_event() {
         },
     );
 
+    harness.get_by_label("Inbox (5)");
+    harness.get_by_label("Bookmark (2)");
+    harness.get_by_label("Archived (1)");
     harness.get_by_label("Reviews (3)").click();
     harness.run();
 
@@ -133,6 +142,7 @@ struct ToolbarHarness {
 
 struct LeftPaneHarness {
     stream: StreamState,
+    library_counts: LibraryCounts,
     saved_queries: Vec<SavedQuery>,
     event: Option<StreamEvent>,
 }

@@ -3,11 +3,39 @@ use std::str::FromStr;
 use chrono::Utc;
 use rusqlite::{params, OptionalExtension};
 
-use crate::models::{SavedQuery, SortOrder};
+use crate::models::{LibraryCounts, SavedQuery, SortOrder};
 
 use super::{Result, Storage};
 
 impl Storage {
+    pub fn list_library_counts(&self, host_id: i64) -> Result<LibraryCounts> {
+        Ok(self.connection().query_row(
+            "SELECT
+                COUNT(DISTINCT CASE
+                    WHEN s.is_unread = 1 AND s.is_archived = 0 THEN i.id
+                END) AS inbox_unread_count,
+                COUNT(DISTINCT CASE
+                    WHEN s.is_unread = 1 AND s.is_bookmarked = 1 AND s.is_archived = 0 THEN i.id
+                END) AS bookmark_unread_count,
+                COUNT(DISTINCT CASE
+                    WHEN s.is_unread = 1 AND s.is_archived = 1 THEN i.id
+                END) AS archived_unread_count
+             FROM stream_items i
+             JOIN item_state s ON s.stream_item_id = i.id
+             JOIN saved_query_matches m ON m.stream_item_id = i.id
+             JOIN saved_queries q ON q.id = m.saved_query_id
+             WHERE i.host_id = ?1 AND q.enabled = 1",
+            params![host_id],
+            |row| {
+                Ok(LibraryCounts {
+                    inbox_unread_count: row.get(0)?,
+                    bookmark_unread_count: row.get(1)?,
+                    archived_unread_count: row.get(2)?,
+                })
+            },
+        )?)
+    }
+
     pub fn list_saved_queries(&self, host_id: i64) -> Result<Vec<SavedQuery>> {
         let mut statement = self.connection().prepare(
             "SELECT

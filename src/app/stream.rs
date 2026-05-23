@@ -2,7 +2,8 @@ use eframe::egui;
 
 use super::components;
 use crate::models::{
-    AppConfig, LibraryView, SavedQuery, Selection, SortOrder, StreamFilter, StreamItem,
+    AppConfig, LibraryCounts, LibraryView, SavedQuery, Selection, SortOrder, StreamFilter,
+    StreamItem,
 };
 
 pub struct StreamState {
@@ -65,6 +66,7 @@ pub fn show(
     ctx: &egui::Context,
     state: &mut StreamState,
     config: &AppConfig,
+    library_counts: &LibraryCounts,
     saved_queries: &[SavedQuery],
     items: &[StreamItem],
     status: &str,
@@ -72,7 +74,7 @@ pub fn show(
     state.polling_interval_draft = config.refresh.polling_interval_minutes;
     let mut event = None;
 
-    components::left_pane::show(ctx, state, saved_queries, &mut event);
+    components::left_pane::show(ctx, state, library_counts, saved_queries, &mut event);
     components::status_bar::show(ctx, config, status);
 
     egui::CentralPanel::default().show(ctx, |ui| {

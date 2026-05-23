@@ -68,6 +68,55 @@ fn archived_unread_items_are_excluded_from_query_badges() {
 }
 
 #[test]
+fn library_unread_counts_cover_inbox_bookmark_and_archived() {
+    let storage = Storage::in_memory().expect("storage");
+    let config = AppConfig::default_with_pat("token".to_owned());
+    let host_id = storage.ensure_host(&config.host).expect("host");
+    let query_id = storage
+        .add_saved_query(host_id, "Inbox", "is:open", SortOrder::UpdatedDesc)
+        .expect("query");
+
+    let inbox_item_id = storage
+        .upsert_stream_item(&sample_item(host_id))
+        .expect("inbox item");
+    storage
+        .record_saved_query_match(query_id, inbox_item_id, None)
+        .expect("inbox match");
+
+    let mut bookmarked_item = sample_item(host_id);
+    bookmarked_item.number = 43;
+    let bookmarked_item_id = storage
+        .upsert_stream_item(&bookmarked_item)
+        .expect("bookmarked item");
+    storage
+        .record_saved_query_match(query_id, bookmarked_item_id, None)
+        .expect("bookmarked match");
+    storage
+        .set_bookmarked(bookmarked_item_id, true)
+        .expect("bookmark");
+
+    let mut archived_item = sample_item(host_id);
+    archived_item.number = 44;
+    let archived_item_id = storage
+        .upsert_stream_item(&archived_item)
+        .expect("archived item");
+    storage
+        .record_saved_query_match(query_id, archived_item_id, None)
+        .expect("archived match");
+    storage
+        .set_archived(archived_item_id, true)
+        .expect("archive");
+
+    let library_counts = storage
+        .list_library_counts(host_id)
+        .expect("library counts");
+
+    assert_eq!(library_counts.inbox_unread_count, 2);
+    assert_eq!(library_counts.bookmark_unread_count, 1);
+    assert_eq!(library_counts.archived_unread_count, 1);
+}
+
+#[test]
 fn saved_query_updates_are_persisted() {
     let storage = Storage::in_memory().expect("storage");
     let config = AppConfig::default_with_pat("token".to_owned());

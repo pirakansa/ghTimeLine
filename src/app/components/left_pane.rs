@@ -1,11 +1,12 @@
 use eframe::egui;
 
 use crate::app::stream::{StreamEvent, StreamState};
-use crate::models::{LibraryView, SavedQuery, Selection, SortOrder};
+use crate::models::{LibraryCounts, LibraryView, SavedQuery, Selection, SortOrder};
 
 pub fn show(
     ctx: &egui::Context,
     state: &mut StreamState,
+    library_counts: &LibraryCounts,
     saved_queries: &[SavedQuery],
     event: &mut Option<StreamEvent>,
 ) {
@@ -13,7 +14,7 @@ pub fn show(
         .resizable(true)
         .default_width(260.0)
         .show(ctx, |ui| {
-            library_section(ui, state, event);
+            library_section(ui, state, library_counts, event);
             saved_query_section(ui, state, saved_queries, event);
             new_query_form(ui, state, event);
             edit_selected_query_form(ui, state, saved_queries, event);
@@ -21,14 +22,21 @@ pub fn show(
         });
 }
 
-fn library_section(ui: &mut egui::Ui, state: &StreamState, event: &mut Option<StreamEvent>) {
+fn library_section(
+    ui: &mut egui::Ui,
+    state: &StreamState,
+    library_counts: &LibraryCounts,
+    event: &mut Option<StreamEvent>,
+) {
     ui.heading("Library");
     for library in LibraryView::ALL {
+        let label = format!(
+            "{} ({})",
+            library.label(),
+            library_counts.unread_count(library)
+        );
         if ui
-            .selectable_label(
-                state.selection == Selection::Library(library),
-                library.label(),
-            )
+            .selectable_label(state.selection == Selection::Library(library), label)
             .clicked()
         {
             *event = Some(StreamEvent::Select(Selection::Library(library)));

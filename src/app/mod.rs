@@ -10,7 +10,8 @@ use eframe::egui;
 
 use crate::config;
 use crate::models::{
-    AppConfig, LibraryView, SavedQuery, Selection, SortOrder, StreamFilter, StreamItem,
+    AppConfig, LibraryCounts, LibraryView, SavedQuery, Selection, SortOrder, StreamFilter,
+    StreamItem,
 };
 use crate::storage::Storage;
 
@@ -28,6 +29,7 @@ pub(super) struct Runtime {
     config: AppConfig,
     storage: Storage,
     host_id: i64,
+    library_counts: LibraryCounts,
     saved_queries: Vec<SavedQuery>,
     items: Vec<StreamItem>,
 }
@@ -87,11 +89,12 @@ impl GhStreamApp {
     ) -> crate::storage::Result<Runtime> {
         let storage = Storage::open(database_path)?;
         let host_id = storage.ensure_host(&config.host)?;
-        let saved_queries = storage.list_saved_queries(host_id)?;
+        let (library_counts, saved_queries) = load_sidebar_data(&storage, host_id)?;
         Ok(Runtime {
             config,
             storage,
             host_id,
+            library_counts,
             saved_queries,
             items: Vec::new(),
         })
@@ -118,8 +121,11 @@ impl GhStreamApp {
 
     pub(super) fn reload_queries(&mut self) {
         if let AppMode::Main(runtime) = &mut self.mode {
-            match runtime.storage.list_saved_queries(runtime.host_id) {
-                Ok(saved_queries) => runtime.saved_queries = saved_queries,
+            match load_sidebar_data(&runtime.storage, runtime.host_id) {
+                Ok((library_counts, saved_queries)) => {
+                    runtime.library_counts = library_counts;
+                    runtime.saved_queries = saved_queries;
+                }
                 Err(err) => self.status = format!("Could not load saved queries: {err}"),
             }
         }
@@ -293,6 +299,7 @@ impl eframe::App for GhStreamApp {
                     ctx,
                     &mut self.stream,
                     &runtime.config,
+                    &runtime.library_counts,
                     &runtime.saved_queries,
                     &runtime.items,
                     &self.status,
@@ -336,6 +343,16 @@ fn current_sort(runtime: &Runtime, selection: &Selection) -> SortOrder {
             .unwrap_or(runtime.config.ui.default_sort),
         Selection::Library(_) => runtime.config.ui.default_sort,
     }
+}
+
+fn load_sidebar_data(
+    storage: &Storage,
+    host_id: i64,
+) -> crate::storage::Result<(LibraryCounts, Vec<SavedQuery>)> {
+    Ok((
+        storage.list_library_counts(host_id)?,
+        storage.list_saved_queries(host_id)?,
+    ))
 }
 
 fn first_run_status(error: &config::ConfigError) -> String {
@@ -441,6 +458,9 @@ mod tests {
             .record_saved_query_match(query_id, item_id, Some(0))
             .expect("match");
         let saved_queries = storage.list_saved_queries(host_id).expect("queries");
+        let library_counts = storage
+            .list_library_counts(host_id)
+            .expect("library counts");
         let mut app = GhStreamApp {
             config_path: temp_config_path(),
             database_path: std::env::temp_dir().join("ghstreamlistner-test-unused.db"),
@@ -448,6 +468,7 @@ mod tests {
                 config,
                 storage,
                 host_id,
+                library_counts,
                 saved_queries,
                 items: Vec::new(),
             })),

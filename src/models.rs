@@ -262,6 +262,23 @@ pub struct SavedQuery {
     pub unread_count: i64,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct LibraryCounts {
+    pub inbox_unread_count: i64,
+    pub bookmark_unread_count: i64,
+    pub archived_unread_count: i64,
+}
+
+impl LibraryCounts {
+    pub fn unread_count(&self, library: LibraryView) -> i64 {
+        match library {
+            LibraryView::Inbox => self.inbox_unread_count,
+            LibraryView::Bookmark => self.bookmark_unread_count,
+            LibraryView::Archived => self.archived_unread_count,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ItemType {
     Issue,
