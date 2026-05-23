@@ -1,8 +1,10 @@
+pub mod components;
+mod refresh;
 pub mod setup;
 pub mod stream;
 
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use eframe::egui;
 
@@ -11,7 +13,6 @@ use crate::models::{
     AppConfig, LibraryView, SavedQuery, Selection, SortOrder, StreamFilter, StreamItem,
 };
 use crate::storage::Storage;
-use crate::sync;
 
 pub struct GhStreamApp {
     config_path: PathBuf,
@@ -23,7 +24,7 @@ pub struct GhStreamApp {
     last_poll_at: Option<Instant>,
 }
 
-struct Runtime {
+pub(super) struct Runtime {
     config: AppConfig,
     storage: Storage,
     host_id: i64,
@@ -31,7 +32,7 @@ struct Runtime {
     items: Vec<StreamItem>,
 }
 
-enum AppMode {
+pub(super) enum AppMode {
     Setup,
     Main(Box<Runtime>),
 }
@@ -115,7 +116,7 @@ impl GhStreamApp {
         }
     }
 
-    fn reload_queries(&mut self) {
+    pub(super) fn reload_queries(&mut self) {
         if let AppMode::Main(runtime) = &mut self.mode {
             match runtime.storage.list_saved_queries(runtime.host_id) {
                 Ok(saved_queries) => runtime.saved_queries = saved_queries,
@@ -124,7 +125,7 @@ impl GhStreamApp {
         }
     }
 
-    fn reload_current_view(&mut self) {
+    pub(super) fn reload_current_view(&mut self) {
         if let AppMode::Main(runtime) = &mut self.mode {
             let sort = current_sort(runtime, &self.stream.selection);
             let result = match self.stream.selection.clone() {
@@ -244,84 +245,6 @@ impl GhStreamApp {
                 Ok(()) => self.status = "Item state updated.".to_owned(),
                 Err(err) => self.status = format!("Could not update item state: {err}"),
             }
-        }
-        self.reload_queries();
-        self.reload_current_view();
-    }
-
-    fn refresh_now(&mut self) {
-        self.refresh_selected_scope("Manual refresh");
-    }
-
-    fn maybe_poll(&mut self) {
-        let AppMode::Main(runtime) = &self.mode else {
-            return;
-        };
-        let interval =
-            Duration::from_secs(u64::from(runtime.config.refresh.polling_interval_minutes) * 60);
-        if self.last_poll_at.is_none() {
-            self.last_poll_at = Some(Instant::now());
-            return;
-        }
-        if self
-            .last_poll_at
-            .is_none_or(|last_poll_at| last_poll_at.elapsed() >= interval)
-        {
-            self.last_poll_at = Some(Instant::now());
-            self.refresh_all_queries("Polling refresh");
-        }
-    }
-
-    fn refresh_selected_scope(&mut self, label: &str) {
-        let queries = match &self.mode {
-            AppMode::Main(runtime) => match self.stream.selection {
-                Selection::SavedQuery(id) => runtime
-                    .saved_queries
-                    .iter()
-                    .find(|query| query.id == id)
-                    .cloned()
-                    .into_iter()
-                    .collect::<Vec<_>>(),
-                Selection::Library(_) => runtime.saved_queries.clone(),
-            },
-            AppMode::Setup => Vec::new(),
-        };
-        self.refresh_queries(label, &queries);
-    }
-
-    fn refresh_all_queries(&mut self, label: &str) {
-        let queries = match &self.mode {
-            AppMode::Main(runtime) => runtime.saved_queries.clone(),
-            AppMode::Setup => Vec::new(),
-        };
-        self.refresh_queries(label, &queries);
-    }
-
-    fn refresh_queries(&mut self, label: &str, queries: &[SavedQuery]) {
-        if queries.is_empty() {
-            self.status = format!("{label}: no saved queries to refresh.");
-            return;
-        }
-
-        if let AppMode::Main(runtime) = &mut self.mode {
-            let results = sync::refresh_saved_queries(
-                &runtime.config,
-                &runtime.storage,
-                runtime.host_id,
-                queries,
-            );
-            let refreshed_count = results
-                .iter()
-                .filter_map(|(_, result)| result.as_ref().ok())
-                .sum::<usize>();
-            let failed_count = results.iter().filter(|(_, result)| result.is_err()).count();
-            self.status = if failed_count == 0 {
-                format!("{label}: refreshed {refreshed_count} items.")
-            } else {
-                format!(
-                    "{label}: refreshed {refreshed_count} items; {failed_count} query refreshes failed."
-                )
-            };
         }
         self.reload_queries();
         self.reload_current_view();
