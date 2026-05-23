@@ -84,20 +84,27 @@ included in saved query unread counts.
 ## Saved Queries
 
 Saved queries are GitHub Search query strings for issues and pull requests.
+Use **Manage** in the left pane to open the saved query management screen.
 
 To add a query:
 
-1. Enter a user-visible name in the **New query** form.
-2. Enter the GitHub Search query string.
-3. Select **Add**.
+1. Select **New** in the saved query management screen.
+2. Enter a user-visible name.
+3. Enter the GitHub Search query string.
+4. Choose whether the query is **Enabled**.
+5. Select **Add**.
 
 To edit a query:
 
-1. Select a saved query in the left pane.
-2. Update the name, query string, or sort order in **Edit selected query**.
+1. Select a saved query in the saved query management screen.
+2. Update the name, query string, sort order, or **Enabled** state.
 3. Select **Save changes**.
 
-To delete a query, select it and use **Delete selected**.
+To delete a query, select it in the saved query management screen and use
+**Delete**.
+
+Disabled queries remain visible in the left pane but are skipped by refreshes
+and aggregated library views.
 
 ## Refreshing Streams
 

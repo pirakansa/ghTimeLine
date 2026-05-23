@@ -131,6 +131,17 @@ impl Storage {
         Ok(())
     }
 
+    pub fn set_saved_query_enabled(&self, saved_query_id: i64, enabled: bool) -> Result<()> {
+        let now = Utc::now().to_rfc3339();
+        self.connection().execute(
+            "UPDATE saved_queries
+             SET enabled = ?1, updated_at = ?2
+             WHERE id = ?3",
+            params![if enabled { 1 } else { 0 }, now, saved_query_id],
+        )?;
+        Ok(())
+    }
+
     pub fn delete_saved_query(&self, saved_query_id: i64) -> Result<()> {
         self.connection().execute(
             "DELETE FROM saved_queries WHERE id = ?1",

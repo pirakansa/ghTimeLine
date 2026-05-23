@@ -160,7 +160,7 @@ impl GhStreamApp {
         }
     }
 
-    fn add_query(&mut self, name: &str, query: &str) {
+    fn add_query(&mut self, name: &str, query: &str, enabled: bool) {
         if name.trim().is_empty() || query.trim().is_empty() {
             self.status = "Saved query name and query must not be empty.".to_owned();
             return;
@@ -174,6 +174,12 @@ impl GhStreamApp {
                 runtime.config.ui.default_sort,
             ) {
                 Ok(id) => {
+                    if !enabled {
+                        if let Err(err) = runtime.storage.set_saved_query_enabled(id, false) {
+                            self.status = format!("Could not disable saved query: {err}");
+                            return;
+                        }
+                    }
                     self.stream.selection = Selection::SavedQuery(id);
                     self.status = "Saved query created.".to_owned();
                 }
@@ -200,14 +206,30 @@ impl GhStreamApp {
         self.reload_current_view();
     }
 
-    fn delete_selected_query(&mut self) {
-        let Selection::SavedQuery(id) = self.stream.selection else {
-            return;
-        };
+    fn set_query_enabled(&mut self, id: i64, enabled: bool) {
+        if let AppMode::Main(runtime) = &mut self.mode {
+            match runtime.storage.set_saved_query_enabled(id, enabled) {
+                Ok(()) => {
+                    self.status = if enabled {
+                        "Saved query enabled.".to_owned()
+                    } else {
+                        "Saved query disabled.".to_owned()
+                    };
+                }
+                Err(err) => self.status = format!("Could not update saved query: {err}"),
+            }
+        }
+        self.reload_queries();
+        self.reload_current_view();
+    }
+
+    fn delete_query(&mut self, id: i64) {
         if let AppMode::Main(runtime) = &mut self.mode {
             match runtime.storage.delete_saved_query(id) {
                 Ok(()) => {
-                    self.stream.selection = Selection::Library(LibraryView::Inbox);
+                    if self.stream.selection == Selection::SavedQuery(id) {
+                        self.stream.selection = Selection::Library(LibraryView::Inbox);
+                    }
                     self.status = "Saved query deleted.".to_owned();
                 }
                 Err(err) => self.status = format!("Could not delete saved query: {err}"),
@@ -372,8 +394,13 @@ impl eframe::App for GhStreamApp {
                 match event {
                     Some(stream::StreamEvent::Select(selection)) => self.select(selection),
                     Some(stream::StreamEvent::SetFilter(filter)) => self.set_filter(filter),
-                    Some(stream::StreamEvent::AddQuery { name, query }) => {
-                        self.add_query(&name, &query)
+                    Some(stream::StreamEvent::AddQuery {
+                        name,
+                        query,
+                        enabled,
+                    }) => self.add_query(&name, &query, enabled),
+                    Some(stream::StreamEvent::SetQueryEnabled { id, enabled }) => {
+                        self.set_query_enabled(id, enabled)
                     }
                     Some(stream::StreamEvent::UpdateQuery {
                         id,
@@ -381,7 +408,7 @@ impl eframe::App for GhStreamApp {
                         query,
                         sort,
                     }) => self.update_query(id, &name, &query, sort),
-                    Some(stream::StreamEvent::DeleteSelectedQuery) => self.delete_selected_query(),
+                    Some(stream::StreamEvent::DeleteQuery(id)) => self.delete_query(id),
                     Some(stream::StreamEvent::RefreshNow) => self.refresh_now(ctx.clone()),
                     Some(stream::StreamEvent::SetDefaultSort(sort)) => {
                         self.update_default_sort(sort)

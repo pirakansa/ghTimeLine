@@ -82,6 +82,48 @@ fn left_pane_saved_query_click_emits_selection_event() {
 }
 
 #[test]
+fn saved_query_manager_emits_enabled_toggle_event() {
+    let saved_queries = vec![SavedQuery {
+        id: 7,
+        name: "Reviews".to_owned(),
+        query: "is:pr review-requested:@me".to_owned(),
+        sort: SortOrder::UpdatedDesc,
+        enabled: true,
+        position: 0,
+        unread_count: 3,
+    }];
+    let mut stream = StreamState::default();
+    components::left_pane::open_saved_query_manager(&mut stream, &saved_queries);
+
+    let mut harness = Harness::new_state(
+        |ctx, state: &mut StreamHarness| {
+            components::left_pane::show_saved_query_manager(
+                ctx,
+                &mut state.stream,
+                &state.saved_queries,
+                &mut state.event,
+            );
+        },
+        StreamHarness {
+            stream,
+            saved_queries,
+            event: None,
+        },
+    );
+
+    harness.get_by_label("Enabled").click();
+    harness.run();
+
+    match &harness.state().event {
+        Some(StreamEvent::SetQueryEnabled { id, enabled }) => {
+            assert_eq!((*id, *enabled), (7, false));
+        }
+        Some(_) => panic!("unexpected stream event"),
+        None => panic!("expected enabled toggle event"),
+    }
+}
+
+#[test]
 fn item_list_action_buttons_emit_item_events() {
     let mut harness = Harness::new_ui_state(
         |ui, state: &mut ItemListHarness| {
@@ -143,6 +185,12 @@ struct ToolbarHarness {
 struct LeftPaneHarness {
     stream: StreamState,
     library_counts: LibraryCounts,
+    saved_queries: Vec<SavedQuery>,
+    event: Option<StreamEvent>,
+}
+
+struct StreamHarness {
+    stream: StreamState,
     saved_queries: Vec<SavedQuery>,
     event: Option<StreamEvent>,
 }

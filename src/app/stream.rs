@@ -9,12 +9,12 @@ use crate::models::{
 pub struct StreamState {
     pub selection: Selection,
     pub filter: Option<StreamFilter>,
-    pub(super) new_query_name: String,
-    pub(super) new_query_text: String,
     pub(super) edit_query_id: Option<i64>,
     pub(super) edit_query_name: String,
     pub(super) edit_query_text: String,
     pub(super) edit_query_sort: SortOrder,
+    pub(super) edit_query_enabled: bool,
+    pub(super) saved_query_manager_open: bool,
     pub(super) polling_interval_draft: u32,
 }
 
@@ -23,12 +23,12 @@ impl Default for StreamState {
         Self {
             selection: Selection::Library(LibraryView::Inbox),
             filter: None,
-            new_query_name: String::new(),
-            new_query_text: String::new(),
             edit_query_id: None,
             edit_query_name: String::new(),
             edit_query_text: String::new(),
             edit_query_sort: SortOrder::UpdatedDesc,
+            edit_query_enabled: true,
+            saved_query_manager_open: false,
             polling_interval_draft: 0,
         }
     }
@@ -40,6 +40,7 @@ pub enum StreamEvent {
     AddQuery {
         name: String,
         query: String,
+        enabled: bool,
     },
     UpdateQuery {
         id: i64,
@@ -47,7 +48,11 @@ pub enum StreamEvent {
         query: String,
         sort: SortOrder,
     },
-    DeleteSelectedQuery,
+    SetQueryEnabled {
+        id: i64,
+        enabled: bool,
+    },
+    DeleteQuery(i64),
     RefreshNow,
     SetDefaultSort(SortOrder),
     SetPollingInterval(u32),
@@ -77,6 +82,11 @@ pub fn show(
         state.polling_interval_draft = config.refresh.polling_interval_seconds;
     }
     let mut event = None;
+
+    if state.saved_query_manager_open {
+        components::left_pane::show_saved_query_manager(ctx, state, saved_queries, &mut event);
+        return event;
+    }
 
     components::menu_bar::show(ctx, state, config, &mut event);
     components::left_pane::show(ctx, state, library_counts, saved_queries, &mut event);

@@ -133,8 +133,9 @@ A saved query has:
 - Last successful sync timestamp
 - Last sync error message
 
-The UI supports creating, editing, deleting, listing, and selecting saved
-queries. Query names and query strings must not be empty when created or updated.
+The UI supports creating, editing, deleting, enabling, disabling, listing, and
+selecting saved queries through a full-window saved query management screen.
+Query names and query strings must not be empty when created or updated.
 
 Saved queries target GitHub Search for issues and pull requests.
 
@@ -145,7 +146,8 @@ unread and not archived.
 
 The primary UI is a two-pane layout:
 
-- Left pane: Library entries, saved queries, unread counts, query management
+- Left pane: Library entries, saved queries, unread counts, and access to query
+  management
 - Right pane: Toolbar and database-backed item list
 
 Library entries:
