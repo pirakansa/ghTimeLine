@@ -36,7 +36,10 @@ Current implemented foundation:
 - GraphQL enrichment for discovered pull requests to fill draft, merge, and
   review status metadata before rendering.
 
-The v1 product and storage contract is tracked in [docs/plan/v1.md](docs/plan/v1.md).
+For day-to-day usage, see the
+[desktop app user guide](docs/user-guides/desktop-app.md). For implemented
+behavior that should remain stable as the app evolves, see the
+[application behavior specification](docs/specifications/application-behavior.md).
 
 ## Development
 
