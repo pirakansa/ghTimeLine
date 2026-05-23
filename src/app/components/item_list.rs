@@ -86,8 +86,16 @@ fn bookmark_button(ui: &mut egui::Ui, item: &StreamItem, event: &mut Option<Stre
 }
 
 fn archive_button(ui: &mut egui::Ui, item: &StreamItem, event: &mut Option<StreamEvent>) {
-    if !item.is_archived && ui.button("Archive").clicked() {
-        *event = Some(StreamEvent::ItemAction(ItemAction::Archive(item.id)));
+    let archive_label = if item.is_archived {
+        "Unarchive"
+    } else {
+        "Archive"
+    };
+    if ui.button(archive_label).clicked() {
+        *event = Some(StreamEvent::ItemAction(ItemAction::Archive(
+            item.id,
+            !item.is_archived,
+        )));
     }
 }
 

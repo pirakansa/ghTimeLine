@@ -245,7 +245,9 @@ impl GhStreamApp {
                 stream::ItemAction::Bookmark(id, bookmarked) => {
                     runtime.storage.set_bookmarked(id, bookmarked)
                 }
-                stream::ItemAction::Archive(id) => runtime.storage.set_archived(id, true),
+                stream::ItemAction::Archive(id, archived) => {
+                    runtime.storage.set_archived(id, archived)
+                }
                 stream::ItemAction::Open(url) => {
                     return match open::that(url) {
                         Ok(()) => {
@@ -373,6 +375,28 @@ mod tests {
             panic!("app should be in main mode");
         };
         assert!(runtime.items[0].is_bookmarked);
+
+        app.item_action(stream::ItemAction::Archive(item_id, true));
+
+        let AppMode::Main(runtime) = &app.mode else {
+            panic!("app should be in main mode");
+        };
+        assert!(runtime.items.is_empty());
+
+        app.select(Selection::Library(LibraryView::Archived));
+
+        let AppMode::Main(runtime) = &app.mode else {
+            panic!("app should be in main mode");
+        };
+        assert_eq!(runtime.items.len(), 1);
+        assert!(runtime.items[0].is_archived);
+
+        app.item_action(stream::ItemAction::Archive(item_id, false));
+
+        let AppMode::Main(runtime) = &app.mode else {
+            panic!("app should be in main mode");
+        };
+        assert!(runtime.items.is_empty());
     }
 
     #[test]

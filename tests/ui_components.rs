@@ -104,7 +104,24 @@ fn item_list_action_buttons_emit_item_events() {
     harness.run();
     assert!(matches!(
         harness.state().event,
-        Some(StreamEvent::ItemAction(ItemAction::Archive(42)))
+        Some(StreamEvent::ItemAction(ItemAction::Archive(42, true)))
+    ));
+
+    harness = Harness::new_ui_state(
+        |ui, state: &mut ItemListHarness| {
+            components::item_list::show(ui, &state.items, &mut state.event);
+        },
+        ItemListHarness {
+            items: vec![sample_archived_stream_item()],
+            event: None,
+        },
+    );
+
+    harness.get_by_label("Unarchive").click();
+    harness.run();
+    assert!(matches!(
+        harness.state().event,
+        Some(StreamEvent::ItemAction(ItemAction::Archive(42, false)))
     ));
 }
 
@@ -146,5 +163,12 @@ fn sample_stream_item() -> StreamItem {
         is_unread: true,
         is_bookmarked: false,
         is_archived: false,
+    }
+}
+
+fn sample_archived_stream_item() -> StreamItem {
+    StreamItem {
+        is_archived: true,
+        ..sample_stream_item()
     }
 }
