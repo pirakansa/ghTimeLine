@@ -3,10 +3,16 @@ pub mod rest;
 
 use thiserror::Error;
 
-use crate::models::HostConfig;
+use crate::models::{AppConfig, HostConfig};
 
 #[derive(Debug, Error)]
 pub enum GitHubError {
+    #[error("authentication failed for {host}")]
+    Authentication { host: String },
+    #[error("GitHub API returned HTTP {status} for {host}")]
+    Api { host: String, status: u16 },
+    #[error("network connection failed for {host}: {message}")]
+    Network { host: String, message: String },
     #[error("GitHub API execution is not implemented yet")]
     NotImplemented,
 }
@@ -23,4 +29,8 @@ impl GitHubService {
     pub fn host(&self) -> &HostConfig {
         &self.host
     }
+}
+
+pub fn test_connection(config: &AppConfig) -> Result<(), GitHubError> {
+    rest::test_connection(&config.host, &config.auth.pat)
 }

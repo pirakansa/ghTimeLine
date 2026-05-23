@@ -73,7 +73,7 @@ impl GhStreamApp {
                 mode: AppMode::Setup,
                 setup,
                 stream,
-                status: format!("Setup required: {err}"),
+                status: first_run_status(&err),
                 last_poll_at: None,
             },
         }
@@ -330,5 +330,14 @@ fn current_sort(runtime: &Runtime, selection: &Selection) -> SortOrder {
             .map(|query| query.sort)
             .unwrap_or(runtime.config.ui.default_sort),
         Selection::Library(_) => runtime.config.ui.default_sort,
+    }
+}
+
+fn first_run_status(error: &config::ConfigError) -> String {
+    match error {
+        config::ConfigError::Read(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            "First-run setup required. No config.yml exists yet.".to_owned()
+        }
+        _ => format!("Setup required: {error}"),
     }
 }

@@ -1,6 +1,7 @@
 use eframe::egui;
 
 use crate::config;
+use crate::github;
 use crate::models::{AppConfig, HostKind, Scheme};
 
 pub struct SetupState {
@@ -79,13 +80,20 @@ pub fn show(ctx: &egui::Context, state: &mut SetupState, status: &str) -> Option
         ui.horizontal(|ui| {
             if ui.button("Test").clicked() {
                 match config::validate_config(build_config(state)) {
-                    Ok(config) => {
-                        state.validation_message = format!(
-                            "Configuration is valid. REST: {} GraphQL: {}",
-                            config.host.rest_api_base_url(),
-                            config.host.graphql_url()
-                        );
-                    }
+                    Ok(config) => match github::test_connection(&config) {
+                        Ok(()) => {
+                            state.validation_message = format!(
+                                "Connection succeeded. REST: {} GraphQL: {}",
+                                config.host.rest_api_base_url(),
+                                config.host.graphql_url()
+                            );
+                        }
+                        Err(err) => {
+                            state.validation_message = format!(
+                                "Configuration is valid, but connection failed: {err}"
+                            );
+                        }
+                    },
                     Err(err) => state.validation_message = err.to_string(),
                 }
             }
