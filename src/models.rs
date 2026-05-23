@@ -232,7 +232,7 @@ pub struct UiConfig {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RefreshConfig {
-    pub polling_interval_minutes: u16,
+    pub polling_interval_seconds: u32,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -254,7 +254,7 @@ impl AppConfig {
                 default_sort: SortOrder::UpdatedDesc,
             },
             refresh: RefreshConfig {
-                polling_interval_minutes: 5,
+                polling_interval_seconds: 180,
             },
         }
     }

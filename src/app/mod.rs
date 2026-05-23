@@ -251,9 +251,9 @@ impl GhStreamApp {
         }
     }
 
-    fn update_polling_interval(&mut self, minutes: u16) {
+    fn update_polling_interval(&mut self, seconds: u32) {
         if let AppMode::Main(runtime) = &mut self.mode {
-            runtime.config.refresh.polling_interval_minutes = minutes;
+            runtime.config.refresh.polling_interval_seconds = seconds;
             match config::write_config(&self.config_path, &runtime.config) {
                 Ok(()) => self.status = "Polling interval saved.".to_owned(),
                 Err(err) => self.status = format!("Could not save polling interval: {err}"),
@@ -357,8 +357,9 @@ impl eframe::App for GhStreamApp {
                     Some(stream::StreamEvent::SetDefaultSort(sort)) => {
                         self.update_default_sort(sort)
                     }
-                    Some(stream::StreamEvent::SetPollingInterval(minutes)) => {
-                        self.update_polling_interval(minutes)
+                    Some(stream::StreamEvent::SetPollingInterval(seconds)) => {
+                        self.update_polling_interval(seconds);
+                        self.stream.polling_interval_draft = 0; // reset so it re-syncs from config
                     }
                     Some(stream::StreamEvent::SetTheme(theme)) => self.update_theme(ctx, theme),
                     Some(stream::StreamEvent::ItemAction(action)) => self.item_action(action),
@@ -469,15 +470,15 @@ mod tests {
     #[test]
     fn polling_interval_change_updates_runtime_and_yaml_config() {
         let (mut app, _) = app_with_one_item();
-        app.update_polling_interval(15);
+        app.update_polling_interval(90);
 
         let AppMode::Main(runtime) = &app.mode else {
             panic!("app should be in main mode");
         };
-        assert_eq!(runtime.config.refresh.polling_interval_minutes, 15);
+        assert_eq!(runtime.config.refresh.polling_interval_seconds, 90);
 
         let written = config::load_config(&app.config_path).expect("written config should load");
-        assert_eq!(written.refresh.polling_interval_minutes, 15);
+        assert_eq!(written.refresh.polling_interval_seconds, 90);
     }
 
     fn app_with_one_item() -> (GhStreamApp, i64) {

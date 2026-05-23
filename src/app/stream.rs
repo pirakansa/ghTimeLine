@@ -15,7 +15,7 @@ pub struct StreamState {
     pub(super) edit_query_name: String,
     pub(super) edit_query_text: String,
     pub(super) edit_query_sort: SortOrder,
-    pub(super) polling_interval_draft: u16,
+    pub(super) polling_interval_draft: u32,
 }
 
 impl Default for StreamState {
@@ -29,7 +29,7 @@ impl Default for StreamState {
             edit_query_name: String::new(),
             edit_query_text: String::new(),
             edit_query_sort: SortOrder::UpdatedDesc,
-            polling_interval_draft: 5,
+            polling_interval_draft: 0,
         }
     }
 }
@@ -50,7 +50,7 @@ pub enum StreamEvent {
     DeleteSelectedQuery,
     RefreshNow,
     SetDefaultSort(SortOrder),
-    SetPollingInterval(u16),
+    SetPollingInterval(u32),
     SetTheme(Theme),
     ItemAction(ItemAction),
 }
@@ -72,7 +72,9 @@ pub fn show(
     items: &[StreamItem],
     status: &str,
 ) -> Option<StreamEvent> {
-    state.polling_interval_draft = config.refresh.polling_interval_minutes;
+    if state.polling_interval_draft == 0 {
+        state.polling_interval_draft = config.refresh.polling_interval_seconds;
+    }
     let mut event = None;
 
     components::menu_bar::show(ctx, state, config, &mut event);

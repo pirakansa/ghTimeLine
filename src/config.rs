@@ -89,9 +89,9 @@ pub fn validate_config(mut config: AppConfig) -> Result<AppConfig> {
         ));
     }
 
-    if !(1..=1440).contains(&config.refresh.polling_interval_minutes) {
+    if !(15..=3600).contains(&config.refresh.polling_interval_seconds) {
         return Err(ConfigError::Validation(
-            "refresh.polling_interval_minutes must be between 1 and 1440".to_owned(),
+            "refresh.polling_interval_seconds must be between 15 and 3600".to_owned(),
         ));
     }
 

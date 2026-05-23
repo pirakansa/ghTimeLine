@@ -23,7 +23,7 @@ impl GhStreamApp {
             return;
         };
         let interval =
-            Duration::from_secs(u64::from(runtime.config.refresh.polling_interval_minutes) * 60);
+            Duration::from_secs(u64::from(runtime.config.refresh.polling_interval_seconds));
         if self.last_poll_at.is_none() {
             self.last_poll_at = Some(Instant::now());
             return;

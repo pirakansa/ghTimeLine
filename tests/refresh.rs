@@ -121,7 +121,7 @@ fn config_for_server(server: &Server) -> AppConfig {
             default_sort: SortOrder::UpdatedDesc,
         },
         refresh: gh_stream_listner::models::RefreshConfig {
-            polling_interval_minutes: 5,
+            polling_interval_seconds: 180,
         },
     }
 }

@@ -53,11 +53,11 @@ fn polling_interval_control(
         ui.label("Polling interval:");
         ui.add(
             egui::DragValue::new(&mut state.polling_interval_draft)
-                .range(1..=1440)
+                .range(15..=3600)
                 .speed(1),
         );
-        ui.label("min");
-        if state.polling_interval_draft != config.refresh.polling_interval_minutes
+        ui.label("sec");
+        if state.polling_interval_draft != config.refresh.polling_interval_seconds
             && ui.button("Save").clicked()
         {
             *event = Some(StreamEvent::SetPollingInterval(
