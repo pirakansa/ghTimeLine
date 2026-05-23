@@ -33,9 +33,10 @@ Current implemented foundation:
   actions, filters, and external browser opening.
 - Manual and polling-based REST Search refresh for saved issue and pull request
   queries, with results written to SQLite before rendering.
+- GraphQL enrichment for discovered pull requests to fill draft, merge, and
+  review status metadata before rendering.
 
-GraphQL enrichment is scaffolded but not yet implemented. The v1 product and
-storage contract is tracked in [docs/plan/v1.md](docs/plan/v1.md).
+The v1 product and storage contract is tracked in [docs/plan/v1.md](docs/plan/v1.md).
 
 ## Development
 

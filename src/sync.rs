@@ -18,13 +18,14 @@ pub fn refresh_saved_query(
     host_id: i64,
     saved_query: &SavedQuery,
 ) -> Result<usize, SyncError> {
-    let items = github::rest::search_issues_and_pull_requests(
+    let mut items = github::rest::search_issues_and_pull_requests(
         &config.host,
         &config.auth.pat,
         host_id,
         &saved_query.query,
         saved_query.sort,
     )?;
+    let _ = github::graphql::enrich_pull_requests(&config.host, &config.auth.pat, &mut items);
 
     let count = items.len();
     for (rank, item) in items.iter().enumerate() {
