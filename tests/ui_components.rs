@@ -69,10 +69,10 @@ fn left_pane_saved_query_click_emits_selection_event() {
         },
     );
 
-    harness.get_by_label("Inbox (5)");
-    harness.get_by_label("Bookmark (2)");
-    harness.get_by_label("Archived (1)");
-    harness.get_by_label("Reviews (3)").click();
+    harness.get_by_label("Inbox");
+    harness.get_by_label("Bookmark");
+    harness.get_by_label("Archived");
+    harness.get_by_label("Reviews").click();
     harness.run();
 
     assert!(matches!(
