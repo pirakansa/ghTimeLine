@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::app::stream::{StreamEvent, StreamState};
+use crate::app::screens::stream::{StreamEvent, StreamState};
 use crate::models::{AppConfig, SortOrder, StreamFilter};
 
 pub fn show(

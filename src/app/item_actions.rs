@@ -1,4 +1,4 @@
-use crate::app::{stream, AppMode, GhStreamApp};
+use crate::app::{screens::stream, AppMode, GhStreamApp};
 
 impl GhStreamApp {
     pub(super) fn item_action(&mut self, action: stream::ItemAction) {

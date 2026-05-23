@@ -1,7 +1,10 @@
 use egui_kittest::kittest::Queryable as _;
 use egui_kittest::Harness;
 use gh_stream_listner::app::components;
-use gh_stream_listner::app::stream::{ItemAction, StreamEvent, StreamState};
+use gh_stream_listner::app::screens::{
+    saved_query_manager,
+    stream::{ItemAction, StreamEvent, StreamState},
+};
 use gh_stream_listner::models::{
     AppConfig, ItemType, LibraryCounts, SavedQuery, Selection, SortOrder, StreamItem,
 };
@@ -93,11 +96,11 @@ fn saved_query_manager_emits_enabled_toggle_event() {
         unread_count: 3,
     }];
     let mut stream = StreamState::default();
-    components::saved_query_manager::open(&mut stream, &saved_queries);
+    saved_query_manager::open(&mut stream, &saved_queries);
 
     let mut harness = Harness::new_state(
         |ctx, state: &mut StreamHarness| {
-            components::saved_query_manager::show(
+            saved_query_manager::show(
                 ctx,
                 &mut state.stream,
                 &state.saved_queries,

@@ -10,7 +10,7 @@ use super::*;
 fn item_action_updates_storage_and_reloads_current_view() {
     let (mut app, item_id) = app_with_one_item();
 
-    app.item_action(stream::ItemAction::MarkRead(item_id));
+    app.item_action(screens::stream::ItemAction::MarkRead(item_id));
 
     let AppMode::Main(runtime) = &app.mode else {
         panic!("app should be in main mode");
@@ -19,14 +19,14 @@ fn item_action_updates_storage_and_reloads_current_view() {
     assert!(!runtime.items[0].is_unread);
     assert_eq!(runtime.saved_queries[0].unread_count, 0);
 
-    app.item_action(stream::ItemAction::Bookmark(item_id, true));
+    app.item_action(screens::stream::ItemAction::Bookmark(item_id, true));
 
     let AppMode::Main(runtime) = &app.mode else {
         panic!("app should be in main mode");
     };
     assert!(runtime.items[0].is_bookmarked);
 
-    app.item_action(stream::ItemAction::Archive(item_id, true));
+    app.item_action(screens::stream::ItemAction::Archive(item_id, true));
 
     let AppMode::Main(runtime) = &app.mode else {
         panic!("app should be in main mode");
@@ -41,7 +41,7 @@ fn item_action_updates_storage_and_reloads_current_view() {
     assert_eq!(runtime.items.len(), 1);
     assert!(runtime.items[0].is_archived);
 
-    app.item_action(stream::ItemAction::Archive(item_id, false));
+    app.item_action(screens::stream::ItemAction::Archive(item_id, false));
 
     let AppMode::Main(runtime) = &app.mode else {
         panic!("app should be in main mode");
@@ -56,7 +56,7 @@ fn filter_state_drives_db_backed_item_reload() {
     app.set_filter(Some(StreamFilter::Unread));
     assert_items_len(&app, 1);
 
-    app.item_action(stream::ItemAction::MarkRead(item_id));
+    app.item_action(screens::stream::ItemAction::MarkRead(item_id));
     assert_items_len(&app, 0);
 
     app.set_filter(None);
@@ -105,8 +105,8 @@ fn app_with_one_item() -> (GhStreamApp, i64) {
             saved_queries,
             items: Vec::new(),
         })),
-        setup: setup::SetupState::default(),
-        stream: stream::StreamState {
+        setup: screens::setup::SetupState::default(),
+        stream: screens::stream::StreamState {
             selection: Selection::SavedQuery(query_id),
             ..Default::default()
         },

@@ -4,8 +4,7 @@ mod item_actions;
 mod preferences;
 mod refresh;
 mod saved_queries;
-pub mod setup;
-pub mod stream;
+pub mod screens;
 mod view;
 
 use std::path::PathBuf;
@@ -21,8 +20,8 @@ pub struct GhStreamApp {
     config_path: PathBuf,
     database_path: PathBuf,
     mode: AppMode,
-    setup: setup::SetupState,
-    stream: stream::StreamState,
+    setup: screens::setup::SetupState,
+    stream: screens::stream::StreamState,
     status: String,
     last_poll_at: Option<Instant>,
     refresh_rx: Option<std::sync::mpsc::Receiver<refresh::RefreshOutcome>>,
@@ -46,8 +45,8 @@ impl GhStreamApp {
     pub fn new() -> Self {
         let config_path = config::default_config_path();
         let database_path = config::default_database_path();
-        let setup = setup::SetupState::default();
-        let stream = stream::StreamState::default();
+        let setup = screens::setup::SetupState::default();
+        let stream = screens::stream::StreamState::default();
 
         match config::load_config(&config_path) {
             Ok(config) => match Self::open_runtime(config, &database_path) {
@@ -140,7 +139,7 @@ impl eframe::App for GhStreamApp {
         let mode = std::mem::replace(&mut self.mode, AppMode::Setup);
         match mode {
             AppMode::Setup => {
-                let event = setup::show(ctx, &mut self.setup, &self.status);
+                let event = screens::setup::show(ctx, &mut self.setup, &self.status);
                 self.mode = AppMode::Setup;
                 if let Some(config) = event {
                     self.save_setup_config(config);
@@ -149,7 +148,7 @@ impl eframe::App for GhStreamApp {
             AppMode::Main(runtime) => {
                 preferences::apply_theme_from_config(ctx, &runtime.config);
                 preferences::apply_font_size_from_config(ctx, &runtime.config);
-                let event = stream::show(
+                let event = screens::stream::show(
                     ctx,
                     &mut self.stream,
                     &runtime.config,
@@ -160,36 +159,42 @@ impl eframe::App for GhStreamApp {
                 );
                 self.mode = AppMode::Main(runtime);
                 match event {
-                    Some(stream::StreamEvent::Select(selection)) => self.select(selection),
-                    Some(stream::StreamEvent::SetFilter(filter)) => self.set_filter(filter),
-                    Some(stream::StreamEvent::AddQuery {
+                    Some(screens::stream::StreamEvent::Select(selection)) => self.select(selection),
+                    Some(screens::stream::StreamEvent::SetFilter(filter)) => {
+                        self.set_filter(filter)
+                    }
+                    Some(screens::stream::StreamEvent::AddQuery {
                         name,
                         query,
                         enabled,
                     }) => self.add_query(&name, &query, enabled),
-                    Some(stream::StreamEvent::SetQueryEnabled { id, enabled }) => {
+                    Some(screens::stream::StreamEvent::SetQueryEnabled { id, enabled }) => {
                         self.set_query_enabled(id, enabled)
                     }
-                    Some(stream::StreamEvent::UpdateQuery {
+                    Some(screens::stream::StreamEvent::UpdateQuery {
                         id,
                         name,
                         query,
                         sort,
                     }) => self.update_query(id, &name, &query, sort),
-                    Some(stream::StreamEvent::DeleteQuery(id)) => self.delete_query(id),
-                    Some(stream::StreamEvent::RefreshNow) => self.refresh_now(ctx.clone()),
-                    Some(stream::StreamEvent::SetDefaultSort(sort)) => {
+                    Some(screens::stream::StreamEvent::DeleteQuery(id)) => self.delete_query(id),
+                    Some(screens::stream::StreamEvent::RefreshNow) => self.refresh_now(ctx.clone()),
+                    Some(screens::stream::StreamEvent::SetDefaultSort(sort)) => {
                         self.update_default_sort(sort)
                     }
-                    Some(stream::StreamEvent::SetPollingInterval(seconds)) => {
+                    Some(screens::stream::StreamEvent::SetPollingInterval(seconds)) => {
                         self.update_polling_interval(seconds);
                         self.stream.polling_interval_draft = 0; // reset so it re-syncs from config
                     }
-                    Some(stream::StreamEvent::SetTheme(theme)) => self.update_theme(ctx, theme),
-                    Some(stream::StreamEvent::SetFontSize(size)) => {
+                    Some(screens::stream::StreamEvent::SetTheme(theme)) => {
+                        self.update_theme(ctx, theme)
+                    }
+                    Some(screens::stream::StreamEvent::SetFontSize(size)) => {
                         self.update_font_size(ctx, size)
                     }
-                    Some(stream::StreamEvent::ItemAction(action)) => self.item_action(action),
+                    Some(screens::stream::StreamEvent::ItemAction(action)) => {
+                        self.item_action(action)
+                    }
                     None => {}
                 }
             }

@@ -1,8 +1,8 @@
 use eframe::egui;
 
-use super::saved_query_manager;
-use crate::app::stream::{StreamEvent, StreamState};
+use crate::app::screens::{saved_query_manager, stream};
 use crate::models::{LibraryCounts, LibraryView, SavedQuery, Selection};
+use stream::{StreamEvent, StreamState};
 
 pub fn show(
     ctx: &egui::Context,

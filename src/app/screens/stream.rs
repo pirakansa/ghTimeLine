@@ -1,6 +1,7 @@
 use eframe::egui;
 
-use super::components;
+use super::saved_query_manager;
+use crate::app::components;
 use crate::models::{
     AppConfig, FontSize, LibraryCounts, LibraryView, SavedQuery, Selection, SortOrder,
     StreamFilter, StreamItem, Theme,
@@ -9,13 +10,13 @@ use crate::models::{
 pub struct StreamState {
     pub selection: Selection,
     pub filter: Option<StreamFilter>,
-    pub(super) edit_query_id: Option<i64>,
-    pub(super) edit_query_name: String,
-    pub(super) edit_query_text: String,
-    pub(super) edit_query_sort: SortOrder,
-    pub(super) edit_query_enabled: bool,
-    pub(super) saved_query_manager_open: bool,
-    pub(super) polling_interval_draft: u32,
+    pub(in crate::app) edit_query_id: Option<i64>,
+    pub(in crate::app) edit_query_name: String,
+    pub(in crate::app) edit_query_text: String,
+    pub(in crate::app) edit_query_sort: SortOrder,
+    pub(in crate::app) edit_query_enabled: bool,
+    pub(in crate::app) saved_query_manager_open: bool,
+    pub(in crate::app) polling_interval_draft: u32,
 }
 
 impl Default for StreamState {
@@ -84,7 +85,7 @@ pub fn show(
     let mut event = None;
 
     if state.saved_query_manager_open {
-        components::saved_query_manager::show(ctx, state, saved_queries, &mut event);
+        saved_query_manager::show(ctx, state, saved_queries, &mut event);
         return event;
     }
 

@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::app::stream::{ItemAction, StreamEvent};
+use crate::app::screens::stream::{ItemAction, StreamEvent};
 use crate::models::StreamItem;
 
 pub fn show(ui: &mut egui::Ui, items: &[StreamItem], event: &mut Option<StreamEvent>) {
