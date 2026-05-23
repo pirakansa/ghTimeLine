@@ -2,8 +2,8 @@ use eframe::egui;
 
 use super::components;
 use crate::models::{
-    AppConfig, LibraryCounts, LibraryView, SavedQuery, Selection, SortOrder, StreamFilter,
-    StreamItem, Theme,
+    AppConfig, FontSize, LibraryCounts, LibraryView, SavedQuery, Selection, SortOrder,
+    StreamFilter, StreamItem, Theme,
 };
 
 pub struct StreamState {
@@ -52,6 +52,7 @@ pub enum StreamEvent {
     SetDefaultSort(SortOrder),
     SetPollingInterval(u32),
     SetTheme(Theme),
+    SetFontSize(FontSize),
     ItemAction(ItemAction),
 }
 

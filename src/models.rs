@@ -223,11 +223,38 @@ pub struct AuthConfig {
     pub pat: String,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FontSize {
+    Default,
+    Large,
+    XLarge,
+}
+
+impl FontSize {
+    pub fn label(self) -> &'static str {
+        match self {
+            FontSize::Default => "Default",
+            FontSize::Large => "Large (1.1×)",
+            FontSize::XLarge => "X-Large (1.2×)",
+        }
+    }
+
+    pub fn scale(self) -> f32 {
+        match self {
+            FontSize::Default => 1.0,
+            FontSize::Large => 1.1,
+            FontSize::XLarge => 1.2,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UiConfig {
     pub theme: Theme,
     pub accent_color: String,
     pub default_sort: SortOrder,
+    pub font_size: FontSize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -252,6 +279,7 @@ impl AppConfig {
                 theme: Theme::System,
                 accent_color: "#4F8CC9".to_owned(),
                 default_sort: SortOrder::UpdatedDesc,
+                font_size: FontSize::Default,
             },
             refresh: RefreshConfig {
                 polling_interval_seconds: 180,

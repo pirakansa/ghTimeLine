@@ -11,8 +11,8 @@ use eframe::egui;
 
 use crate::config;
 use crate::models::{
-    AppConfig, LibraryCounts, LibraryView, SavedQuery, Selection, SortOrder, StreamFilter,
-    StreamItem, Theme,
+    AppConfig, FontSize, LibraryCounts, LibraryView, SavedQuery, Selection, SortOrder,
+    StreamFilter, StreamItem, Theme,
 };
 use crate::storage::Storage;
 
@@ -251,6 +251,17 @@ impl GhStreamApp {
         }
     }
 
+    fn update_font_size(&mut self, ctx: &egui::Context, font_size: FontSize) {
+        if let AppMode::Main(runtime) = &mut self.mode {
+            runtime.config.ui.font_size = font_size;
+            apply_font_size_from_config(ctx, &runtime.config);
+            match config::write_config(&self.config_path, &runtime.config) {
+                Ok(()) => self.status = "Font size saved.".to_owned(),
+                Err(err) => self.status = format!("Could not save font size: {err}"),
+            }
+        }
+    }
+
     fn update_polling_interval(&mut self, seconds: u32) {
         if let AppMode::Main(runtime) = &mut self.mode {
             runtime.config.refresh.polling_interval_seconds = seconds;
@@ -308,6 +319,23 @@ fn apply_theme_from_config(ctx: &egui::Context, config: &AppConfig) {
     ctx.set_visuals(visuals);
 }
 
+fn apply_font_size_from_config(ctx: &egui::Context, config: &AppConfig) {
+    let scale = config.ui.font_size.scale();
+    ctx.style_mut(|style| {
+        for (text_style, font_id) in &mut style.text_styles {
+            let base = match text_style {
+                egui::TextStyle::Small => 10.0,
+                egui::TextStyle::Body => 14.0,
+                egui::TextStyle::Button => 14.0,
+                egui::TextStyle::Heading => 20.0,
+                egui::TextStyle::Monospace => 14.0,
+                egui::TextStyle::Name(_) => font_id.size,
+            };
+            font_id.size = base * scale;
+        }
+    });
+}
+
 impl Default for GhStreamApp {
     fn default() -> Self {
         Self::new()
@@ -330,6 +358,7 @@ impl eframe::App for GhStreamApp {
             }
             AppMode::Main(runtime) => {
                 apply_theme_from_config(ctx, &runtime.config);
+                apply_font_size_from_config(ctx, &runtime.config);
                 let event = stream::show(
                     ctx,
                     &mut self.stream,
@@ -362,6 +391,9 @@ impl eframe::App for GhStreamApp {
                         self.stream.polling_interval_draft = 0; // reset so it re-syncs from config
                     }
                     Some(stream::StreamEvent::SetTheme(theme)) => self.update_theme(ctx, theme),
+                    Some(stream::StreamEvent::SetFontSize(size)) => {
+                        self.update_font_size(ctx, size)
+                    }
                     Some(stream::StreamEvent::ItemAction(action)) => self.item_action(action),
                     None => {}
                 }

@@ -1,7 +1,7 @@
 use eframe::egui;
 
 use crate::app::stream::{StreamEvent, StreamState};
-use crate::models::{AppConfig, Theme};
+use crate::models::{AppConfig, FontSize, Theme};
 
 pub fn show(
     ctx: &egui::Context,
@@ -24,8 +24,23 @@ fn preferences_menu(
 ) {
     ui.menu_button("Preferences", |ui| {
         theme_submenu(ui, config, event);
+        font_size_submenu(ui, config, event);
         ui.separator();
         polling_interval_control(ui, state, config, event);
+    });
+}
+
+fn font_size_submenu(ui: &mut egui::Ui, config: &AppConfig, event: &mut Option<StreamEvent>) {
+    ui.menu_button("Font size", |ui| {
+        for size in [FontSize::Default, FontSize::Large, FontSize::XLarge] {
+            if ui
+                .selectable_label(config.ui.font_size == size, size.label())
+                .clicked()
+            {
+                *event = Some(StreamEvent::SetFontSize(size));
+                ui.close();
+            }
+        }
     });
 }
 

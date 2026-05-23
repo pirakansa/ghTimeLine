@@ -57,6 +57,7 @@ ui:
   theme: "system"
   accent_color: "#4F8CC9"
   default_sort: "updated_desc"
+  font_size: "default"
 refresh:
   polling_interval_seconds: 180
 ```
@@ -75,6 +76,7 @@ Configuration rules:
 - `ui.theme` must be `light`, `dark`, or `system`.
 - `ui.accent_color` must be a `#RRGGBB` hex color.
 - `ui.default_sort` must be one of the supported sort values.
+- `ui.font_size` must be `default`, `large`, or `x_large`.
 - `refresh.polling_interval_seconds` must be from `15` through `3600`.
 
 Unknown enum values are rejected by deserialization and validation. Unknown

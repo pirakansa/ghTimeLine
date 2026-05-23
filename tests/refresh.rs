@@ -119,6 +119,7 @@ fn config_for_server(server: &Server) -> AppConfig {
             theme: gh_stream_listner::models::Theme::System,
             accent_color: "#4F8CC9".to_owned(),
             default_sort: SortOrder::UpdatedDesc,
+            font_size: gh_stream_listner::models::FontSize::Default,
         },
         refresh: gh_stream_listner::models::RefreshConfig {
             polling_interval_seconds: 180,
