@@ -13,7 +13,6 @@ pub fn show(
         refresh_button(ui, event);
         filter_controls(ui, state, event);
         sort_selector(ui, config, event);
-        polling_interval_control(ui, state, config, event);
     });
 }
 
@@ -53,26 +52,4 @@ fn sort_selector(ui: &mut egui::Ui, config: &AppConfig, event: &mut Option<Strea
                 }
             }
         });
-}
-
-fn polling_interval_control(
-    ui: &mut egui::Ui,
-    state: &mut StreamState,
-    config: &AppConfig,
-    event: &mut Option<StreamEvent>,
-) {
-    ui.separator();
-    ui.add(
-        egui::DragValue::new(&mut state.polling_interval_draft)
-            .range(1..=1440)
-            .speed(1),
-    );
-    ui.label("min");
-    if state.polling_interval_draft != config.refresh.polling_interval_minutes
-        && ui.button("Save interval").clicked()
-    {
-        *event = Some(StreamEvent::SetPollingInterval(
-            state.polling_interval_draft,
-        ));
-    }
 }

@@ -3,7 +3,7 @@ use eframe::egui;
 use super::components;
 use crate::models::{
     AppConfig, LibraryCounts, LibraryView, SavedQuery, Selection, SortOrder, StreamFilter,
-    StreamItem,
+    StreamItem, Theme,
 };
 
 pub struct StreamState {
@@ -51,6 +51,7 @@ pub enum StreamEvent {
     RefreshNow,
     SetDefaultSort(SortOrder),
     SetPollingInterval(u16),
+    SetTheme(Theme),
     ItemAction(ItemAction),
 }
 
@@ -74,6 +75,7 @@ pub fn show(
     state.polling_interval_draft = config.refresh.polling_interval_minutes;
     let mut event = None;
 
+    components::menu_bar::show(ctx, state, config, &mut event);
     components::left_pane::show(ctx, state, library_counts, saved_queries, &mut event);
     components::status_bar::show(ctx, config, status);
 

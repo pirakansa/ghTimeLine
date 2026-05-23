@@ -12,7 +12,7 @@ use eframe::egui;
 use crate::config;
 use crate::models::{
     AppConfig, LibraryCounts, LibraryView, SavedQuery, Selection, SortOrder, StreamFilter,
-    StreamItem,
+    StreamItem, Theme,
 };
 use crate::storage::Storage;
 
@@ -238,6 +238,19 @@ impl GhStreamApp {
         self.reload_current_view();
     }
 
+    fn update_theme(&mut self, ctx: &egui::Context, theme: Theme) {
+        if let AppMode::Main(runtime) = &mut self.mode {
+            runtime.config.ui.theme = theme;
+            let config_snapshot = runtime.config.clone();
+            let write_result = config::write_config(&self.config_path, &config_snapshot);
+            apply_theme_from_config(ctx, &config_snapshot);
+            match write_result {
+                Ok(()) => self.status = "Theme saved.".to_owned(),
+                Err(err) => self.status = format!("Could not save theme: {err}"),
+            }
+        }
+    }
+
     fn update_polling_interval(&mut self, minutes: u16) {
         if let AppMode::Main(runtime) = &mut self.mode {
             runtime.config.refresh.polling_interval_minutes = minutes;
@@ -280,6 +293,21 @@ impl GhStreamApp {
     }
 }
 
+fn apply_theme_from_config(ctx: &egui::Context, config: &AppConfig) {
+    let visuals = match config.ui.theme {
+        Theme::Light => egui::Visuals::light(),
+        Theme::Dark => egui::Visuals::dark(),
+        Theme::System => {
+            if ctx.system_theme() == Some(egui::Theme::Dark) {
+                egui::Visuals::dark()
+            } else {
+                egui::Visuals::light()
+            }
+        }
+    };
+    ctx.set_visuals(visuals);
+}
+
 impl Default for GhStreamApp {
     fn default() -> Self {
         Self::new()
@@ -301,6 +329,7 @@ impl eframe::App for GhStreamApp {
                 }
             }
             AppMode::Main(runtime) => {
+                apply_theme_from_config(ctx, &runtime.config);
                 let event = stream::show(
                     ctx,
                     &mut self.stream,
@@ -331,6 +360,7 @@ impl eframe::App for GhStreamApp {
                     Some(stream::StreamEvent::SetPollingInterval(minutes)) => {
                         self.update_polling_interval(minutes)
                     }
+                    Some(stream::StreamEvent::SetTheme(theme)) => self.update_theme(ctx, theme),
                     Some(stream::StreamEvent::ItemAction(action)) => self.item_action(action),
                     None => {}
                 }
