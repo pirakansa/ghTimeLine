@@ -93,11 +93,11 @@ fn saved_query_manager_emits_enabled_toggle_event() {
         unread_count: 3,
     }];
     let mut stream = StreamState::default();
-    components::left_pane::open_saved_query_manager(&mut stream, &saved_queries);
+    components::saved_query_manager::open(&mut stream, &saved_queries);
 
     let mut harness = Harness::new_state(
         |ctx, state: &mut StreamHarness| {
-            components::left_pane::show_saved_query_manager(
+            components::saved_query_manager::show(
                 ctx,
                 &mut state.stream,
                 &state.saved_queries,

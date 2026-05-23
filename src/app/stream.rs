@@ -84,7 +84,7 @@ pub fn show(
     let mut event = None;
 
     if state.saved_query_manager_open {
-        components::left_pane::show_saved_query_manager(ctx, state, saved_queries, &mut event);
+        components::saved_query_manager::show(ctx, state, saved_queries, &mut event);
         return event;
     }
 
