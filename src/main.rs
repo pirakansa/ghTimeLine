@@ -1,5 +1,6 @@
 use eframe::egui;
 
+use gh_stream_listner::app::fonts;
 use gh_stream_listner::app::GhStreamApp;
 use gh_stream_listner::APP_TITLE;
 
@@ -12,6 +13,9 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         APP_TITLE,
         options,
-        Box::new(|_cc| Ok(Box::new(GhStreamApp::new()))),
+        Box::new(|cc| {
+            fonts::install_fonts(&cc.egui_ctx);
+            Ok(Box::new(GhStreamApp::new()))
+        }),
     )
 }

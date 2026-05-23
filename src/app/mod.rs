@@ -1,4 +1,5 @@
 pub mod components;
+pub mod fonts;
 mod refresh;
 pub mod setup;
 pub mod stream;
