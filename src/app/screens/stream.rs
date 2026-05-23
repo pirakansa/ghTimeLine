@@ -59,6 +59,7 @@ pub enum StreamEvent {
     SetPollingInterval(u32),
     SetTheme(Theme),
     SetFontSize(FontSize),
+    OpenSetup,
     ItemAction(ItemAction),
 }
 

@@ -23,6 +23,11 @@ fn preferences_menu(
     event: &mut Option<StreamEvent>,
 ) {
     ui.menu_button("Preferences", |ui| {
+        if ui.button("Host settings").clicked() {
+            *event = Some(StreamEvent::OpenSetup);
+            ui.close();
+        }
+        ui.separator();
         theme_submenu(ui, config, event);
         font_size_submenu(ui, config, event);
         ui.separator();

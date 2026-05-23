@@ -68,7 +68,7 @@ impl GhStreamApp {
                     .collect::<Vec<_>>(),
                 Selection::Library(_) => runtime.saved_queries.clone(),
             },
-            AppMode::Setup => Vec::new(),
+            AppMode::Setup { .. } => Vec::new(),
         };
         self.refresh_queries(label, &queries, ctx);
     }
@@ -76,7 +76,7 @@ impl GhStreamApp {
     fn refresh_all_queries(&mut self, label: &str, ctx: egui::Context) {
         let queries = match &self.mode {
             AppMode::Main(runtime) => runtime.saved_queries.clone(),
-            AppMode::Setup => Vec::new(),
+            AppMode::Setup { .. } => Vec::new(),
         };
         self.refresh_queries(label, &queries, ctx);
     }

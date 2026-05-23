@@ -29,11 +29,35 @@ impl Default for SetupState {
     }
 }
 
-pub fn show(ctx: &egui::Context, state: &mut SetupState, status: &str) -> Option<AppConfig> {
-    let mut saved = None;
+pub enum SetupEvent {
+    Cancel,
+    Save(AppConfig),
+}
+
+impl SetupState {
+    pub fn from_config(config: &AppConfig) -> Self {
+        Self {
+            name: config.host.name.clone(),
+            scheme: config.host.scheme.clone(),
+            hostname: config.host.hostname.clone(),
+            rest_api_base_path: config.host.rest_api_base_path.clone(),
+            kind: config.host.kind.clone(),
+            pat: config.auth.pat.clone(),
+            validation_message: String::new(),
+        }
+    }
+}
+
+pub fn show(
+    ctx: &egui::Context,
+    state: &mut SetupState,
+    status: &str,
+    can_cancel: bool,
+) -> Option<SetupEvent> {
+    let mut event = None;
 
     egui::CentralPanel::default().show(ctx, |ui| {
-        ui.heading("First-run setup");
+        ui.heading("Host settings");
         ui.label("Configure one GitHub or GHES host. The PAT is stored as plain text in config.yml for v1.");
         ui.add_space(12.0);
 
@@ -78,6 +102,10 @@ pub fn show(ctx: &egui::Context, state: &mut SetupState, status: &str) -> Option
 
         ui.add_space(12.0);
         ui.horizontal(|ui| {
+            if can_cancel && ui.button("Cancel").clicked() {
+                event = Some(SetupEvent::Cancel);
+            }
+
             if ui.button("Test").clicked() {
                 match config::validate_config(build_config(state)) {
                     Ok(config) => match github::test_connection(&config) {
@@ -100,7 +128,7 @@ pub fn show(ctx: &egui::Context, state: &mut SetupState, status: &str) -> Option
 
             if ui.button("Save").clicked() {
                 match config::validate_config(build_config(state)) {
-                    Ok(config) => saved = Some(config),
+                    Ok(config) => event = Some(SetupEvent::Save(config)),
                     Err(err) => state.validation_message = err.to_string(),
                 }
             }
@@ -115,7 +143,7 @@ pub fn show(ctx: &egui::Context, state: &mut SetupState, status: &str) -> Option
         ui.label(status);
     });
 
-    saved
+    event
 }
 
 fn build_config(state: &SetupState) -> AppConfig {

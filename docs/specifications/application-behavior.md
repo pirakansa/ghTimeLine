@@ -248,6 +248,9 @@ matches may remain when an item stops appearing in a later search result.
 ## Error And Status Behavior
 
 Configuration parse and validation errors surface in setup.
+The setup screen is also reachable from the main stream view through the
+preferences menu so the active host and token can be edited after first-run
+setup.
 
 Authentication, network, API, and database failures are surfaced as user-visible
 status messages. Error messages must not include the Personal Access Token.

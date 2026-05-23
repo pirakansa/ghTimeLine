@@ -37,7 +37,9 @@ pub(super) struct Runtime {
 }
 
 pub(super) enum AppMode {
-    Setup,
+    Setup {
+        previous_runtime: Option<Box<Runtime>>,
+    },
     Main(Box<Runtime>),
 }
 
@@ -67,7 +69,9 @@ impl GhStreamApp {
                 Err(err) => Self {
                     config_path,
                     database_path,
-                    mode: AppMode::Setup,
+                    mode: AppMode::Setup {
+                        previous_runtime: None,
+                    },
                     setup,
                     stream,
                     status: format!("Database initialization failed: {err}"),
@@ -78,7 +82,9 @@ impl GhStreamApp {
             Err(err) => Self {
                 config_path,
                 database_path,
-                mode: AppMode::Setup,
+                mode: AppMode::Setup {
+                    previous_runtime: None,
+                },
                 setup,
                 stream,
                 status: first_run_status(&err),
@@ -123,6 +129,39 @@ impl GhStreamApp {
             }
         }
     }
+
+    fn open_setup_settings(&mut self) {
+        let mode = std::mem::replace(
+            &mut self.mode,
+            AppMode::Setup {
+                previous_runtime: None,
+            },
+        );
+        match mode {
+            AppMode::Main(runtime) => {
+                self.setup = screens::setup::SetupState::from_config(&runtime.config);
+                self.mode = AppMode::Setup {
+                    previous_runtime: Some(runtime),
+                };
+                self.status = "Editing host settings.".to_owned();
+            }
+            setup @ AppMode::Setup { .. } => {
+                self.mode = setup;
+            }
+        }
+    }
+
+    fn cancel_setup(&mut self, previous_runtime: Option<Box<Runtime>>) {
+        if let Some(runtime) = previous_runtime {
+            self.mode = AppMode::Main(runtime);
+            self.status = "Host settings unchanged.".to_owned();
+            self.reload_current_view();
+        } else {
+            self.mode = AppMode::Setup {
+                previous_runtime: None,
+            };
+        }
+    }
 }
 
 impl Default for GhStreamApp {
@@ -136,13 +175,37 @@ impl eframe::App for GhStreamApp {
         self.poll_refresh_result();
         self.maybe_poll(ctx);
 
-        let mode = std::mem::replace(&mut self.mode, AppMode::Setup);
+        let mode = std::mem::replace(
+            &mut self.mode,
+            AppMode::Setup {
+                previous_runtime: None,
+            },
+        );
         match mode {
-            AppMode::Setup => {
-                let event = screens::setup::show(ctx, &mut self.setup, &self.status);
-                self.mode = AppMode::Setup;
-                if let Some(config) = event {
-                    self.save_setup_config(config);
+            AppMode::Setup { previous_runtime } => {
+                let event = screens::setup::show(
+                    ctx,
+                    &mut self.setup,
+                    &self.status,
+                    previous_runtime.is_some(),
+                );
+                self.mode = AppMode::Setup { previous_runtime };
+                match event {
+                    Some(screens::setup::SetupEvent::Save(config)) => {
+                        self.save_setup_config(config);
+                    }
+                    Some(screens::setup::SetupEvent::Cancel) => {
+                        let AppMode::Setup { previous_runtime } = std::mem::replace(
+                            &mut self.mode,
+                            AppMode::Setup {
+                                previous_runtime: None,
+                            },
+                        ) else {
+                            unreachable!("setup cancel is only emitted from setup mode");
+                        };
+                        self.cancel_setup(previous_runtime);
+                    }
+                    None => {}
                 }
             }
             AppMode::Main(runtime) => {
@@ -192,6 +255,7 @@ impl eframe::App for GhStreamApp {
                     Some(screens::stream::StreamEvent::SetFontSize(size)) => {
                         self.update_font_size(ctx, size)
                     }
+                    Some(screens::stream::StreamEvent::OpenSetup) => self.open_setup_settings(),
                     Some(screens::stream::StreamEvent::ItemAction(action)) => {
                         self.item_action(action)
                     }

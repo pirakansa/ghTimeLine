@@ -41,6 +41,30 @@ fn toolbar_buttons_emit_refresh_and_filter_events() {
 }
 
 #[test]
+fn preferences_menu_emits_open_setup_event() {
+    let mut harness = Harness::new_state(
+        |ctx, state: &mut ToolbarHarness| {
+            components::menu_bar::show(ctx, &mut state.stream, &state.config, &mut state.event);
+        },
+        ToolbarHarness {
+            stream: StreamState::default(),
+            config: AppConfig::default_with_pat("ghp_test".to_owned()),
+            event: None,
+        },
+    );
+
+    harness.get_by_label("Preferences").click();
+    harness.run();
+    harness.get_by_label("Host settings").click();
+    harness.run();
+
+    assert!(matches!(
+        harness.state().event,
+        Some(StreamEvent::OpenSetup)
+    ));
+}
+
+#[test]
 fn left_pane_saved_query_click_emits_selection_event() {
     let mut harness = Harness::new_state(
         |ctx, state: &mut LeftPaneHarness| {

@@ -41,7 +41,9 @@ Use **Test** to check the connection. A failed connection test does not prevent
 you from saving the configuration, so existing local data can still be used
 while offline or while credentials are being fixed.
 
-Use **Save** to write the configuration and enter the main stream view.
+Use **Save** to write the configuration and enter the main stream view. After
+setup, use **Preferences** > **Host settings** to reopen this screen and update
+the host or token.
 
 ## Configuration And Local Data
 
