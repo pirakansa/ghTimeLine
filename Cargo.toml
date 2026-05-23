@@ -30,3 +30,6 @@ lto = true
 opt-level = "z"
 strip = true
 
+[dev-dependencies]
+httptest = "0.16.4"
+
