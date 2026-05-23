@@ -110,4 +110,26 @@ impl Storage {
         )?;
         Ok(())
     }
+
+    pub fn mark_saved_query_sync_success(&self, saved_query_id: i64) -> Result<()> {
+        let now = Utc::now().to_rfc3339();
+        self.connection().execute(
+            "UPDATE saved_queries
+             SET last_successful_sync_at = ?1, last_sync_error = NULL, updated_at = ?1
+             WHERE id = ?2",
+            params![now, saved_query_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn mark_saved_query_sync_error(&self, saved_query_id: i64, message: &str) -> Result<()> {
+        let now = Utc::now().to_rfc3339();
+        self.connection().execute(
+            "UPDATE saved_queries
+             SET last_sync_error = ?1, updated_at = ?2
+             WHERE id = ?3",
+            params![message, now, saved_query_id],
+        )?;
+        Ok(())
+    }
 }

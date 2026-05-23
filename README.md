@@ -31,9 +31,11 @@ Current implemented foundation:
   bookmarks, and archives.
 - A two-pane `egui` shell with library views, saved query management, local item
   actions, filters, and external browser opening.
+- Manual and polling-based REST Search refresh for saved issue and pull request
+  queries, with results written to SQLite before rendering.
 
-GitHub API refresh and GraphQL enrichment are scaffolded but not yet implemented.
-The v1 product and storage contract is tracked in [docs/plan/v1.md](docs/plan/v1.md).
+GraphQL enrichment is scaffolded but not yet implemented. The v1 product and
+storage contract is tracked in [docs/plan/v1.md](docs/plan/v1.md).
 
 ## Development
 
