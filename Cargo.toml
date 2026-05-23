@@ -31,5 +31,6 @@ opt-level = "z"
 strip = true
 
 [dev-dependencies]
+egui_kittest = "0.33.0"
 httptest = "0.16.4"
 
