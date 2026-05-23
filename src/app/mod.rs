@@ -24,6 +24,7 @@ pub struct GhStreamApp {
     stream: stream::StreamState,
     status: String,
     last_poll_at: Option<Instant>,
+    refresh_rx: Option<std::sync::mpsc::Receiver<refresh::RefreshOutcome>>,
 }
 
 pub(super) struct Runtime {
@@ -58,6 +59,7 @@ impl GhStreamApp {
                         stream,
                         status: "Ready".to_owned(),
                         last_poll_at: None,
+                        refresh_rx: None,
                     };
                     app.reload_current_view();
                     app
@@ -70,6 +72,7 @@ impl GhStreamApp {
                     stream,
                     status: format!("Database initialization failed: {err}"),
                     last_poll_at: None,
+                    refresh_rx: None,
                 },
             },
             Err(err) => Self {
@@ -80,6 +83,7 @@ impl GhStreamApp {
                 stream,
                 status: first_run_status(&err),
                 last_poll_at: None,
+                refresh_rx: None,
             },
         }
     }
@@ -284,7 +288,8 @@ impl Default for GhStreamApp {
 
 impl eframe::App for GhStreamApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.maybe_poll();
+        self.poll_refresh_result();
+        self.maybe_poll(ctx);
 
         let mode = std::mem::replace(&mut self.mode, AppMode::Setup);
         match mode {
@@ -319,7 +324,7 @@ impl eframe::App for GhStreamApp {
                         sort,
                     }) => self.update_query(id, &name, &query, sort),
                     Some(stream::StreamEvent::DeleteSelectedQuery) => self.delete_selected_query(),
-                    Some(stream::StreamEvent::RefreshNow) => self.refresh_now(),
+                    Some(stream::StreamEvent::RefreshNow) => self.refresh_now(ctx.clone()),
                     Some(stream::StreamEvent::SetDefaultSort(sort)) => {
                         self.update_default_sort(sort)
                     }
@@ -480,6 +485,7 @@ mod tests {
             },
             status: "Ready".to_owned(),
             last_poll_at: None,
+            refresh_rx: None,
         };
         app.reload_current_view();
         (app, item_id)
