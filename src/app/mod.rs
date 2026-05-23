@@ -173,6 +173,22 @@ impl GhStreamApp {
         self.reload_current_view();
     }
 
+    fn update_query(&mut self, id: i64, name: &str, query: &str, sort: SortOrder) {
+        if name.trim().is_empty() || query.trim().is_empty() {
+            self.status = "Saved query name and query must not be empty.".to_owned();
+            return;
+        }
+
+        if let AppMode::Main(runtime) = &mut self.mode {
+            match runtime.storage.update_saved_query(id, name, query, sort) {
+                Ok(()) => self.status = "Saved query updated.".to_owned(),
+                Err(err) => self.status = format!("Could not update saved query: {err}"),
+            }
+        }
+        self.reload_queries();
+        self.reload_current_view();
+    }
+
     fn delete_selected_query(&mut self) {
         let Selection::SavedQuery(id) = self.stream.selection else {
             return;
@@ -286,6 +302,12 @@ impl eframe::App for GhStreamApp {
                     Some(stream::StreamEvent::AddQuery { name, query }) => {
                         self.add_query(&name, &query)
                     }
+                    Some(stream::StreamEvent::UpdateQuery {
+                        id,
+                        name,
+                        query,
+                        sort,
+                    }) => self.update_query(id, &name, &query, sort),
                     Some(stream::StreamEvent::DeleteSelectedQuery) => self.delete_selected_query(),
                     Some(stream::StreamEvent::RefreshNow) => self.refresh_now(),
                     Some(stream::StreamEvent::SetDefaultSort(sort)) => {

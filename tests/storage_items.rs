@@ -67,6 +67,33 @@ fn archived_unread_items_are_excluded_from_query_badges() {
     assert!(archived_items[0].is_unread);
 }
 
+#[test]
+fn saved_query_updates_are_persisted() {
+    let storage = Storage::in_memory().expect("storage");
+    let config = AppConfig::default_with_pat("token".to_owned());
+    let host_id = storage.ensure_host(&config.host).expect("host");
+    let query_id = storage
+        .add_saved_query(host_id, "Old", "is:open", SortOrder::UpdatedDesc)
+        .expect("query");
+
+    storage
+        .update_saved_query(
+            query_id,
+            "Reviews",
+            "is:pr review-requested:@me",
+            SortOrder::CommentsDesc,
+        )
+        .expect("update query");
+
+    let queries = storage.list_saved_queries(host_id).expect("queries");
+
+    assert_eq!(queries.len(), 1);
+    assert_eq!(queries[0].id, query_id);
+    assert_eq!(queries[0].name, "Reviews");
+    assert_eq!(queries[0].query, "is:pr review-requested:@me");
+    assert_eq!(queries[0].sort, SortOrder::CommentsDesc);
+}
+
 fn sample_item(host_id: i64) -> StreamItemUpsert {
     StreamItemUpsert {
         host_id,

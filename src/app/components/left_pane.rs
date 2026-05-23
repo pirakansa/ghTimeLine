@@ -1,7 +1,7 @@
 use eframe::egui;
 
 use crate::app::stream::{StreamEvent, StreamState};
-use crate::models::{LibraryView, SavedQuery, Selection};
+use crate::models::{LibraryView, SavedQuery, Selection, SortOrder};
 
 pub fn show(
     ctx: &egui::Context,
@@ -16,6 +16,7 @@ pub fn show(
             library_section(ui, state, event);
             saved_query_section(ui, state, saved_queries, event);
             new_query_form(ui, state, event);
+            edit_selected_query_form(ui, state, saved_queries, event);
             delete_selected_query_button(ui, state, event);
         });
 }
@@ -66,6 +67,49 @@ fn new_query_form(ui: &mut egui::Ui, state: &mut StreamState, event: &mut Option
         });
         state.new_query_name.clear();
         state.new_query_text.clear();
+    }
+}
+
+fn edit_selected_query_form(
+    ui: &mut egui::Ui,
+    state: &mut StreamState,
+    saved_queries: &[SavedQuery],
+    event: &mut Option<StreamEvent>,
+) {
+    let Selection::SavedQuery(selected_id) = state.selection else {
+        state.edit_query_id = None;
+        return;
+    };
+    let Some(saved_query) = saved_queries.iter().find(|query| query.id == selected_id) else {
+        state.edit_query_id = None;
+        return;
+    };
+
+    if state.edit_query_id != Some(selected_id) {
+        state.edit_query_id = Some(selected_id);
+        state.edit_query_name = saved_query.name.clone();
+        state.edit_query_text = saved_query.query.clone();
+        state.edit_query_sort = saved_query.sort;
+    }
+
+    ui.separator();
+    ui.label("Edit selected query");
+    ui.text_edit_singleline(&mut state.edit_query_name);
+    ui.text_edit_singleline(&mut state.edit_query_text);
+    egui::ComboBox::from_id_salt("edit-query-sort")
+        .selected_text(state.edit_query_sort.label())
+        .show_ui(ui, |ui| {
+            for sort in SortOrder::ALL {
+                ui.selectable_value(&mut state.edit_query_sort, sort, sort.label());
+            }
+        });
+    if ui.button("Save changes").clicked() {
+        *event = Some(StreamEvent::UpdateQuery {
+            id: selected_id,
+            name: state.edit_query_name.clone(),
+            query: state.edit_query_text.clone(),
+            sort: state.edit_query_sort,
+        });
     }
 }
 

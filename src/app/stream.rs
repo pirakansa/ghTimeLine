@@ -10,6 +10,10 @@ pub struct StreamState {
     pub filter: Option<StreamFilter>,
     pub(super) new_query_name: String,
     pub(super) new_query_text: String,
+    pub(super) edit_query_id: Option<i64>,
+    pub(super) edit_query_name: String,
+    pub(super) edit_query_text: String,
+    pub(super) edit_query_sort: SortOrder,
     pub(super) polling_interval_draft: u16,
 }
 
@@ -20,6 +24,10 @@ impl Default for StreamState {
             filter: None,
             new_query_name: String::new(),
             new_query_text: String::new(),
+            edit_query_id: None,
+            edit_query_name: String::new(),
+            edit_query_text: String::new(),
+            edit_query_sort: SortOrder::UpdatedDesc,
             polling_interval_draft: 5,
         }
     }
@@ -28,7 +36,16 @@ impl Default for StreamState {
 pub enum StreamEvent {
     Select(Selection),
     SetFilter(Option<StreamFilter>),
-    AddQuery { name: String, query: String },
+    AddQuery {
+        name: String,
+        query: String,
+    },
+    UpdateQuery {
+        id: i64,
+        name: String,
+        query: String,
+        sort: SortOrder,
+    },
     DeleteSelectedQuery,
     RefreshNow,
     SetDefaultSort(SortOrder),
