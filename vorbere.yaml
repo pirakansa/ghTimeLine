@@ -1,0 +1,90 @@
+version: 1
+
+vars:
+  PROJECT_NAME: "ghStreamListner"
+  ASSETS_DIR: "assets"
+  NOTO_SANS_JP_FONT: "NotoSansJP-Regular.otf"
+  NOTO_SANS_JP_URL: "https://github.com/notofonts/noto-cjk/raw/refs/heads/main/Sans/SubsetOTF/JP"
+
+
+tasks:
+  assets:
+    run: |
+      mkdir -p "${{ .vars.ASSETS_DIR }}"
+      if [ ! -f "${{ .vars.ASSETS_DIR }}/${{ .vars.NOTO_SANS_JP_FONT }}" ]; then
+        echo "Downloading Noto Sans JP Regular font..."
+        curl -L -o "${{ .vars.ASSETS_DIR }}/${{ .vars.NOTO_SANS_JP_FONT }}" "${{ .vars.NOTO_SANS_JP_URL }}/${{ .vars.NOTO_SANS_JP_FONT }}"
+      else
+        echo "Noto Sans JP Regular font already exists at ${{ .vars.ASSETS_DIR }}/${{ .vars.NOTO_SANS_JP_FONT }}"
+      fi
+    desc: fetch required assets
+  build:
+    depends_on: [assets]
+    run: cargo build --locked
+    desc: build native app
+  run:
+    depends_on: [assets]
+    run: cargo run --locked
+    desc: run native app
+  debug:
+    depends_on: [assets]
+    run: RUST_LOG=debug cargo run --locked
+    desc: run native app with debug logging
+  fmt:
+    run: cargo fmt --all
+    desc: format Rust code
+  fmt-check:
+    run: cargo fmt --all -- --check
+    desc: verify formatting
+  clippy:
+    depends_on: [assets]
+    run: cargo clippy --all-targets -- -D warnings
+    desc: run clippy with warnings denied
+  vulnerability:
+    run: cargo audit
+    desc: scan dependencies for vulnerabilities
+  check:
+    depends_on: [fmt-check, clippy]
+    desc: run static checks
+  test:
+    depends_on: [check, build]
+    run: cargo test --all --locked
+    desc: run the test suite
+  linux-amd64:
+    depends_on: [assets]
+    run: CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=rust-lld cargo build --locked --release --target x86_64-unknown-linux-gnu
+    desc: build release binary for Linux amd64
+  linux-arm:
+    depends_on: [assets]
+    run: CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=rust-lld cargo build --locked --release --target armv7-unknown-linux-gnueabihf
+    desc: build release binary for Linux armv7
+  linux-arm64:
+    depends_on: [assets]
+    run: CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=rust-lld cargo build --locked --release --target aarch64-unknown-linux-gnu
+    desc: build release binary for Linux arm64
+  win-amd64:
+    depends_on: [assets]
+    run: CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc cargo build --locked --release --target x86_64-pc-windows-gnu
+    desc: build release binary for Windows amd64
+  release-build:
+    depends_on: [linux-amd64, linux-arm, linux-arm64, win-amd64]
+    desc: build all release targets
+  release-archives:
+    depends_on: [release-build]
+    run: |
+      tar --create --gzip --directory=target/x86_64-unknown-linux-gnu/release --file=./${{ .vars.PROJECT_NAME }}_linux-amd64.tar.gz ${{ .vars.PROJECT_NAME }}
+      tar --create --gzip --directory=target/armv7-unknown-linux-gnueabihf/release --file=./${{ .vars.PROJECT_NAME }}_linux-arm.tar.gz ${{ .vars.PROJECT_NAME }}
+      tar --create --gzip --directory=target/aarch64-unknown-linux-gnu/release --file=./${{ .vars.PROJECT_NAME }}_linux-arm64.tar.gz ${{ .vars.PROJECT_NAME }}
+      tar --create --gzip --directory=target/x86_64-pc-windows-gnu/release --file=./${{ .vars.PROJECT_NAME }}_win-amd64.tar.gz ${{ .vars.PROJECT_NAME }}.exe
+    desc: archive release binaries
+  release:
+    depends_on: [release-archives]
+    desc: build and archive all release artifacts
+  ci:
+    depends_on: [check, test]
+    desc: run CI-equivalent validation
+  clean:
+    run: |
+      cargo clean
+      rm -rf ./dist/
+    desc: remove build artifacts
