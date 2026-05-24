@@ -29,13 +29,6 @@ pub fn show(ui: &mut egui::Ui, items: &[StreamItem], event: &mut Option<StreamEv
 
 fn draw_item(ui: &mut egui::Ui, item: &StreamItem, event: &mut Option<StreamEvent>) {
     ui.horizontal(|ui| {
-        let unread_marker = if item.is_unread { "Unread" } else { "Read" };
-        let unread_marker = if item.is_unread {
-            egui::RichText::new(unread_marker).strong()
-        } else {
-            egui::RichText::new(unread_marker).weak()
-        };
-        ui.label(unread_marker);
         ui.label(item.item_type.label());
         ui.label(format!("#{}", item.number));
         ui.label(item.state.as_str());
