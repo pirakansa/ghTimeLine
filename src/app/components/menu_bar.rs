@@ -23,6 +23,8 @@ fn preferences_menu(
     event: &mut Option<StreamEvent>,
 ) {
     ui.menu_button("Preferences", |ui| {
+        let min_width = ui.text_style_height(&egui::TextStyle::Body) * 16.0;
+        ui.set_min_width(min_width);
         if ui.button("Host settings").clicked() {
             *event = Some(StreamEvent::OpenSetup);
             ui.close();
@@ -37,6 +39,7 @@ fn preferences_menu(
 
 fn font_size_submenu(ui: &mut egui::Ui, config: &AppConfig, event: &mut Option<StreamEvent>) {
     ui.menu_button("Font size", |ui| {
+        ui.set_min_width(ui.text_style_height(&egui::TextStyle::Body) * 10.0);
         for size in [FontSize::Default, FontSize::Large, FontSize::XLarge] {
             if ui
                 .selectable_label(config.ui.font_size == size, size.label())
@@ -51,6 +54,7 @@ fn font_size_submenu(ui: &mut egui::Ui, config: &AppConfig, event: &mut Option<S
 
 fn theme_submenu(ui: &mut egui::Ui, config: &AppConfig, event: &mut Option<StreamEvent>) {
     ui.menu_button("Theme", |ui| {
+        ui.set_min_width(ui.text_style_height(&egui::TextStyle::Body) * 8.0);
         for theme in [Theme::System, Theme::Light, Theme::Dark] {
             if ui
                 .selectable_label(config.ui.theme == theme, theme.label())
