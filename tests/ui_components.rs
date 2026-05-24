@@ -109,6 +109,41 @@ fn left_pane_saved_query_click_emits_selection_event() {
 }
 
 #[test]
+fn left_pane_hides_disabled_saved_queries() {
+    let harness = Harness::new_state(
+        |ctx, state: &mut LeftPaneHarness| {
+            components::left_pane::show(
+                ctx,
+                &mut state.stream,
+                &state.library_counts,
+                &state.saved_queries,
+                &mut state.event,
+            );
+        },
+        LeftPaneHarness {
+            stream: StreamState::default(),
+            library_counts: LibraryCounts::default(),
+            saved_queries: vec![SavedQuery {
+                id: 7,
+                name: "Disabled reviews".to_owned(),
+                query: "is:pr review-requested:@me".to_owned(),
+                sort: SortOrder::UpdatedDesc,
+                enabled: false,
+                position: 0,
+                unread_count: 3,
+            }],
+            event: None,
+        },
+    );
+
+    harness.get_by_label("Saved queries");
+    assert!(harness.query_by_label("Disabled reviews").is_none());
+    assert!(harness
+        .query_by_label("Disabled reviews (disabled)")
+        .is_none());
+}
+
+#[test]
 fn saved_query_manager_emits_enabled_toggle_event() {
     let saved_queries = vec![SavedQuery {
         id: 7,

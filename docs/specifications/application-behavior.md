@@ -142,6 +142,9 @@ Saved queries target GitHub Search for issues and pull requests.
 Saved query unread badges count distinct matched items where local state is
 unread and not archived.
 
+Disabled saved queries remain editable in the saved query management screen, but
+the main stream left pane only lists enabled saved queries.
+
 ## Stream View Behavior
 
 The primary UI is a two-pane layout:

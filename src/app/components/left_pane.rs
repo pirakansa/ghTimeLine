@@ -52,14 +52,9 @@ fn saved_query_section(
             }
         });
     });
-    for query in saved_queries {
+    for query in saved_queries.iter().filter(|query| query.enabled) {
         let selected = state.selection == Selection::SavedQuery(query.id);
-        let name = if query.enabled {
-            query.name.clone()
-        } else {
-            format!("{} (disabled)", query.name)
-        };
-        if selectable_row::show(ui, selected, &name, Some(query.unread_count)).clicked() {
+        if selectable_row::show(ui, selected, &query.name, Some(query.unread_count)).clicked() {
             *event = Some(StreamEvent::Select(Selection::SavedQuery(query.id)));
         }
     }

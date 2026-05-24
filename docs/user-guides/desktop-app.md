@@ -105,8 +105,8 @@ To edit a query:
 To delete a query, select it in the saved query management screen and use
 **Delete**.
 
-Disabled queries remain visible in the left pane but are skipped by refreshes
-and aggregated library views.
+Disabled queries remain visible in the saved query management screen, but are
+hidden from the left pane and skipped by refreshes and aggregated library views.
 
 ## Refreshing Streams
 
