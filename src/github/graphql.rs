@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 
-use crate::github::GitHubError;
+use crate::github::{client, GitHubError};
 use crate::models::{HostConfig, ItemType};
 use crate::storage::items::StreamItemUpsert;
 
-const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 const PULL_REQUEST_ENRICHMENT_QUERY: &str = r#"
 query PullRequestEnrichment($ids: [ID!]!) {
   nodes(ids: $ids) {
@@ -93,7 +92,6 @@ fn fetch_pull_request_enrichment(
     pat: &str,
     ids: &[String],
 ) -> Result<HashMap<String, PullRequestEnrichment>, GitHubError> {
-    let authorization = format!("Bearer {pat}");
     let request = GraphqlRequest {
         query: PULL_REQUEST_ENRICHMENT_QUERY,
         variables: GraphqlVariables { ids },
@@ -102,37 +100,9 @@ fn fetch_pull_request_enrichment(
         host: host.name.clone(),
         message: error.to_string(),
     })?;
-    let mut response = ureq::post(&host.graphql_url())
-        .header("Accept", "application/vnd.github+json")
-        .header("Content-Type", "application/json")
-        .header("User-Agent", USER_AGENT)
-        .header("Authorization", &authorization)
-        .send(body)
-        .map_err(|error| GitHubError::Network {
-            host: host.name.clone(),
-            message: sanitize_error_message(&error.to_string(), pat),
-        })?;
-
-    let status = response.status();
-    if status.as_u16() == 401 || status.as_u16() == 403 {
-        return Err(GitHubError::Authentication {
-            host: host.name.clone(),
-        });
-    }
-    if !status.is_success() {
-        return Err(GitHubError::Api {
-            host: host.name.clone(),
-            status: status.as_u16(),
-        });
-    }
-
-    let body = response
-        .body_mut()
-        .read_to_string()
-        .map_err(|error| GitHubError::Network {
-            host: host.name.clone(),
-            message: sanitize_error_message(&error.to_string(), pat),
-        })?;
+    let mut response = client::authenticated_post_json(host, pat, &host.graphql_url(), body)?;
+    client::ensure_success(host, &response)?;
+    let body = client::read_body(host, pat, &mut response)?;
     parse_pull_request_enrichment(host, &body)
 }
 
@@ -190,14 +160,6 @@ fn derive_review_signal(node: &PullRequestNode) -> ReviewSignal {
         Some("REVIEW_REQUIRED") => ReviewSignal::ReviewRequired,
         _ if node.review_requests.total_count > 0 => ReviewSignal::ReviewRequired,
         _ => ReviewSignal::None,
-    }
-}
-
-fn sanitize_error_message(message: &str, pat: &str) -> String {
-    if pat.is_empty() {
-        message.to_owned()
-    } else {
-        message.replace(pat, "<redacted>")
     }
 }
 
