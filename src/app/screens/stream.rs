@@ -13,6 +13,7 @@ pub struct StreamState {
     pub filter: Option<StreamFilter>,
     pub(in crate::app) polling_interval_draft: u32,
     pub(in crate::app) saved_query_manager: SavedQueryManagerState,
+    pub(in crate::app) avatar_cache: components::author_avatar::AvatarCache,
 }
 
 impl Default for StreamState {
@@ -22,6 +23,7 @@ impl Default for StreamState {
             filter: None,
             polling_interval_draft: 0,
             saved_query_manager: SavedQueryManagerState::default(),
+            avatar_cache: components::author_avatar::AvatarCache::default(),
         }
     }
 }
@@ -85,7 +87,7 @@ pub fn show(
     egui::CentralPanel::default().show(ctx, |ui| {
         components::toolbar::show(ui, state, config, &mut event);
         ui.separator();
-        components::item_list::show(ui, items, &mut event);
+        components::item_list::show(ui, items, &mut state.avatar_cache, &mut event);
     });
 
     event

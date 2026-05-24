@@ -225,6 +225,7 @@ mod tests {
             item_type,
             title: "Example".to_owned(),
             author_login: Some("octo".to_owned()),
+            author_avatar_url: Some("https://avatars.githubusercontent.com/u/1?v=4".to_owned()),
             html_url: "https://github.example.test/owner/repo/issues/7".to_owned(),
             state: "open".to_owned(),
             is_draft: Some(false),

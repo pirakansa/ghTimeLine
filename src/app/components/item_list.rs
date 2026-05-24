@@ -1,10 +1,15 @@
 use eframe::egui;
 
-use super::status_icon;
+use super::{author_avatar, status_icon};
 use crate::app::screens::stream::{ItemAction, StreamEvent};
 use crate::models::StreamItem;
 
-pub fn show(ui: &mut egui::Ui, items: &[StreamItem], event: &mut Option<StreamEvent>) {
+pub fn show(
+    ui: &mut egui::Ui,
+    items: &[StreamItem],
+    avatar_cache: &mut author_avatar::AvatarCache,
+    event: &mut Option<StreamEvent>,
+) {
     if items.is_empty() {
         ui.centered_and_justified(|ui| {
             ui.label("0 items");
@@ -21,14 +26,19 @@ pub fn show(ui: &mut egui::Ui, items: &[StreamItem], event: &mut Option<StreamEv
                 let available_width = ui.available_width();
                 ui.set_min_width(available_width);
                 ui.set_width(available_width);
-                draw_item(ui, item, event);
+                draw_item(ui, item, avatar_cache, event);
             });
             ui.add_space(6.0);
         }
     });
 }
 
-fn draw_item(ui: &mut egui::Ui, item: &StreamItem, event: &mut Option<StreamEvent>) {
+fn draw_item(
+    ui: &mut egui::Ui,
+    item: &StreamItem,
+    avatar_cache: &mut author_avatar::AvatarCache,
+    event: &mut Option<StreamEvent>,
+) {
     ui.horizontal(|ui| {
         let icon = status_icon::StatusIcon::for_item(item);
         status_icon::show(ui, icon).on_hover_text(icon.label());
@@ -47,7 +57,14 @@ fn draw_item(ui: &mut egui::Ui, item: &StreamItem, event: &mut Option<StreamEven
     ui.heading(title);
     ui.horizontal_wrapped(|ui| {
         if let Some(author) = &item.author_login {
-            ui.label(format!("by {author}"));
+            author_avatar::show(
+                ui,
+                avatar_cache,
+                item.author_avatar_url.as_deref(),
+                Some(author.as_str()),
+            )
+            .on_hover_text(author);
+            ui.label(author);
         }
         ui.label(format!("{} comments", item.comment_count));
         if let Some(review_status) = &item.review_status {

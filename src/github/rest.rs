@@ -89,7 +89,8 @@ fn search_item_to_upsert(
         number: item.number,
         item_type,
         title: item.title,
-        author_login: item.user.map(|user| user.login),
+        author_login: item.user.as_ref().map(|user| user.login.clone()),
+        author_avatar_url: item.user.and_then(|user| user.avatar_url),
         html_url: item.html_url,
         api_url: Some(item.url),
         state: item.state,
@@ -150,6 +151,7 @@ struct SearchItem {
 #[derive(Debug, serde::Deserialize)]
 struct SearchUser {
     login: String,
+    avatar_url: Option<String>,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -189,7 +191,10 @@ mod tests {
                 "node_id": "PR_kwDO",
                 "number": 7,
                 "title": "Improve stream",
-                "user": { "login": "octo" },
+                "user": {
+                    "login": "octo",
+                    "avatar_url": "https://avatars.githubusercontent.com/u/1?v=4"
+                },
                 "labels": [{ "name": "enhancement" }],
                 "state": "open",
                 "locked": false,
@@ -210,6 +215,10 @@ mod tests {
         assert_eq!(items[0].repository_name, "project");
         assert_eq!(items[0].item_type, ItemType::PullRequest);
         assert_eq!(items[0].review_status.as_deref(), Some("unknown"));
+        assert_eq!(
+            items[0].author_avatar_url.as_deref(),
+            Some("https://avatars.githubusercontent.com/u/1?v=4")
+        );
         assert_eq!(items[0].labels, vec!["enhancement"]);
         assert_eq!(items[0].assignees, vec!["dev"]);
     }

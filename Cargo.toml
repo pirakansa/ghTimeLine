@@ -15,6 +15,7 @@ path = "src/main.rs"
 chrono = "0.4.44"
 dirs-next = "2.0.0"
 eframe = "0.33"
+image = { version = "0.25.8", default-features = false, features = ["jpeg", "png", "webp"] }
 open = "5.3.5"
 rusqlite = { version = "0.39.0", features = ["bundled"] }
 serde = { version = "1.0.228", features = ["derive"] }
@@ -33,4 +34,3 @@ strip = true
 [dev-dependencies]
 egui_kittest = "0.33.0"
 httptest = "0.16.4"
-

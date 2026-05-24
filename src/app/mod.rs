@@ -211,6 +211,7 @@ impl eframe::App for GhStreamApp {
             AppMode::Main(runtime) => {
                 preferences::apply_theme_from_config(ctx, &runtime.config);
                 preferences::apply_font_size_from_config(ctx, &runtime.config);
+                self.stream.avatar_cache.poll(ctx);
                 let event = screens::stream::show(
                     ctx,
                     &mut self.stream,

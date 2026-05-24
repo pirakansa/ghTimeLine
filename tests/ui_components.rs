@@ -203,7 +203,8 @@ fn saved_query_manager_saves_enabled_state_with_changes() {
 fn item_list_action_buttons_emit_item_events() {
     let mut harness = Harness::new_ui_state(
         |ui, state: &mut ItemListHarness| {
-            components::item_list::show(ui, &state.items, &mut state.event);
+            let mut avatar_cache = components::author_avatar::AvatarCache::default();
+            components::item_list::show(ui, &state.items, &mut avatar_cache, &mut state.event);
         },
         ItemListHarness {
             items: vec![sample_stream_item()],
@@ -236,7 +237,8 @@ fn item_list_action_buttons_emit_item_events() {
 
     harness = Harness::new_ui_state(
         |ui, state: &mut ItemListHarness| {
-            components::item_list::show(ui, &state.items, &mut state.event);
+            let mut avatar_cache = components::author_avatar::AvatarCache::default();
+            components::item_list::show(ui, &state.items, &mut avatar_cache, &mut state.event);
         },
         ItemListHarness {
             items: vec![sample_archived_stream_item()],
@@ -285,6 +287,7 @@ fn sample_stream_item() -> StreamItem {
         item_type: ItemType::PullRequest,
         title: "Improve stream".to_owned(),
         author_login: Some("octo".to_owned()),
+        author_avatar_url: Some("https://avatars.githubusercontent.com/u/1?v=4".to_owned()),
         html_url: "https://github.example.test/owner/repo/pull/7".to_owned(),
         state: "open".to_owned(),
         is_draft: Some(false),

@@ -173,6 +173,7 @@ fn sample_item(host_id: i64) -> StreamItemUpsert {
         item_type: ItemType::PullRequest,
         title: "Title".to_owned(),
         author_login: Some("author".to_owned()),
+        author_avatar_url: Some("https://avatars.githubusercontent.com/u/1?v=4".to_owned()),
         html_url: "https://github.example.test/owner/repo/pull/42".to_owned(),
         api_url: None,
         state: "open".to_owned(),

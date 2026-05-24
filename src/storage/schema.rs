@@ -2,19 +2,22 @@ use rusqlite::Connection;
 
 use super::Result;
 
-pub const SCHEMA_VERSION: i64 = 1;
+pub const SCHEMA_VERSION: i64 = 2;
 
 pub fn migrate(connection: &Connection) -> Result<()> {
     let version =
         connection.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))?;
     if version == 0 {
-        connection.execute_batch(V1_SCHEMA)?;
+        connection.execute_batch(V2_SCHEMA)?;
+        connection.pragma_update(None, "user_version", SCHEMA_VERSION)?;
+    } else if version < 2 {
+        connection.execute_batch("ALTER TABLE stream_items ADD COLUMN author_avatar_url TEXT;")?;
         connection.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     }
     Ok(())
 }
 
-const V1_SCHEMA: &str = r#"
+const V2_SCHEMA: &str = r#"
 CREATE TABLE hosts (
     id INTEGER PRIMARY KEY,
     fingerprint TEXT NOT NULL UNIQUE,
@@ -62,6 +65,7 @@ CREATE TABLE stream_items (
     item_type TEXT NOT NULL CHECK (item_type IN ('issue', 'pull_request')),
     title TEXT NOT NULL,
     author_login TEXT,
+    author_avatar_url TEXT,
     html_url TEXT NOT NULL,
     api_url TEXT,
     state TEXT NOT NULL CHECK (state IN ('open', 'closed')),

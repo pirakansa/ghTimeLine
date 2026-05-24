@@ -15,6 +15,7 @@ pub struct StreamItemUpsert {
     pub item_type: ItemType,
     pub title: String,
     pub author_login: Option<String>,
+    pub author_avatar_url: Option<String>,
     pub html_url: String,
     pub api_url: Option<String>,
     pub state: String,
@@ -36,18 +37,19 @@ impl Storage {
         self.connection().execute(
             "INSERT INTO stream_items (
                 host_id, node_id, repository_owner, repository_name, number, item_type,
-                title, author_login, html_url, api_url, state, is_draft, is_merged,
+                title, author_login, author_avatar_url, html_url, api_url, state, is_draft, is_merged,
                 review_status, comment_count, created_at_github, updated_at_github,
                 closed_at_github, merged_at_github, last_seen_at, created_at, updated_at
              ) VALUES (
                 ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15,
-                ?16, ?17, ?18, ?19, ?20, ?20, ?20
+                ?16, ?17, ?18, ?19, ?20, ?21, ?21, ?21
              )
              ON CONFLICT(host_id, repository_owner, repository_name, number, item_type)
              DO UPDATE SET
                 node_id = excluded.node_id,
                 title = excluded.title,
                 author_login = excluded.author_login,
+                author_avatar_url = excluded.author_avatar_url,
                 html_url = excluded.html_url,
                 api_url = excluded.api_url,
                 state = excluded.state,
@@ -70,6 +72,7 @@ impl Storage {
                 item_type_db_value(&item.item_type),
                 item.title,
                 item.author_login,
+                item.author_avatar_url,
                 item.html_url,
                 item.api_url,
                 item.state,
@@ -252,18 +255,19 @@ impl Storage {
                 item_type: item_type_from_db(&row.get::<_, String>(4)?),
                 title: row.get(5)?,
                 author_login: row.get(6)?,
-                html_url: row.get(7)?,
-                state: row.get(8)?,
-                is_draft: row.get::<_, Option<i64>>(9)?.map(|value| value == 1),
-                is_merged: row.get::<_, Option<i64>>(10)?.map(|value| value == 1),
-                review_status: row.get(11)?,
-                comment_count: row.get(12)?,
-                updated_at_github: row.get(13)?,
-                labels: split_list(&row.get::<_, Option<String>>(14)?.unwrap_or_default()),
-                assignees: split_list(&row.get::<_, Option<String>>(15)?.unwrap_or_default()),
-                is_unread: row.get::<_, i64>(16)? == 1,
-                is_bookmarked: row.get::<_, i64>(17)? == 1,
-                is_archived: row.get::<_, i64>(18)? == 1,
+                author_avatar_url: row.get(7)?,
+                html_url: row.get(8)?,
+                state: row.get(9)?,
+                is_draft: row.get::<_, Option<i64>>(10)?.map(|value| value == 1),
+                is_merged: row.get::<_, Option<i64>>(11)?.map(|value| value == 1),
+                review_status: row.get(12)?,
+                comment_count: row.get(13)?,
+                updated_at_github: row.get(14)?,
+                labels: split_list(&row.get::<_, Option<String>>(15)?.unwrap_or_default()),
+                assignees: split_list(&row.get::<_, Option<String>>(16)?.unwrap_or_default()),
+                is_unread: row.get::<_, i64>(17)? == 1,
+                is_bookmarked: row.get::<_, i64>(18)? == 1,
+                is_archived: row.get::<_, i64>(19)? == 1,
             })
         })?;
         rows.collect::<std::result::Result<Vec<_>, _>>()
@@ -303,6 +307,7 @@ fn item_select_sql(
             i.item_type,
             i.title,
             i.author_login,
+            i.author_avatar_url,
             i.html_url,
             i.state,
             i.is_draft,

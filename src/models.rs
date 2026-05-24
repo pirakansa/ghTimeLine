@@ -340,6 +340,7 @@ pub struct StreamItem {
     pub item_type: ItemType,
     pub title: String,
     pub author_login: Option<String>,
+    pub author_avatar_url: Option<String>,
     pub html_url: String,
     pub state: String,
     pub is_draft: Option<bool>,
