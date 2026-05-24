@@ -11,7 +11,7 @@ fn noto_sans_font_definitions() -> egui::FontDefinitions {
     fonts.font_data.insert(
         NOTO_SANS_JP_FONT_ID.to_owned(),
         std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
-            "../../assets/NotoSansJP-Regular.otf"
+            "../../assets/NotoSansCJKjp-Regular.otf"
         ))),
     );
 
