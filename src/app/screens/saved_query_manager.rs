@@ -1,5 +1,6 @@
 use eframe::egui;
 
+use crate::app::components::selectable_row;
 use crate::app::screens::stream::{StreamEvent, StreamState};
 use crate::models::{SavedQuery, Selection, SortOrder};
 
@@ -64,44 +65,12 @@ fn saved_query_list(ui: &mut egui::Ui, state: &mut StreamState, saved_queries: &
                     } else {
                         format!("{} (disabled)", query.name)
                     };
-                    if full_width_selectable_row(ui, selected, &label).clicked() {
+                    if selectable_row::show(ui, selected, &label, None).clicked() {
                         load_query_draft(state, query);
                     }
                 }
             });
     });
-}
-
-fn full_width_selectable_row(ui: &mut egui::Ui, selected: bool, label: &str) -> egui::Response {
-    let row_height = ui.spacing().interact_size.y;
-    let available_width = ui.available_width();
-    let (rect, response) = ui.allocate_exact_size(
-        egui::vec2(available_width, row_height),
-        egui::Sense::click(),
-    );
-
-    if ui.is_rect_visible(rect) {
-        let visuals = ui.style().interact_selectable(&response, selected);
-        if selected || response.hovered() {
-            ui.painter()
-                .rect_filled(rect, visuals.corner_radius, visuals.bg_fill);
-        }
-
-        ui.painter().text(
-            egui::pos2(rect.left() + ui.spacing().button_padding.x, rect.center().y),
-            egui::Align2::LEFT_CENTER,
-            label,
-            egui::TextStyle::Body.resolve(ui.style()),
-            visuals.text_color(),
-        );
-    }
-
-    let label = label.to_owned();
-    response.widget_info(move || {
-        egui::WidgetInfo::selected(egui::WidgetType::Button, true, selected, label.clone())
-    });
-
-    response.on_hover_cursor(egui::CursorIcon::PointingHand)
 }
 
 fn saved_query_form(ui: &mut egui::Ui, state: &mut StreamState, event: &mut Option<StreamEvent>) {
