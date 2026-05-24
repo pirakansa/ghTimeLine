@@ -6,7 +6,9 @@ use gh_stream_listner::APP_TITLE;
 
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_title(APP_TITLE),
+        viewport: egui::ViewportBuilder::default()
+            .with_title(APP_TITLE)
+            .with_icon(app_icon()),
         ..Default::default()
     };
 
@@ -18,4 +20,9 @@ fn main() -> eframe::Result<()> {
             Ok(Box::new(GhStreamApp::new()))
         }),
     )
+}
+
+fn app_icon() -> egui::IconData {
+    eframe::icon_data::from_png_bytes(include_bytes!("../assets/icon.png"))
+        .expect("embedded app icon should be a valid PNG")
 }
