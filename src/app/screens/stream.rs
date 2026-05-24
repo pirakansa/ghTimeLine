@@ -44,6 +44,7 @@ pub enum StreamEvent {
         enabled: bool,
     },
     DeleteQuery(i64),
+    MarkSavedQueryRead(i64),
     RefreshNow,
     SetDefaultSort(SortOrder),
     SetPollingInterval(u32),

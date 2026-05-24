@@ -73,4 +73,16 @@ impl GhStreamApp {
         self.reload_queries();
         self.reload_current_view();
     }
+
+    pub(super) fn mark_saved_query_read(&mut self, id: i64) {
+        if let AppMode::Main(runtime) = &mut self.mode {
+            match runtime.storage.mark_saved_query_read(id) {
+                Ok(0) => self.status = "No unread items to mark read.".to_owned(),
+                Ok(count) => self.status = format!("Marked {count} items as read."),
+                Err(err) => self.status = format!("Could not mark saved query read: {err}"),
+            }
+        }
+        self.reload_queries();
+        self.reload_current_view();
+    }
 }

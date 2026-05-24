@@ -66,6 +66,26 @@ fn filter_state_drives_db_backed_item_reload() {
 }
 
 #[test]
+fn mark_saved_query_read_updates_counts_and_current_view() {
+    let (mut app, _) = app_with_one_item();
+    let Selection::SavedQuery(query_id) = app.stream.selection else {
+        panic!("app should select saved query");
+    };
+
+    app.set_filter(Some(StreamFilter::Unread));
+    assert_items_len(&app, 1);
+
+    app.mark_saved_query_read(query_id);
+
+    let AppMode::Main(runtime) = &app.mode else {
+        panic!("app should be in main mode");
+    };
+    assert_eq!(runtime.saved_queries[0].unread_count, 0);
+    assert!(runtime.items.is_empty());
+    assert_eq!(app.status, "Marked 1 items as read.");
+}
+
+#[test]
 fn polling_interval_change_updates_runtime_and_yaml_config() {
     let (mut app, _) = app_with_one_item();
     app.update_polling_interval(90);

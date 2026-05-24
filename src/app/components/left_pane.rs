@@ -54,7 +54,16 @@ fn saved_query_section(
     });
     for query in saved_queries.iter().filter(|query| query.enabled) {
         let selected = state.selection == Selection::SavedQuery(query.id);
-        if selectable_row::show(ui, selected, &query.name, Some(query.unread_count)).clicked() {
+        let response = selectable_row::show(ui, selected, &query.name, Some(query.unread_count));
+        if query.unread_count > 0 {
+            response.context_menu(|ui| {
+                if ui.button("Mark all as read").clicked() {
+                    *event = Some(StreamEvent::MarkSavedQueryRead(query.id));
+                    ui.close();
+                }
+            });
+        }
+        if response.clicked() {
             *event = Some(StreamEvent::Select(Selection::SavedQuery(query.id)));
         }
     }

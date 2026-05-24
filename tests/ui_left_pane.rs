@@ -80,6 +80,37 @@ fn left_pane_hides_disabled_saved_queries() {
 }
 
 #[test]
+fn saved_query_context_menu_marks_query_read() {
+    let mut harness = Harness::new_state(
+        |ctx, state: &mut LeftPaneHarness| {
+            components::left_pane::show(
+                ctx,
+                &mut state.stream,
+                &state.library_counts,
+                &state.saved_queries,
+                &mut state.event,
+            );
+        },
+        LeftPaneHarness {
+            stream: StreamState::default(),
+            library_counts: LibraryCounts::default(),
+            saved_queries: vec![sample_saved_query()],
+            event: None,
+        },
+    );
+
+    harness.get_by_label("Reviews").click_secondary();
+    harness.run();
+    harness.get_by_label("Mark all as read").click();
+    harness.run();
+
+    assert!(matches!(
+        harness.state().event,
+        Some(StreamEvent::MarkSavedQueryRead(7))
+    ));
+}
+
+#[test]
 fn saved_query_manager_saves_enabled_state_with_changes() {
     let saved_queries = vec![sample_saved_query()];
     let mut stream = StreamState::default();

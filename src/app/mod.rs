@@ -240,6 +240,9 @@ impl eframe::App for GhStreamApp {
                         enabled,
                     }) => self.update_query(id, &name, &query, sort, enabled),
                     Some(screens::stream::StreamEvent::DeleteQuery(id)) => self.delete_query(id),
+                    Some(screens::stream::StreamEvent::MarkSavedQueryRead(id)) => {
+                        self.mark_saved_query_read(id)
+                    }
                     Some(screens::stream::StreamEvent::RefreshNow) => self.refresh_now(ctx.clone()),
                     Some(screens::stream::StreamEvent::SetDefaultSort(sort)) => {
                         self.update_default_sort(sort)

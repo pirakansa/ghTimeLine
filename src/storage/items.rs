@@ -194,6 +194,23 @@ impl Storage {
         Ok(())
     }
 
+    pub fn mark_saved_query_read(&self, saved_query_id: i64) -> Result<usize> {
+        let now = Utc::now().to_rfc3339();
+        let updated = self.connection().execute(
+            "UPDATE item_state
+             SET is_unread = 0, read_at = ?1, unread_at = NULL, updated_at = ?1
+             WHERE is_unread = 1
+               AND is_archived = 0
+               AND stream_item_id IN (
+                   SELECT stream_item_id
+                   FROM saved_query_matches
+                   WHERE saved_query_id = ?2
+               )",
+            params![now, saved_query_id],
+        )?;
+        Ok(updated)
+    }
+
     pub fn set_bookmarked(&self, stream_item_id: i64, bookmarked: bool) -> Result<()> {
         let now = Utc::now().to_rfc3339();
         let bookmarked_at = if bookmarked { Some(now.as_str()) } else { None };

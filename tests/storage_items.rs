@@ -120,6 +120,75 @@ fn library_unread_counts_cover_inbox_bookmark_and_archived() {
 }
 
 #[test]
+fn mark_saved_query_read_marks_only_unarchived_matching_items_read() {
+    let storage = Storage::in_memory().expect("storage");
+    let config = AppConfig::default_with_pat("token".to_owned());
+    let host_id = storage.ensure_host(&config.host).expect("host");
+    let query_id = storage
+        .add_saved_query(host_id, "Inbox", "is:open", SortOrder::UpdatedDesc)
+        .expect("query");
+    let other_query_id = storage
+        .add_saved_query(host_id, "Other", "is:issue", SortOrder::UpdatedDesc)
+        .expect("other query");
+
+    let matching_item_id = storage
+        .upsert_stream_item(&sample_item(host_id))
+        .expect("matching item");
+    storage
+        .record_saved_query_match(query_id, matching_item_id, None)
+        .expect("matching match");
+
+    let mut archived_item = sample_item(host_id);
+    archived_item.number = 43;
+    let archived_item_id = storage
+        .upsert_stream_item(&archived_item)
+        .expect("archived item");
+    storage
+        .record_saved_query_match(query_id, archived_item_id, None)
+        .expect("archived match");
+    storage
+        .set_archived(archived_item_id, true)
+        .expect("archive");
+
+    let mut other_item = sample_item(host_id);
+    other_item.number = 44;
+    let other_item_id = storage.upsert_stream_item(&other_item).expect("other item");
+    storage
+        .record_saved_query_match(other_query_id, other_item_id, None)
+        .expect("other match");
+
+    let updated = storage
+        .mark_saved_query_read(query_id)
+        .expect("mark query read");
+
+    let queries = storage.list_saved_queries(host_id).expect("queries");
+    let inbox_items = storage
+        .list_items_for_saved_query(query_id, None, SortOrder::UpdatedDesc)
+        .expect("inbox items");
+    let other_items = storage
+        .list_items_for_saved_query(other_query_id, None, SortOrder::UpdatedDesc)
+        .expect("other items");
+    let archived_items = storage
+        .list_items_for_library(
+            host_id,
+            LibraryView::Archived,
+            Some(StreamFilter::Unread),
+            SortOrder::UpdatedDesc,
+        )
+        .expect("archived items");
+
+    assert_eq!(updated, 1);
+    assert_eq!(queries[0].unread_count, 0);
+    assert_eq!(queries[1].unread_count, 1);
+    assert_eq!(inbox_items.len(), 1);
+    assert!(!inbox_items[0].is_unread);
+    assert_eq!(other_items.len(), 1);
+    assert!(other_items[0].is_unread);
+    assert_eq!(archived_items.len(), 1);
+    assert!(archived_items[0].is_unread);
+}
+
+#[test]
 fn saved_query_updates_are_persisted() {
     let storage = Storage::in_memory().expect("storage");
     let config = AppConfig::default_with_pat("token".to_owned());
