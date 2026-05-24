@@ -83,6 +83,7 @@ fn item_list_item_click_emits_open_event() {
         Some(StreamEvent::ItemAction(ItemAction::Open { id: 42, url }))
             if url == "https://github.example.test/owner/repo/pull/7"
     ));
+    assert!(harness.query_by_label("Open").is_none());
 }
 
 #[test]

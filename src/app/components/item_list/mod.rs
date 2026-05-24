@@ -100,7 +100,6 @@ fn action_buttons(ui: &mut egui::Ui, item: &StreamItem, event: &mut Option<Strea
         read_state_button(ui, item, event);
         bookmark_button(ui, item, event);
         archive_button(ui, item, event);
-        open_button(ui, item, event);
     });
 }
 
@@ -139,12 +138,6 @@ fn archive_button(ui: &mut egui::Ui, item: &StreamItem, event: &mut Option<Strea
             item.id,
             !item.is_archived,
         )));
-    }
-}
-
-fn open_button(ui: &mut egui::Ui, item: &StreamItem, event: &mut Option<StreamEvent>) {
-    if ui.button("Open").clicked() {
-        open_item(item, event);
     }
 }
 
