@@ -218,12 +218,12 @@ library view. Archived unread items are excluded from saved query unread badges.
 Manual refresh:
 
 - Refreshes the selected saved query when a saved query is selected.
-- Refreshes all saved queries when a library entry is selected.
+- Refreshes all enabled saved queries when a library entry is selected.
 
 Automatic polling:
 
 - Runs against enabled saved queries.
-- Defaults to a 5 minute interval.
+- Defaults to a 180 second interval.
 - Uses the interval stored in the YAML configuration.
 - Persists interval changes to the YAML configuration.
 

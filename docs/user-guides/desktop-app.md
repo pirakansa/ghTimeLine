@@ -111,11 +111,11 @@ hidden from the left pane and skipped by refreshes and aggregated library views.
 ## Refreshing Streams
 
 Use **Refresh** to manually refresh the selected saved query. When a library
-view is selected, manual refresh runs all saved queries.
+view is selected, manual refresh runs all enabled saved queries.
 
-The app also polls automatically. The default polling interval is 5 minutes. Use
-the interval control in the toolbar to change the interval and save it to the
-YAML configuration file.
+The app also polls automatically. The default polling interval is 180 seconds.
+Use **Preferences** > **Polling interval** to change the interval and save it to
+the YAML configuration file.
 
 Refresh results are written to the local database before the list is rendered.
 If authentication, network, or API errors happen during refresh, previously
