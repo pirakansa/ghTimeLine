@@ -1,0 +1,128 @@
+#[path = "support/left_pane.rs"]
+mod support;
+
+use egui_kittest::kittest::Queryable as _;
+use egui_kittest::Harness;
+use gh_stream_listner::app::components;
+use gh_stream_listner::app::screens::{
+    saved_query_manager,
+    stream::{StreamEvent, StreamState},
+};
+use gh_stream_listner::models::{LibraryCounts, SavedQuery, Selection, SortOrder};
+
+use crate::support::{sample_saved_query, LeftPaneHarness, StreamHarness};
+
+#[test]
+fn left_pane_saved_query_click_emits_selection_event() {
+    let mut harness = Harness::new_state(
+        |ctx, state: &mut LeftPaneHarness| {
+            components::left_pane::show(
+                ctx,
+                &mut state.stream,
+                &state.library_counts,
+                &state.saved_queries,
+                &mut state.event,
+            );
+        },
+        LeftPaneHarness {
+            stream: StreamState::default(),
+            library_counts: LibraryCounts {
+                inbox_unread_count: 5,
+                bookmark_unread_count: 2,
+                archived_unread_count: 1,
+            },
+            saved_queries: vec![sample_saved_query()],
+            event: None,
+        },
+    );
+
+    harness.get_by_label("Inbox");
+    harness.get_by_label("Bookmark");
+    harness.get_by_label("Archived");
+    harness.get_by_label("Reviews").click();
+    harness.run();
+
+    assert!(matches!(
+        harness.state().event,
+        Some(StreamEvent::Select(Selection::SavedQuery(7)))
+    ));
+}
+
+#[test]
+fn left_pane_hides_disabled_saved_queries() {
+    let harness = Harness::new_state(
+        |ctx, state: &mut LeftPaneHarness| {
+            components::left_pane::show(
+                ctx,
+                &mut state.stream,
+                &state.library_counts,
+                &state.saved_queries,
+                &mut state.event,
+            );
+        },
+        LeftPaneHarness {
+            stream: StreamState::default(),
+            library_counts: LibraryCounts::default(),
+            saved_queries: vec![SavedQuery {
+                enabled: false,
+                name: "Disabled reviews".to_owned(),
+                ..sample_saved_query()
+            }],
+            event: None,
+        },
+    );
+
+    harness.get_by_label("Saved queries");
+    assert!(harness.query_by_label("Disabled reviews").is_none());
+    assert!(harness
+        .query_by_label("Disabled reviews (disabled)")
+        .is_none());
+}
+
+#[test]
+fn saved_query_manager_saves_enabled_state_with_changes() {
+    let saved_queries = vec![sample_saved_query()];
+    let mut stream = StreamState::default();
+    saved_query_manager::open(&mut stream, &saved_queries);
+
+    let mut harness = Harness::new_state(
+        |ctx, state: &mut StreamHarness| {
+            saved_query_manager::show(
+                ctx,
+                &mut state.stream,
+                &state.saved_queries,
+                &mut state.event,
+            );
+        },
+        StreamHarness {
+            stream,
+            saved_queries,
+            event: None,
+        },
+    );
+
+    harness.get_by_label("Enabled").click();
+    harness.run();
+    assert!(harness.state().event.is_none());
+
+    harness.get_by_label("Save changes").click();
+    harness.run();
+
+    match &harness.state().event {
+        Some(StreamEvent::UpdateQuery {
+            id,
+            name,
+            query,
+            sort,
+            enabled,
+        }) => {
+            assert_eq!(*id, 7);
+            assert_eq!(name, "Reviews");
+            assert_eq!(query, "is:pr review-requested:@me");
+            assert_eq!(*sort, SortOrder::UpdatedDesc);
+            assert!(!enabled);
+        }
+        Some(_) => panic!("unexpected stream event"),
+        None => panic!("expected query update event"),
+    }
+}

@@ -1,0 +1,101 @@
+#[path = "support/item_list.rs"]
+mod support;
+
+use egui_kittest::kittest::Queryable as _;
+use egui_kittest::Harness;
+use gh_stream_listner::app::components;
+use gh_stream_listner::app::screens::stream::{ItemAction, StreamEvent};
+
+use crate::support::{sample_archived_stream_item, sample_stream_item, ItemListHarness};
+
+#[test]
+fn item_list_action_buttons_emit_item_events() {
+    let mut harness = Harness::new_ui_state(
+        |ui, state: &mut ItemListHarness| {
+            let mut avatar_cache = components::author_avatar::AvatarCache::default();
+            components::item_list::show(ui, &state.items, &mut avatar_cache, &mut state.event);
+        },
+        ItemListHarness {
+            items: vec![sample_stream_item()],
+            event: None,
+        },
+    );
+
+    harness.get_by_label("Mark read").click();
+    harness.run();
+    assert!(matches!(
+        harness.state().event,
+        Some(StreamEvent::ItemAction(ItemAction::MarkRead(42)))
+    ));
+
+    harness.state_mut().event = None;
+    harness.get_by_label("Bookmark").click();
+    harness.run();
+    assert!(matches!(
+        harness.state().event,
+        Some(StreamEvent::ItemAction(ItemAction::Bookmark(42, true)))
+    ));
+
+    harness.state_mut().event = None;
+    harness.get_by_label("Archive").click();
+    harness.run();
+    assert!(matches!(
+        harness.state().event,
+        Some(StreamEvent::ItemAction(ItemAction::Archive(42, true)))
+    ));
+
+    harness = Harness::new_ui_state(
+        |ui, state: &mut ItemListHarness| {
+            let mut avatar_cache = components::author_avatar::AvatarCache::default();
+            components::item_list::show(ui, &state.items, &mut avatar_cache, &mut state.event);
+        },
+        ItemListHarness {
+            items: vec![sample_archived_stream_item()],
+            event: None,
+        },
+    );
+
+    harness.get_by_label("Unarchive").click();
+    harness.run();
+    assert!(matches!(
+        harness.state().event,
+        Some(StreamEvent::ItemAction(ItemAction::Archive(42, false)))
+    ));
+}
+
+#[test]
+fn item_list_hides_user_names_when_avatars_are_present() {
+    let harness = Harness::new_ui_state(
+        |ui, state: &mut ItemListHarness| {
+            let mut avatar_cache = components::author_avatar::AvatarCache::default();
+            components::item_list::show(ui, &state.items, &mut avatar_cache, &mut state.event);
+        },
+        ItemListHarness {
+            items: vec![sample_stream_item()],
+            event: None,
+        },
+    );
+
+    assert!(harness.query_by_label("octo").is_none());
+    assert!(harness.query_by_label("dev").is_none());
+    assert!(harness.query_by_label("triage").is_none());
+    assert!(harness.query_by_label("reviewer").is_none());
+}
+
+#[test]
+fn item_list_shows_labels_as_badges_without_heading() {
+    let harness = Harness::new_ui_state(
+        |ui, state: &mut ItemListHarness| {
+            let mut avatar_cache = components::author_avatar::AvatarCache::default();
+            components::item_list::show(ui, &state.items, &mut avatar_cache, &mut state.event);
+        },
+        ItemListHarness {
+            items: vec![sample_stream_item()],
+            event: None,
+        },
+    );
+
+    harness.get_by_label("enhancement");
+    assert!(harness.query_by_label("Labels: enhancement").is_none());
+    assert!(harness.query_by_label("Labels:").is_none());
+}
