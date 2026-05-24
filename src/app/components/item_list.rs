@@ -4,8 +4,6 @@ use super::{author_avatar, status_icon};
 use crate::app::screens::stream::{ItemAction, StreamEvent};
 use crate::models::{ItemPerson, ItemReview, StreamItem};
 
-const PERSON_AVATAR_SIZE: f32 = 20.0;
-
 pub fn show(
     ui: &mut egui::Ui,
     items: &[StreamItem],
@@ -57,8 +55,8 @@ fn draw_item(
         egui::RichText::new(&item.title)
     };
     ui.heading(title);
-    ui.horizontal_wrapped(|ui| {
-        let avatar_size = author_avatar::size_for_ui(ui);
+    let avatar_size = author_avatar::size_for_ui(ui);
+    ui.horizontal(|ui| {
         if let Some(author) = &item.author_login {
             author_avatar::show(
                 ui,
@@ -83,7 +81,7 @@ fn draw_item(
         }
         ui.label(format!("{} comments", item.comment_count));
     });
-    metadata_rows(ui, item, avatar_cache);
+    metadata_rows(ui, item, avatar_cache, avatar_size);
     action_buttons(ui, item, event);
 }
 
@@ -91,25 +89,31 @@ fn metadata_rows(
     ui: &mut egui::Ui,
     item: &StreamItem,
     avatar_cache: &mut author_avatar::AvatarCache,
+    avatar_size: f32,
 ) {
-    if !item.review_requests.is_empty() || !item.reviewers.is_empty() {
-        ui.horizontal_wrapped(|ui| {
-            ui.label("Reviewers:");
-            let reviewed_logins = item
-                .reviewers
-                .iter()
-                .map(|review| review.login.as_str())
-                .collect::<std::collections::BTreeSet<_>>();
-            for reviewer in &item.review_requests {
-                if reviewed_logins.contains(reviewer.login.as_str()) {
-                    continue;
+    let has_reviewers = !item.review_requests.is_empty() || !item.reviewers.is_empty();
+    if has_reviewers {
+        let row_height = avatar_size;
+        ui.allocate_ui_with_layout(
+            egui::vec2(ui.available_width(), row_height),
+            egui::Layout::right_to_left(egui::Align::Center),
+            |ui| {
+                let reviewed_logins = item
+                    .reviewers
+                    .iter()
+                    .map(|r| r.login.as_str())
+                    .collect::<std::collections::BTreeSet<_>>();
+                for reviewer in item.reviewers.iter().rev() {
+                    show_review_chip(ui, avatar_cache, reviewer, avatar_size);
                 }
-                show_person_chip(ui, avatar_cache, reviewer, Some("requested"));
-            }
-            for reviewer in &item.reviewers {
-                show_review_chip(ui, avatar_cache, reviewer);
-            }
-        });
+                for req in item.review_requests.iter().rev() {
+                    if !reviewed_logins.contains(req.login.as_str()) {
+                        show_person_chip(ui, avatar_cache, req, Some("requested"), avatar_size);
+                    }
+                }
+                ui.label(egui::RichText::new("←").weak());
+            },
+        );
     }
     if !item.labels.is_empty() {
         ui.label(format!("Labels: {}", item.labels.join(", ")));
@@ -200,41 +204,39 @@ fn show_person_chip(
     avatar_cache: &mut author_avatar::AvatarCache,
     person: &ItemPerson,
     review_state: Option<&str>,
+    size: f32,
 ) {
-    ui.horizontal(|ui| {
-        let response = author_avatar::show_sized(
-            ui,
-            avatar_cache,
-            person.avatar_url.as_deref(),
-            Some(person.login.as_str()),
-            PERSON_AVATAR_SIZE,
-        )
-        .on_hover_text(match review_state {
-            Some(state) => format!("{} ({state})", person.login),
-            None => person.login.clone(),
-        });
-        if let Some(state) = review_state {
-            paint_review_badge(ui, response.rect, state);
-        }
+    let response = author_avatar::show_sized(
+        ui,
+        avatar_cache,
+        person.avatar_url.as_deref(),
+        Some(person.login.as_str()),
+        size,
+    )
+    .on_hover_text(match review_state {
+        Some(state) => format!("{} ({state})", person.login),
+        None => person.login.clone(),
     });
+    if let Some(state) = review_state {
+        paint_review_badge(ui, response.rect, state);
+    }
 }
 
 fn show_review_chip(
     ui: &mut egui::Ui,
     avatar_cache: &mut author_avatar::AvatarCache,
     review: &ItemReview,
+    size: f32,
 ) {
-    ui.horizontal(|ui| {
-        let response = author_avatar::show_sized(
-            ui,
-            avatar_cache,
-            review.avatar_url.as_deref(),
-            Some(review.login.as_str()),
-            PERSON_AVATAR_SIZE,
-        )
-        .on_hover_text(format!("{} ({})", review.login, review.state));
-        paint_review_badge(ui, response.rect, &review.state);
-    });
+    let response = author_avatar::show_sized(
+        ui,
+        avatar_cache,
+        review.avatar_url.as_deref(),
+        Some(review.login.as_str()),
+        size,
+    )
+    .on_hover_text(format!("{} ({})", review.login, review.state));
+    paint_review_badge(ui, response.rect, &review.state);
 }
 
 fn paint_review_badge(ui: &egui::Ui, avatar_rect: egui::Rect, review_state: &str) {
