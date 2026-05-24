@@ -13,8 +13,16 @@ pub fn show(ui: &mut egui::Ui, items: &[StreamItem], event: &mut Option<StreamEv
 
     egui::ScrollArea::vertical().show(ui, |ui| {
         for item in items {
-            draw_item(ui, item, event);
-            ui.separator();
+            let frame = egui::Frame::group(ui.style())
+                .fill(item_background_fill(ui.visuals(), item.is_unread))
+                .stroke(item_background_stroke(ui.visuals(), item.is_unread));
+            frame.show(ui, |ui| {
+                let available_width = ui.available_width();
+                ui.set_min_width(available_width);
+                ui.set_width(available_width);
+                draw_item(ui, item, event);
+            });
+            ui.add_space(6.0);
         }
     });
 }
@@ -22,13 +30,23 @@ pub fn show(ui: &mut egui::Ui, items: &[StreamItem], event: &mut Option<StreamEv
 fn draw_item(ui: &mut egui::Ui, item: &StreamItem, event: &mut Option<StreamEvent>) {
     ui.horizontal(|ui| {
         let unread_marker = if item.is_unread { "Unread" } else { "Read" };
+        let unread_marker = if item.is_unread {
+            egui::RichText::new(unread_marker).strong()
+        } else {
+            egui::RichText::new(unread_marker).weak()
+        };
         ui.label(unread_marker);
         ui.label(item.item_type.label());
         ui.label(format!("#{}", item.number));
         ui.label(item.state.as_str());
         ui.label(item.updated_at_github.as_str());
     });
-    ui.heading(&item.title);
+    let title = if item.is_unread {
+        egui::RichText::new(&item.title).strong()
+    } else {
+        egui::RichText::new(&item.title)
+    };
+    ui.heading(title);
     ui.horizontal_wrapped(|ui| {
         ui.label(item.repository_full_name());
         if let Some(author) = &item.author_login {
@@ -104,5 +122,56 @@ fn open_button(ui: &mut egui::Ui, item: &StreamItem, event: &mut Option<StreamEv
         *event = Some(StreamEvent::ItemAction(ItemAction::Open(
             item.html_url.clone(),
         )));
+    }
+}
+
+fn item_background_fill(visuals: &egui::Visuals, is_unread: bool) -> egui::Color32 {
+    if is_unread {
+        visuals.selection.bg_fill.gamma_multiply(0.22)
+    } else if visuals.dark_mode {
+        visuals.panel_fill.gamma_multiply(1.18)
+    } else {
+        visuals.panel_fill.gamma_multiply(0.97)
+    }
+}
+
+fn item_background_stroke(visuals: &egui::Visuals, is_unread: bool) -> egui::Stroke {
+    let color = if is_unread {
+        visuals.selection.bg_fill.gamma_multiply(0.55)
+    } else {
+        visuals
+            .widgets
+            .noninteractive
+            .bg_stroke
+            .color
+            .gamma_multiply(0.45)
+    };
+    egui::Stroke::new(1.0, color)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{item_background_fill, item_background_stroke};
+    use eframe::egui;
+
+    #[test]
+    fn unread_backgrounds_are_distinct_in_both_themes() {
+        for visuals in [egui::Visuals::light(), egui::Visuals::dark()] {
+            let unread_fill = item_background_fill(&visuals, true);
+            let read_fill = item_background_fill(&visuals, false);
+
+            assert_ne!(unread_fill, read_fill);
+            assert_ne!(unread_fill, visuals.panel_fill);
+        }
+    }
+
+    #[test]
+    fn unread_strokes_use_accent_color() {
+        for visuals in [egui::Visuals::light(), egui::Visuals::dark()] {
+            let unread_stroke = item_background_stroke(&visuals, true);
+            let read_stroke = item_background_stroke(&visuals, false);
+
+            assert_ne!(unread_stroke.color, read_stroke.color);
+        }
     }
 }
