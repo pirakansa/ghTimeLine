@@ -177,3 +177,98 @@ fn decode_avatar_impl(bytes: &[u8]) -> Result<egui::ColorImage, String> {
         &pixels,
     ))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn enqueue_job_queues_when_worker_channel_is_full() {
+        let (job_tx, job_rx) = mpsc::sync_channel::<FetchJob>(1);
+        let (_result_tx, result_rx) = mpsc::channel();
+        let mut cache = AvatarCache {
+            entries: HashMap::new(),
+            pending_jobs: VecDeque::new(),
+            job_tx: Some(job_tx),
+            result_rx: Some(result_rx),
+        };
+
+        cache.enqueue_job(test_job("first"));
+        cache.enqueue_job(test_job("second"));
+
+        assert_eq!(job_rx.try_recv().expect("queued job").url, "first");
+        assert_eq!(cache.pending_jobs.len(), 1);
+        assert_eq!(
+            cache.pending_jobs.front().expect("pending job").url,
+            "second"
+        );
+    }
+
+    #[test]
+    fn flush_pending_jobs_sends_jobs_after_capacity_is_available() {
+        let (job_tx, job_rx) = mpsc::sync_channel::<FetchJob>(1);
+        let (_result_tx, result_rx) = mpsc::channel();
+        let mut cache = AvatarCache {
+            entries: HashMap::new(),
+            pending_jobs: VecDeque::new(),
+            job_tx: Some(job_tx),
+            result_rx: Some(result_rx),
+        };
+
+        cache.enqueue_job(test_job("first"));
+        cache.enqueue_job(test_job("second"));
+        assert_eq!(job_rx.try_recv().expect("first job").url, "first");
+
+        cache.flush_pending_jobs();
+
+        assert!(cache.pending_jobs.is_empty());
+        assert_eq!(job_rx.try_recv().expect("flushed job").url, "second");
+    }
+
+    #[test]
+    fn poll_applies_success_and_failure_results_to_cache_entries() {
+        let (job_tx, _job_rx) = mpsc::sync_channel::<FetchJob>(1);
+        let (result_tx, result_rx) = mpsc::channel();
+        let mut cache = AvatarCache {
+            entries: HashMap::new(),
+            pending_jobs: VecDeque::new(),
+            job_tx: Some(job_tx),
+            result_rx: Some(result_rx),
+        };
+
+        result_tx
+            .send(AvatarResult {
+                url: "https://example.test/success.png".to_owned(),
+                image: Ok(egui::ColorImage::from_rgba_unmultiplied(
+                    [1, 1],
+                    &[255, 255, 255, 255],
+                )),
+            })
+            .expect("send success result");
+        result_tx
+            .send(AvatarResult {
+                url: "https://example.test/failure.png".to_owned(),
+                image: Err("boom".to_owned()),
+            })
+            .expect("send failure result");
+
+        let ctx = egui::Context::default();
+        cache.poll(&ctx);
+
+        assert!(matches!(
+            cache.entries.get("https://example.test/success.png"),
+            Some(CacheEntry::Ready(_))
+        ));
+        assert!(matches!(
+            cache.entries.get("https://example.test/failure.png"),
+            Some(CacheEntry::Failed)
+        ));
+    }
+
+    fn test_job(url: &str) -> FetchJob {
+        FetchJob {
+            url: url.to_owned(),
+            repaint_ctx: egui::Context::default(),
+        }
+    }
+}

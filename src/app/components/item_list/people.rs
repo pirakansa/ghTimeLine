@@ -126,3 +126,42 @@ fn show_review_chip(
     .on_hover_text(format!("{} ({})", review.login, review.state));
     badges::paint_review_badge(ui, response.rect, &review.state);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{is_reviewed_login, reviewed_logins};
+    use crate::models::{ItemPerson, ItemReview};
+
+    #[test]
+    fn reviewed_logins_is_skipped_when_requests_or_reviews_are_empty() {
+        let reviewers = vec![ItemReview {
+            login: "reviewer".to_owned(),
+            avatar_url: None,
+            state: "approved".to_owned(),
+        }];
+
+        assert!(reviewed_logins(&reviewers, &[]).is_none());
+        assert!(reviewed_logins(&[], &[sample_request("reviewer")]).is_none());
+    }
+
+    #[test]
+    fn reviewed_logins_marks_overlapping_requests_as_already_reviewed() {
+        let reviewers = vec![ItemReview {
+            login: "reviewer".to_owned(),
+            avatar_url: None,
+            state: "approved".to_owned(),
+        }];
+        let requests = vec![sample_request("reviewer"), sample_request("new-reviewer")];
+        let reviewed = reviewed_logins(&reviewers, &requests);
+
+        assert!(is_reviewed_login(reviewed.as_ref(), "reviewer"));
+        assert!(!is_reviewed_login(reviewed.as_ref(), "new-reviewer"));
+    }
+
+    fn sample_request(login: &str) -> ItemPerson {
+        ItemPerson {
+            login: login.to_owned(),
+            avatar_url: None,
+        }
+    }
+}

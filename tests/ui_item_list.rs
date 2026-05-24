@@ -99,3 +99,39 @@ fn item_list_shows_labels_as_badges_without_heading() {
     assert!(harness.query_by_label("Labels: enhancement").is_none());
     assert!(harness.query_by_label("Labels:").is_none());
 }
+
+#[test]
+fn item_list_keeps_comment_count_and_reviewer_row_visible() {
+    let harness = Harness::new_ui_state(
+        |ui, state: &mut ItemListHarness| {
+            let mut avatar_cache = components::author_avatar::AvatarCache::default();
+            components::item_list::show(ui, &state.items, &mut avatar_cache, &mut state.event);
+        },
+        ItemListHarness {
+            items: vec![sample_stream_item()],
+            event: None,
+        },
+    );
+
+    harness.get_by_label("5");
+    harness.get_by_label("←");
+}
+
+#[test]
+fn item_list_shows_requested_reviewer_row_without_completed_reviews() {
+    let mut item = sample_stream_item();
+    item.reviewers.clear();
+
+    let harness = Harness::new_ui_state(
+        |ui, state: &mut ItemListHarness| {
+            let mut avatar_cache = components::author_avatar::AvatarCache::default();
+            components::item_list::show(ui, &state.items, &mut avatar_cache, &mut state.event);
+        },
+        ItemListHarness {
+            items: vec![item],
+            event: None,
+        },
+    );
+
+    harness.get_by_label("←");
+}
