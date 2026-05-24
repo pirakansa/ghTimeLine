@@ -66,7 +66,6 @@ fn draw_item(
                 Some(author.as_str()),
             )
             .on_hover_text(author);
-            ui.label(author);
         }
         ui.label(format!("{} comments", item.comment_count));
         if let Some(review_status) = &item.review_status {
@@ -214,7 +213,6 @@ fn show_person_chip(
         if let Some(state) = review_state {
             paint_review_badge(ui, response.rect, state);
         }
-        ui.label(&person.login);
     });
 }
 
@@ -233,7 +231,6 @@ fn show_review_chip(
         )
         .on_hover_text(format!("{} ({})", review.login, review.state));
         paint_review_badge(ui, response.rect, &review.state);
-        ui.label(&review.login);
     });
 }
 

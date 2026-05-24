@@ -255,6 +255,27 @@ fn item_list_action_buttons_emit_item_events() {
     ));
 }
 
+#[test]
+fn item_list_hides_user_names_when_avatars_are_present() {
+    let harness = Harness::new_ui_state(
+        |ui, state: &mut ItemListHarness| {
+            let mut avatar_cache = components::author_avatar::AvatarCache::default();
+            components::item_list::show(ui, &state.items, &mut avatar_cache, &mut state.event);
+        },
+        ItemListHarness {
+            items: vec![sample_stream_item()],
+            event: None,
+        },
+    );
+
+    assert!(harness.query_by_label("octo").is_none());
+    assert!(harness.query_by_label("dev").is_none());
+    assert!(harness.query_by_label("triage").is_none());
+    assert!(harness.query_by_label("reviewer").is_none());
+    harness.get_by_label("Assignees:");
+    harness.get_by_label("Reviewers:");
+}
+
 struct ToolbarHarness {
     stream: StreamState,
     config: AppConfig,
