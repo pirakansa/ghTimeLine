@@ -26,12 +26,13 @@ pub fn show(
             let frame = egui::Frame::group(ui.style())
                 .fill(styles::item_background_fill(ui.visuals(), item.is_unread))
                 .stroke(styles::item_background_stroke(ui.visuals(), item.is_unread));
-            frame.show(ui, |ui| {
+            let response = frame.show(ui, |ui| {
                 let available_width = ui.available_width();
                 ui.set_min_width(available_width);
                 ui.set_width(available_width);
                 show_item_card(ui, item, avatar_cache, event);
             });
+            open_item_if_card_clicked(ui, item, response.response.rect, event);
             ui.add_space(6.0);
         }
     });
@@ -143,10 +144,46 @@ fn archive_button(ui: &mut egui::Ui, item: &StreamItem, event: &mut Option<Strea
 
 fn open_button(ui: &mut egui::Ui, item: &StreamItem, event: &mut Option<StreamEvent>) {
     if ui.button("Open").clicked() {
-        *event = Some(StreamEvent::ItemAction(ItemAction::Open(
-            item.html_url.clone(),
-        )));
+        open_item(item, event);
     }
+}
+
+fn open_item_if_card_clicked(
+    ui: &egui::Ui,
+    item: &StreamItem,
+    card_rect: egui::Rect,
+    event: &mut Option<StreamEvent>,
+) {
+    let (is_hovered, is_clicked) = ui.input(|input| {
+        let contains_pointer = input
+            .pointer
+            .hover_pos()
+            .is_some_and(|position| card_rect.contains(position));
+        let contains_click = input
+            .pointer
+            .interact_pos()
+            .is_some_and(|position| card_rect.contains(position));
+
+        (
+            contains_pointer,
+            input.pointer.primary_clicked() && contains_click,
+        )
+    });
+
+    if is_hovered {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+    }
+
+    if is_clicked && event.is_none() {
+        open_item(item, event);
+    }
+}
+
+fn open_item(item: &StreamItem, event: &mut Option<StreamEvent>) {
+    *event = Some(StreamEvent::ItemAction(ItemAction::Open {
+        id: item.id,
+        url: item.html_url.clone(),
+    }));
 }
 
 #[cfg(test)]

@@ -58,7 +58,7 @@ pub enum ItemAction {
     MarkUnread(i64),
     Bookmark(i64, bool),
     Archive(i64, bool),
-    Open(String),
+    Open { id: i64, url: String },
 }
 
 pub fn show(

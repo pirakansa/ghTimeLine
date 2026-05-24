@@ -64,6 +64,28 @@ fn item_list_action_buttons_emit_item_events() {
 }
 
 #[test]
+fn item_list_item_click_emits_open_event() {
+    let mut harness = Harness::new_ui_state(
+        |ui, state: &mut ItemListHarness| {
+            let mut avatar_cache = components::author_avatar::AvatarCache::default();
+            components::item_list::show(ui, &state.items, &mut avatar_cache, &mut state.event);
+        },
+        ItemListHarness {
+            items: vec![sample_stream_item()],
+            event: None,
+        },
+    );
+
+    harness.get_by_label("Improve stream").click();
+    harness.run();
+    assert!(matches!(
+        &harness.state().event,
+        Some(StreamEvent::ItemAction(ItemAction::Open { id: 42, url }))
+            if url == "https://github.example.test/owner/repo/pull/7"
+    ));
+}
+
+#[test]
 fn item_list_hides_user_names_when_avatars_are_present() {
     let harness = Harness::new_ui_state(
         |ui, state: &mut ItemListHarness| {
