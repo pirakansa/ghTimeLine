@@ -39,9 +39,6 @@ pub fn show(
             if ui.button("Back").clicked() {
                 state.saved_query_manager.open = false;
             }
-            if ui.button("New").clicked() {
-                clear_query_draft(&mut state.saved_query_manager);
-            }
         });
     });
 
@@ -81,7 +78,16 @@ fn saved_query_list(
     saved_queries: &[SavedQuery],
 ) {
     ui.vertical(|ui| {
-        ui.heading("Queries");
+        ui.horizontal(|ui| {
+            ui.heading("Queries");
+            if ui
+                .small_button("+")
+                .on_hover_text("New saved query")
+                .clicked()
+            {
+                clear_query_draft(state);
+            }
+        });
         ui.add_space(6.0);
         egui::ScrollArea::vertical()
             .id_salt("saved-query-manager-list")

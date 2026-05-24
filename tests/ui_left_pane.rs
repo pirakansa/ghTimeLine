@@ -126,3 +126,36 @@ fn saved_query_manager_saves_enabled_state_with_changes() {
         None => panic!("expected query update event"),
     }
 }
+
+#[test]
+fn saved_query_manager_new_button_is_next_to_queries_heading() {
+    let saved_queries = vec![sample_saved_query()];
+    let mut stream = StreamState::default();
+    stream.selection = Selection::SavedQuery(7);
+    saved_query_manager::open(&mut stream, &saved_queries);
+
+    let mut harness = Harness::new_state(
+        |ctx, state: &mut StreamHarness| {
+            saved_query_manager::show(
+                ctx,
+                &mut state.stream,
+                &state.saved_queries,
+                &mut state.event,
+            );
+        },
+        StreamHarness {
+            stream,
+            saved_queries,
+            event: None,
+        },
+    );
+
+    harness.get_by_label("Queries");
+    assert!(harness.query_by_label("New").is_none());
+
+    harness.get_by_label("+").click();
+    harness.run();
+
+    harness.get_by_label("New query");
+    assert!(harness.state().event.is_none());
+}
