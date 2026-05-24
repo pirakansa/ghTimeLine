@@ -68,9 +68,6 @@ fn draw_item(
             .on_hover_text(author);
         }
         ui.label(format!("{} comments", item.comment_count));
-        if let Some(review_status) = &item.review_status {
-            ui.label(format!("review: {review_status}"));
-        }
     });
     metadata_rows(ui, item, avatar_cache);
     action_buttons(ui, item, event);
