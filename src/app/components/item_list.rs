@@ -1,5 +1,6 @@
 use eframe::egui;
 
+use super::status_icon;
 use crate::app::screens::stream::{ItemAction, StreamEvent};
 use crate::models::StreamItem;
 
@@ -29,9 +30,9 @@ pub fn show(ui: &mut egui::Ui, items: &[StreamItem], event: &mut Option<StreamEv
 
 fn draw_item(ui: &mut egui::Ui, item: &StreamItem, event: &mut Option<StreamEvent>) {
     ui.horizontal(|ui| {
-        ui.label(item.item_type.label());
+        let icon = status_icon::StatusIcon::for_item(item);
+        status_icon::show(ui, icon).on_hover_text(icon.label());
         ui.label(format!("#{}", item.number));
-        ui.label(item.state.as_str());
         ui.label(item.updated_at_github.as_str());
     });
     let title = if item.is_unread {
