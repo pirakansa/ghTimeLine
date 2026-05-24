@@ -1,5 +1,5 @@
 use gh_stream_listner::models::{
-    AppConfig, HostKind, ItemType, LibraryView, SortOrder, StreamFilter,
+    AppConfig, HostKind, ItemPerson, ItemReview, ItemType, LibraryView, SortOrder, StreamFilter,
 };
 use gh_stream_listner::storage::items::StreamItemUpsert;
 use gh_stream_listner::storage::Storage;
@@ -34,6 +34,9 @@ fn item_state_survives_metadata_upsert() {
     assert_eq!(items[0].title, "Updated title");
     assert!(!items[0].is_unread);
     assert!(items[0].is_bookmarked);
+    assert_eq!(items[0].assignees[0].login, "dev");
+    assert_eq!(items[0].review_requests[0].login, "triage");
+    assert_eq!(items[0].reviewers[0].state, "approved");
 }
 
 #[test]
@@ -186,6 +189,18 @@ fn sample_item(host_id: i64) -> StreamItemUpsert {
         closed_at_github: None,
         merged_at_github: None,
         labels: vec!["bug".to_owned()],
-        assignees: vec!["dev".to_owned()],
+        assignees: vec![ItemPerson {
+            login: "dev".to_owned(),
+            avatar_url: Some("https://avatars.githubusercontent.com/u/2?v=4".to_owned()),
+        }],
+        review_requests: vec![ItemPerson {
+            login: "triage".to_owned(),
+            avatar_url: Some("https://avatars.githubusercontent.com/u/3?v=4".to_owned()),
+        }],
+        reviewers: vec![ItemReview {
+            login: "reviewer".to_owned(),
+            avatar_url: Some("https://avatars.githubusercontent.com/u/4?v=4".to_owned()),
+            state: "approved".to_owned(),
+        }],
     }
 }

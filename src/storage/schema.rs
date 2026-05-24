@@ -2,22 +2,41 @@ use rusqlite::Connection;
 
 use super::Result;
 
-pub const SCHEMA_VERSION: i64 = 2;
+pub const SCHEMA_VERSION: i64 = 3;
 
 pub fn migrate(connection: &Connection) -> Result<()> {
     let version =
         connection.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))?;
     if version == 0 {
-        connection.execute_batch(V2_SCHEMA)?;
+        connection.execute_batch(V3_SCHEMA)?;
         connection.pragma_update(None, "user_version", SCHEMA_VERSION)?;
-    } else if version < 2 {
-        connection.execute_batch("ALTER TABLE stream_items ADD COLUMN author_avatar_url TEXT;")?;
+    } else {
+        if !column_exists(connection, "stream_items", "author_avatar_url")? {
+            connection
+                .execute_batch("ALTER TABLE stream_items ADD COLUMN author_avatar_url TEXT;")?;
+        }
+        if !column_exists(connection, "stream_item_assignees", "avatar_url")? {
+            connection
+                .execute_batch("ALTER TABLE stream_item_assignees ADD COLUMN avatar_url TEXT;")?;
+        }
+        connection.execute_batch(V3_INCREMENTAL_SCHEMA)?;
         connection.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     }
     Ok(())
 }
 
-const V2_SCHEMA: &str = r#"
+fn column_exists(connection: &Connection, table: &str, column: &str) -> Result<bool> {
+    let mut statement = connection.prepare(&format!("PRAGMA table_info({table})"))?;
+    let mut rows = statement.query([])?;
+    while let Some(row) = rows.next()? {
+        if row.get::<_, String>(1)? == column {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+const V3_SCHEMA: &str = r#"
 CREATE TABLE hosts (
     id INTEGER PRIMARY KEY,
     fingerprint TEXT NOT NULL UNIQUE,
@@ -107,6 +126,21 @@ CREATE TABLE stream_item_assignees (
     PRIMARY KEY (stream_item_id, login)
 );
 
+CREATE TABLE stream_item_review_requests (
+    stream_item_id INTEGER NOT NULL REFERENCES stream_items(id) ON DELETE CASCADE,
+    login TEXT NOT NULL,
+    avatar_url TEXT,
+    PRIMARY KEY (stream_item_id, login)
+);
+
+CREATE TABLE stream_item_reviews (
+    stream_item_id INTEGER NOT NULL REFERENCES stream_items(id) ON DELETE CASCADE,
+    login TEXT NOT NULL,
+    avatar_url TEXT,
+    state TEXT NOT NULL CHECK (state IN ('approved', 'changes_requested', 'commented')),
+    PRIMARY KEY (stream_item_id, login)
+);
+
 CREATE TABLE saved_query_matches (
     saved_query_id INTEGER NOT NULL REFERENCES saved_queries(id) ON DELETE CASCADE,
     stream_item_id INTEGER NOT NULL REFERENCES stream_items(id) ON DELETE CASCADE,
@@ -142,4 +176,21 @@ CREATE INDEX idx_saved_query_matches_item
 
 CREATE INDEX idx_item_state_flags
     ON item_state(is_archived, is_unread, is_bookmarked);
+"#;
+
+const V3_INCREMENTAL_SCHEMA: &str = r#"
+CREATE TABLE IF NOT EXISTS stream_item_review_requests (
+    stream_item_id INTEGER NOT NULL REFERENCES stream_items(id) ON DELETE CASCADE,
+    login TEXT NOT NULL,
+    avatar_url TEXT,
+    PRIMARY KEY (stream_item_id, login)
+);
+
+CREATE TABLE IF NOT EXISTS stream_item_reviews (
+    stream_item_id INTEGER NOT NULL REFERENCES stream_items(id) ON DELETE CASCADE,
+    login TEXT NOT NULL,
+    avatar_url TEXT,
+    state TEXT NOT NULL CHECK (state IN ('approved', 'changes_requested', 'commented')),
+    PRIMARY KEY (stream_item_id, login)
+);
 "#;

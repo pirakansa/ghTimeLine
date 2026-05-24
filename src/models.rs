@@ -331,6 +331,19 @@ impl ItemType {
     }
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ItemPerson {
+    pub login: String,
+    pub avatar_url: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ItemReview {
+    pub login: String,
+    pub avatar_url: Option<String>,
+    pub state: String,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StreamItem {
     pub id: i64,
@@ -349,7 +362,9 @@ pub struct StreamItem {
     pub comment_count: i64,
     pub updated_at_github: String,
     pub labels: Vec<String>,
-    pub assignees: Vec<String>,
+    pub assignees: Vec<ItemPerson>,
+    pub review_requests: Vec<ItemPerson>,
+    pub reviewers: Vec<ItemReview>,
     pub is_unread: bool,
     pub is_bookmarked: bool,
     pub is_archived: bool,

@@ -1,5 +1,5 @@
 use crate::github::{client, GitHubError};
-use crate::models::{HostConfig, ItemType, SortOrder};
+use crate::models::{HostConfig, ItemPerson, ItemType, SortOrder};
 use crate::storage::items::StreamItemUpsert;
 
 const SEARCH_PER_PAGE: u16 = 50;
@@ -106,8 +106,13 @@ fn search_item_to_upsert(
         assignees: item
             .assignees
             .into_iter()
-            .map(|assignee| assignee.login)
+            .map(|assignee| ItemPerson {
+                login: assignee.login,
+                avatar_url: assignee.avatar_url,
+            })
             .collect(),
+        review_requests: Vec::new(),
+        reviewers: Vec::new(),
     })
 }
 
@@ -198,7 +203,10 @@ mod tests {
                 "labels": [{ "name": "enhancement" }],
                 "state": "open",
                 "locked": false,
-                "assignees": [{ "login": "dev" }],
+                "assignees": [{
+                    "login": "dev",
+                    "avatar_url": "https://avatars.githubusercontent.com/u/2?v=4"
+                }],
                 "comments": 5,
                 "created_at": "2026-05-22T00:00:00Z",
                 "updated_at": "2026-05-23T00:00:00Z",
@@ -220,6 +228,12 @@ mod tests {
             Some("https://avatars.githubusercontent.com/u/1?v=4")
         );
         assert_eq!(items[0].labels, vec!["enhancement"]);
-        assert_eq!(items[0].assignees, vec!["dev"]);
+        assert_eq!(
+            items[0].assignees,
+            vec![ItemPerson {
+                login: "dev".to_owned(),
+                avatar_url: Some("https://avatars.githubusercontent.com/u/2?v=4".to_owned())
+            }]
+        );
     }
 }

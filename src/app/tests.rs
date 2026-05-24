@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::models::{AppConfig, ItemType, LibraryView, Selection, SortOrder, StreamFilter};
+use crate::models::{
+    AppConfig, ItemPerson, ItemReview, ItemType, LibraryView, Selection, SortOrder, StreamFilter,
+};
 use crate::storage::items::StreamItemUpsert;
 
 use super::*;
@@ -141,7 +143,19 @@ fn sample_item(host_id: i64) -> StreamItemUpsert {
         closed_at_github: None,
         merged_at_github: None,
         labels: vec!["bug".to_owned()],
-        assignees: vec!["dev".to_owned()],
+        assignees: vec![ItemPerson {
+            login: "dev".to_owned(),
+            avatar_url: Some("https://avatars.githubusercontent.com/u/2?v=4".to_owned()),
+        }],
+        review_requests: vec![ItemPerson {
+            login: "triage".to_owned(),
+            avatar_url: Some("https://avatars.githubusercontent.com/u/3?v=4".to_owned()),
+        }],
+        reviewers: vec![ItemReview {
+            login: "reviewer".to_owned(),
+            avatar_url: Some("https://avatars.githubusercontent.com/u/4?v=4".to_owned()),
+            state: "approved".to_owned(),
+        }],
     }
 }
 

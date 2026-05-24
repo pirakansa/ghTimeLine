@@ -235,6 +235,8 @@ mod tests {
             updated_at_github: "2026-05-23T00:00:00Z".to_owned(),
             labels: Vec::new(),
             assignees: Vec::new(),
+            review_requests: Vec::new(),
+            reviewers: Vec::new(),
             is_unread: true,
             is_bookmarked: false,
             is_archived: false,

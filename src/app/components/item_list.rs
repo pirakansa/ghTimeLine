@@ -2,7 +2,9 @@ use eframe::egui;
 
 use super::{author_avatar, status_icon};
 use crate::app::screens::stream::{ItemAction, StreamEvent};
-use crate::models::StreamItem;
+use crate::models::{ItemPerson, ItemReview, StreamItem};
+
+const PERSON_AVATAR_SIZE: f32 = 20.0;
 
 pub fn show(
     ui: &mut egui::Ui,
@@ -71,13 +73,41 @@ fn draw_item(
             ui.label(format!("review: {review_status}"));
         }
     });
-    metadata_rows(ui, item);
+    metadata_rows(ui, item, avatar_cache);
     action_buttons(ui, item, event);
 }
 
-fn metadata_rows(ui: &mut egui::Ui, item: &StreamItem) {
+fn metadata_rows(
+    ui: &mut egui::Ui,
+    item: &StreamItem,
+    avatar_cache: &mut author_avatar::AvatarCache,
+) {
     if !item.assignees.is_empty() {
-        ui.label(format!("Assignees: {}", item.assignees.join(", ")));
+        ui.horizontal_wrapped(|ui| {
+            ui.label("Assignees:");
+            for assignee in &item.assignees {
+                show_person_chip(ui, avatar_cache, assignee, None);
+            }
+        });
+    }
+    if !item.review_requests.is_empty() || !item.reviewers.is_empty() {
+        ui.horizontal_wrapped(|ui| {
+            ui.label("Reviewers:");
+            let reviewed_logins = item
+                .reviewers
+                .iter()
+                .map(|review| review.login.as_str())
+                .collect::<std::collections::BTreeSet<_>>();
+            for reviewer in &item.review_requests {
+                if reviewed_logins.contains(reviewer.login.as_str()) {
+                    continue;
+                }
+                show_person_chip(ui, avatar_cache, reviewer, Some("requested"));
+            }
+            for reviewer in &item.reviewers {
+                show_review_chip(ui, avatar_cache, reviewer);
+            }
+        });
     }
     if !item.labels.is_empty() {
         ui.label(format!("Labels: {}", item.labels.join(", ")));
@@ -161,6 +191,143 @@ fn item_background_stroke(visuals: &egui::Visuals, is_unread: bool) -> egui::Str
             .gamma_multiply(0.45)
     };
     egui::Stroke::new(1.0, color)
+}
+
+fn show_person_chip(
+    ui: &mut egui::Ui,
+    avatar_cache: &mut author_avatar::AvatarCache,
+    person: &ItemPerson,
+    review_state: Option<&str>,
+) {
+    ui.horizontal(|ui| {
+        let response = author_avatar::show_sized(
+            ui,
+            avatar_cache,
+            person.avatar_url.as_deref(),
+            Some(person.login.as_str()),
+            PERSON_AVATAR_SIZE,
+        )
+        .on_hover_text(match review_state {
+            Some(state) => format!("{} ({state})", person.login),
+            None => person.login.clone(),
+        });
+        if let Some(state) = review_state {
+            paint_review_badge(ui, response.rect, state);
+        }
+        ui.label(&person.login);
+    });
+}
+
+fn show_review_chip(
+    ui: &mut egui::Ui,
+    avatar_cache: &mut author_avatar::AvatarCache,
+    review: &ItemReview,
+) {
+    ui.horizontal(|ui| {
+        let response = author_avatar::show_sized(
+            ui,
+            avatar_cache,
+            review.avatar_url.as_deref(),
+            Some(review.login.as_str()),
+            PERSON_AVATAR_SIZE,
+        )
+        .on_hover_text(format!("{} ({})", review.login, review.state));
+        paint_review_badge(ui, response.rect, &review.state);
+        ui.label(&review.login);
+    });
+}
+
+fn paint_review_badge(ui: &egui::Ui, avatar_rect: egui::Rect, review_state: &str) {
+    let Some((fill, kind)) = review_badge_style(review_state) else {
+        return;
+    };
+    let radius = (avatar_rect.width() * 0.22).max(4.0);
+    let center = egui::pos2(avatar_rect.right() - radius, avatar_rect.bottom() - radius);
+    let painter = ui.painter();
+    painter.circle_filled(center, radius, fill);
+
+    let stroke = egui::Stroke::new((radius * 0.35).max(1.2), egui::Color32::WHITE);
+    match kind {
+        ReviewBadgeKind::Check => {
+            painter.line_segment(
+                [
+                    center + egui::vec2(-radius * 0.55, 0.0),
+                    center + egui::vec2(-radius * 0.15, radius * 0.4),
+                ],
+                stroke,
+            );
+            painter.line_segment(
+                [
+                    center + egui::vec2(-radius * 0.15, radius * 0.4),
+                    center + egui::vec2(radius * 0.6, -radius * 0.45),
+                ],
+                stroke,
+            );
+        }
+        ReviewBadgeKind::Exclamation => {
+            painter.line_segment(
+                [
+                    center + egui::vec2(0.0, -radius * 0.58),
+                    center + egui::vec2(0.0, radius * 0.1),
+                ],
+                stroke,
+            );
+            painter.circle_filled(
+                center + egui::vec2(0.0, radius * 0.55),
+                radius * 0.16,
+                egui::Color32::WHITE,
+            );
+        }
+        ReviewBadgeKind::Plus => {
+            painter.line_segment(
+                [
+                    center + egui::vec2(-radius * 0.55, 0.0),
+                    center + egui::vec2(radius * 0.55, 0.0),
+                ],
+                stroke,
+            );
+            painter.line_segment(
+                [
+                    center + egui::vec2(0.0, -radius * 0.55),
+                    center + egui::vec2(0.0, radius * 0.55),
+                ],
+                stroke,
+            );
+        }
+        ReviewBadgeKind::Dots => {
+            for offset in [-0.45_f32, 0.0, 0.45] {
+                painter.circle_filled(
+                    center + egui::vec2(radius * offset, 0.0),
+                    radius * 0.16,
+                    egui::Color32::WHITE,
+                );
+            }
+        }
+    }
+}
+
+fn review_badge_style(review_state: &str) -> Option<(egui::Color32, ReviewBadgeKind)> {
+    match review_state {
+        "approved" => Some((egui::Color32::from_rgb(31, 136, 61), ReviewBadgeKind::Check)),
+        "changes_requested" => Some((
+            egui::Color32::from_rgb(217, 119, 6),
+            ReviewBadgeKind::Exclamation,
+        )),
+        "commented" => Some((egui::Color32::from_rgb(9, 105, 218), ReviewBadgeKind::Plus)),
+        "requested" => Some((
+            egui::Color32::from_rgb(101, 109, 118),
+            ReviewBadgeKind::Dots,
+        )),
+        _ => None,
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ReviewBadgeKind {
+    Check,
+    Exclamation,
+    Plus,
+    Dots,
 }
 
 #[cfg(test)]

@@ -45,6 +45,14 @@ fn refresh_writes_rest_results_and_graphql_enrichment_to_storage() {
     assert_eq!(items[0].repository_full_name(), "acme/project");
     assert_eq!(items[0].review_status.as_deref(), Some("approved"));
     assert_eq!(items[0].is_merged, Some(true));
+    assert_eq!(items[0].assignees[0].login, "dev");
+    assert_eq!(
+        items[0].assignees[0].avatar_url.as_deref(),
+        Some("https://avatars.githubusercontent.com/u/2?v=4")
+    );
+    assert_eq!(items[0].review_requests[0].login, "triage");
+    assert_eq!(items[0].reviewers[0].login, "reviewer");
+    assert_eq!(items[0].reviewers[0].state, "approved");
     assert_eq!(
         items[0].updated_at_github,
         "2026-05-23T00:00:00Z".to_owned()
@@ -138,10 +146,16 @@ fn search_response() -> serde_json::Value {
             "node_id": "PR_kwDO",
             "number": 7,
             "title": "Improve stream",
-            "user": { "login": "octo" },
+            "user": {
+                "login": "octo",
+                "avatar_url": "https://avatars.githubusercontent.com/u/1?v=4"
+            },
             "labels": [{ "name": "enhancement" }],
             "state": "open",
-            "assignees": [{ "login": "dev" }],
+            "assignees": [{
+                "login": "dev",
+                "avatar_url": "https://avatars.githubusercontent.com/u/2?v=4"
+            }],
             "comments": 5,
             "created_at": "2026-05-22T00:00:00Z",
             "updated_at": "2026-05-23T00:00:00Z",
@@ -168,8 +182,25 @@ fn graphql_response(review_decision: &str, merged: bool) -> serde_json::Value {
                     serde_json::Value::Null
                 },
                 "reviewDecision": review_decision,
-                "reviewRequests": { "totalCount": 0 },
-                "latestReviews": { "nodes": [] }
+                "reviewRequests": {
+                    "totalCount": 1,
+                    "nodes": [{
+                        "requestedReviewer": {
+                            "login": "triage",
+                            "avatarUrl": "https://avatars.githubusercontent.com/u/3?v=4"
+                        }
+                    }]
+                },
+                "latestReviews": {
+                    "nodes": [{
+                        "state": "APPROVED",
+                        "author": {
+                            "login": "reviewer",
+                            "avatarUrl": "https://avatars.githubusercontent.com/u/4?v=4"
+                        },
+                        "submittedAt": "2026-05-24T00:00:00Z"
+                    }]
+                }
             }]
         }
     })

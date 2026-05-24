@@ -232,8 +232,8 @@ API strategy:
 - REST Search is the discovery source for issues and pull requests.
 - REST Search results are parsed into normalized stream item data.
 - Pull requests with node IDs are enriched through GraphQL.
-- GraphQL enrichment fills draft state, merge state, merged timestamp, and
-  review status when available.
+- GraphQL enrichment fills draft state, merge state, merged timestamp, review
+  status, and reviewer metadata when available.
 - Failed GraphQL enrichment must not prevent REST Search data from being stored
   or rendered.
 

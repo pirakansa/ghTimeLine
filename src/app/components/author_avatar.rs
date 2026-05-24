@@ -80,7 +80,16 @@ pub fn show(
     avatar_url: Option<&str>,
     login: Option<&str>,
 ) -> egui::Response {
-    let size = size_for_ui(ui);
+    show_sized(ui, cache, avatar_url, login, size_for_ui(ui))
+}
+
+pub fn show_sized(
+    ui: &mut egui::Ui,
+    cache: &mut AvatarCache,
+    avatar_url: Option<&str>,
+    login: Option<&str>,
+    size: f32,
+) -> egui::Response {
     let desired_size = egui::vec2(size, size);
 
     if let Some(url) = avatar_url {

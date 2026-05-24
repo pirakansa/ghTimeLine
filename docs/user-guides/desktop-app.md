@@ -145,8 +145,8 @@ views use the sort configured for that saved query.
 ## Item Actions
 
 Each list item shows the repository, item type, number, title, update time,
-unread state, author, assignees, review status when available, comment count,
-state, and labels.
+unread state, the author avatar, assignee avatars, reviewer avatars and review
+status when available, comment count, state, and labels.
 
 The list supports direct actions:
 

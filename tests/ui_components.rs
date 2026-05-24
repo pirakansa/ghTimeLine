@@ -6,7 +6,8 @@ use gh_stream_listner::app::screens::{
     stream::{ItemAction, StreamEvent, StreamState},
 };
 use gh_stream_listner::models::{
-    AppConfig, ItemType, LibraryCounts, SavedQuery, Selection, SortOrder, StreamItem,
+    AppConfig, ItemPerson, ItemReview, ItemType, LibraryCounts, SavedQuery, Selection, SortOrder,
+    StreamItem,
 };
 
 #[test]
@@ -296,7 +297,19 @@ fn sample_stream_item() -> StreamItem {
         comment_count: 5,
         updated_at_github: "2026-05-23T00:00:00Z".to_owned(),
         labels: vec!["enhancement".to_owned()],
-        assignees: vec!["dev".to_owned()],
+        assignees: vec![ItemPerson {
+            login: "dev".to_owned(),
+            avatar_url: Some("https://avatars.githubusercontent.com/u/2?v=4".to_owned()),
+        }],
+        review_requests: vec![ItemPerson {
+            login: "triage".to_owned(),
+            avatar_url: Some("https://avatars.githubusercontent.com/u/3?v=4".to_owned()),
+        }],
+        reviewers: vec![ItemReview {
+            login: "reviewer".to_owned(),
+            avatar_url: Some("https://avatars.githubusercontent.com/u/4?v=4".to_owned()),
+            state: "approved".to_owned(),
+        }],
         is_unread: true,
         is_bookmarked: false,
         is_archived: false,

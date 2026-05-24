@@ -1,7 +1,9 @@
 use chrono::Utc;
 use rusqlite::params;
 
-use crate::models::{ItemType, LibraryView, SortOrder, StreamFilter, StreamItem};
+use crate::models::{
+    ItemPerson, ItemReview, ItemType, LibraryView, SortOrder, StreamFilter, StreamItem,
+};
 
 use super::{Result, Storage};
 
@@ -28,7 +30,9 @@ pub struct StreamItemUpsert {
     pub closed_at_github: Option<String>,
     pub merged_at_github: Option<String>,
     pub labels: Vec<String>,
-    pub assignees: Vec<String>,
+    pub assignees: Vec<ItemPerson>,
+    pub review_requests: Vec<ItemPerson>,
+    pub reviewers: Vec<ItemReview>,
 }
 
 impl Storage {
@@ -113,6 +117,8 @@ impl Storage {
 
         self.replace_labels(id, &item.labels)?;
         self.replace_assignees(id, &item.assignees)?;
+        self.replace_review_requests(id, &item.review_requests)?;
+        self.replace_reviews(id, &item.reviewers)?;
 
         Ok(id)
     }
@@ -226,15 +232,55 @@ impl Storage {
         Ok(())
     }
 
-    fn replace_assignees(&self, stream_item_id: i64, assignees: &[String]) -> Result<()> {
+    fn replace_assignees(&self, stream_item_id: i64, assignees: &[ItemPerson]) -> Result<()> {
         self.connection().execute(
             "DELETE FROM stream_item_assignees WHERE stream_item_id = ?1",
             params![stream_item_id],
         )?;
         for assignee in assignees {
             self.connection().execute(
-                "INSERT INTO stream_item_assignees (stream_item_id, login) VALUES (?1, ?2)",
-                params![stream_item_id, assignee],
+                "INSERT INTO stream_item_assignees (stream_item_id, login, avatar_url)
+                 VALUES (?1, ?2, ?3)",
+                params![stream_item_id, assignee.login, assignee.avatar_url],
+            )?;
+        }
+        Ok(())
+    }
+
+    fn replace_review_requests(
+        &self,
+        stream_item_id: i64,
+        review_requests: &[ItemPerson],
+    ) -> Result<()> {
+        self.connection().execute(
+            "DELETE FROM stream_item_review_requests WHERE stream_item_id = ?1",
+            params![stream_item_id],
+        )?;
+        for reviewer in review_requests {
+            self.connection().execute(
+                "INSERT INTO stream_item_review_requests (stream_item_id, login, avatar_url)
+                 VALUES (?1, ?2, ?3)",
+                params![stream_item_id, reviewer.login, reviewer.avatar_url],
+            )?;
+        }
+        Ok(())
+    }
+
+    fn replace_reviews(&self, stream_item_id: i64, reviewers: &[ItemReview]) -> Result<()> {
+        self.connection().execute(
+            "DELETE FROM stream_item_reviews WHERE stream_item_id = ?1",
+            params![stream_item_id],
+        )?;
+        for reviewer in reviewers {
+            self.connection().execute(
+                "INSERT INTO stream_item_reviews (stream_item_id, login, avatar_url, state)
+                 VALUES (?1, ?2, ?3, ?4)",
+                params![
+                    stream_item_id,
+                    reviewer.login,
+                    reviewer.avatar_url,
+                    reviewer.state
+                ],
             )?;
         }
         Ok(())
@@ -263,11 +309,91 @@ impl Storage {
                 review_status: row.get(12)?,
                 comment_count: row.get(13)?,
                 updated_at_github: row.get(14)?,
-                labels: split_list(&row.get::<_, Option<String>>(15)?.unwrap_or_default()),
-                assignees: split_list(&row.get::<_, Option<String>>(16)?.unwrap_or_default()),
-                is_unread: row.get::<_, i64>(17)? == 1,
-                is_bookmarked: row.get::<_, i64>(18)? == 1,
-                is_archived: row.get::<_, i64>(19)? == 1,
+                labels: Vec::new(),
+                assignees: Vec::new(),
+                review_requests: Vec::new(),
+                reviewers: Vec::new(),
+                is_unread: row.get::<_, i64>(15)? == 1,
+                is_bookmarked: row.get::<_, i64>(16)? == 1,
+                is_archived: row.get::<_, i64>(17)? == 1,
+            })
+        })?;
+        let mut items = rows
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(super::StorageError::from)?;
+        drop(statement);
+
+        for item in &mut items {
+            item.labels = self.list_labels(item.id)?;
+            item.assignees = self.list_assignees(item.id)?;
+            item.review_requests = self.list_review_requests(item.id)?;
+            item.reviewers = self.list_reviews(item.id)?;
+        }
+
+        Ok(items)
+    }
+
+    fn list_labels(&self, stream_item_id: i64) -> Result<Vec<String>> {
+        let mut statement = self.connection().prepare(
+            "SELECT name FROM stream_item_labels
+             WHERE stream_item_id = ?1
+             ORDER BY name COLLATE NOCASE ASC",
+        )?;
+        let rows = statement.query_map([stream_item_id], |row| row.get::<_, String>(0))?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(Into::into)
+    }
+
+    fn list_assignees(&self, stream_item_id: i64) -> Result<Vec<ItemPerson>> {
+        let mut statement = self.connection().prepare(
+            "SELECT login, avatar_url FROM stream_item_assignees
+             WHERE stream_item_id = ?1
+             ORDER BY login COLLATE NOCASE ASC",
+        )?;
+        let rows = statement.query_map([stream_item_id], |row| {
+            Ok(ItemPerson {
+                login: row.get(0)?,
+                avatar_url: row.get(1)?,
+            })
+        })?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(Into::into)
+    }
+
+    fn list_review_requests(&self, stream_item_id: i64) -> Result<Vec<ItemPerson>> {
+        let mut statement = self.connection().prepare(
+            "SELECT login, avatar_url FROM stream_item_review_requests
+             WHERE stream_item_id = ?1
+             ORDER BY login COLLATE NOCASE ASC",
+        )?;
+        let rows = statement.query_map([stream_item_id], |row| {
+            Ok(ItemPerson {
+                login: row.get(0)?,
+                avatar_url: row.get(1)?,
+            })
+        })?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(Into::into)
+    }
+
+    fn list_reviews(&self, stream_item_id: i64) -> Result<Vec<ItemReview>> {
+        let mut statement = self.connection().prepare(
+            "SELECT login, avatar_url, state FROM stream_item_reviews
+             WHERE stream_item_id = ?1
+             ORDER BY
+                 CASE state
+                     WHEN 'changes_requested' THEN 0
+                     WHEN 'approved' THEN 1
+                     WHEN 'commented' THEN 2
+                     ELSE 3
+                 END,
+                 login COLLATE NOCASE ASC",
+        )?;
+        let rows = statement.query_map([stream_item_id], |row| {
+            Ok(ItemReview {
+                login: row.get(0)?,
+                avatar_url: row.get(1)?,
+                state: row.get(2)?,
             })
         })?;
         rows.collect::<std::result::Result<Vec<_>, _>>()
@@ -315,8 +441,6 @@ fn item_select_sql(
             i.review_status,
             i.comment_count,
             i.updated_at_github,
-            (SELECT GROUP_CONCAT(name, ',') FROM stream_item_labels WHERE stream_item_id = i.id),
-            (SELECT GROUP_CONCAT(login, ',') FROM stream_item_assignees WHERE stream_item_id = i.id),
             s.is_unread,
             s.is_bookmarked,
             s.is_archived
@@ -340,13 +464,5 @@ fn item_type_from_db(value: &str) -> ItemType {
     match value {
         "pull_request" => ItemType::PullRequest,
         _ => ItemType::Issue,
-    }
-}
-
-fn split_list(value: &str) -> Vec<String> {
-    if value.is_empty() {
-        Vec::new()
-    } else {
-        value.split(',').map(ToOwned::to_owned).collect()
     }
 }

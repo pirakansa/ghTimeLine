@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::github::{client, GitHubError};
 use crate::models::{HostConfig, ItemType};
+use crate::models::{ItemPerson, ItemReview};
 use crate::storage::items::StreamItemUpsert;
 
 const PULL_REQUEST_ENRICHMENT_QUERY: &str = r#"
@@ -18,12 +19,21 @@ query PullRequestEnrichment($ids: [ID!]!) {
       reviewDecision
       reviewRequests(first: 20) {
         totalCount
+        nodes {
+          requestedReviewer {
+            ... on User {
+              login
+              avatarUrl
+            }
+          }
+        }
       }
       latestReviews(first: 20) {
         nodes {
           state
           author {
             login
+            avatarUrl
           }
           submittedAt
         }
@@ -82,6 +92,8 @@ pub fn enrich_pull_requests(
         item.is_merged = Some(enrichment.merged);
         item.merged_at_github = enrichment.merged_at.clone();
         item.review_status = Some(enrichment.review_status.as_db_value().to_owned());
+        item.review_requests = enrichment.review_requests.clone();
+        item.reviewers = enrichment.reviewers.clone();
     }
 
     Ok(())
@@ -133,6 +145,8 @@ fn parse_pull_request_enrichment(
     };
     for node in data.nodes.into_iter().flatten() {
         let review_status = derive_review_signal(&node);
+        let review_requests = review_requests(&node);
+        let reviewers = reviewers(&node);
         enrichments.insert(
             node.id.clone(),
             PullRequestEnrichment {
@@ -140,6 +154,8 @@ fn parse_pull_request_enrichment(
                 merged: node.merged,
                 merged_at: node.merged_at,
                 review_status,
+                review_requests,
+                reviewers,
             },
         );
     }
@@ -206,16 +222,79 @@ struct PullRequestNode {
 #[serde(rename_all = "camelCase")]
 struct ReviewRequests {
     total_count: i64,
+    #[serde(default)]
+    nodes: Vec<ReviewRequestNode>,
 }
 
 #[derive(Debug, serde::Deserialize)]
 struct LatestReviews {
+    #[serde(default)]
     nodes: Vec<ReviewNode>,
 }
 
 #[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ReviewRequestNode {
+    requested_reviewer: Option<RequestedReviewer>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RequestedReviewer {
+    login: Option<String>,
+    avatar_url: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ReviewNode {
     state: String,
+    author: Option<ReviewAuthor>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ReviewAuthor {
+    login: String,
+    avatar_url: Option<String>,
+}
+
+fn review_requests(node: &PullRequestNode) -> Vec<ItemPerson> {
+    node.review_requests
+        .nodes
+        .iter()
+        .filter_map(|node| match &node.requested_reviewer {
+            Some(reviewer) => reviewer.login.as_ref().map(|login| ItemPerson {
+                login: login.clone(),
+                avatar_url: reviewer.avatar_url.clone(),
+            }),
+            None => None,
+        })
+        .collect()
+}
+
+fn reviewers(node: &PullRequestNode) -> Vec<ItemReview> {
+    node.latest_reviews
+        .nodes
+        .iter()
+        .filter_map(|review| {
+            let author = review.author.as_ref()?;
+            normalize_review_state(&review.state).map(|state| ItemReview {
+                login: author.login.clone(),
+                avatar_url: author.avatar_url.clone(),
+                state: state.to_owned(),
+            })
+        })
+        .collect()
+}
+
+fn normalize_review_state(state: &str) -> Option<&'static str> {
+    match state {
+        "APPROVED" => Some("approved"),
+        "CHANGES_REQUESTED" | "CHANGES_REQUESTED_EVENT" => Some("changes_requested"),
+        "COMMENTED" => Some("commented"),
+        _ => None,
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -224,6 +303,8 @@ struct PullRequestEnrichment {
     merged: bool,
     merged_at: Option<String>,
     review_status: ReviewSignal,
+    review_requests: Vec<ItemPerson>,
+    reviewers: Vec<ItemReview>,
 }
 
 #[cfg(test)]
@@ -260,11 +341,22 @@ mod tests {
               "merged": false,
               "mergedAt": null,
               "reviewDecision": "REVIEW_REQUIRED",
-              "reviewRequests": { "totalCount": 2 },
+              "reviewRequests": {
+                "totalCount": 2,
+                "nodes": [{
+                  "requestedReviewer": {
+                    "login": "octo",
+                    "avatarUrl": "https://avatars.githubusercontent.com/u/1?v=4"
+                  }
+                }]
+              },
               "latestReviews": {
                 "nodes": [{
                   "state": "COMMENTED",
-                  "author": { "login": "octo" },
+                  "author": {
+                    "login": "reviewer",
+                    "avatarUrl": "https://avatars.githubusercontent.com/u/2?v=4"
+                  },
                   "submittedAt": "2026-05-23T00:00:00Z"
                 }]
               }
@@ -279,6 +371,21 @@ mod tests {
         assert!(enrichment.is_draft);
         assert!(!enrichment.merged);
         assert_eq!(enrichment.review_status, ReviewSignal::ReviewRequired);
+        assert_eq!(
+            enrichment.review_requests,
+            vec![ItemPerson {
+                login: "octo".to_owned(),
+                avatar_url: Some("https://avatars.githubusercontent.com/u/1?v=4".to_owned())
+            }]
+        );
+        assert_eq!(
+            enrichment.reviewers,
+            vec![ItemReview {
+                login: "reviewer".to_owned(),
+                avatar_url: Some("https://avatars.githubusercontent.com/u/2?v=4".to_owned()),
+                state: "commented".to_owned()
+            }]
+        );
     }
 
     fn pull_request_node(
@@ -294,12 +401,14 @@ mod tests {
             review_decision: review_decision.map(ToOwned::to_owned),
             review_requests: ReviewRequests {
                 total_count: review_request_count,
+                nodes: Vec::new(),
             },
             latest_reviews: LatestReviews {
                 nodes: review_states
                     .into_iter()
                     .map(|state| ReviewNode {
                         state: state.to_owned(),
+                        author: None,
                     })
                     .collect(),
             },
