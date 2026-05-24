@@ -12,7 +12,14 @@ pub fn show(
     egui::TopBottomPanel::top("menu-bar").show(ctx, |ui| {
         egui::MenuBar::new().ui(ui, |ui| {
             preferences_menu(ui, state, config, event);
+            version_menu(ui);
         });
+    });
+}
+
+fn version_menu(ui: &mut egui::Ui) {
+    ui.menu_button("Help", |ui| {
+        ui.label(format!("Version {}", env!("CARGO_PKG_VERSION")));
     });
 }
 

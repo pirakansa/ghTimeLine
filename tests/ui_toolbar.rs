@@ -54,3 +54,19 @@ fn preferences_menu_emits_open_setup_event() {
         Some(StreamEvent::OpenSetup)
     ));
 }
+
+#[test]
+fn help_menu_shows_app_version() {
+    let mut harness = Harness::new_state(
+        |ctx, state: &mut ToolbarHarness| {
+            components::menu_bar::show(ctx, &mut state.stream, &state.config, &mut state.event);
+        },
+        sample_toolbar_harness(),
+    );
+
+    harness.get_by_label("Help").click();
+    harness.run();
+
+    harness.get_by_label("Version 0.1.0");
+    assert!(harness.state().event.is_none());
+}
