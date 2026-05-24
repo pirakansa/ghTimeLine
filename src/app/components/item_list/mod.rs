@@ -165,15 +165,16 @@ fn open_item_if_card_clicked(
     card_rect: egui::Rect,
     event: &mut Option<StreamEvent>,
 ) {
+    let visible_rect = card_rect.intersect(ui.clip_rect());
     let (is_hovered, is_clicked) = ui.input(|input| {
         let contains_pointer = input
             .pointer
             .hover_pos()
-            .is_some_and(|position| card_rect.contains(position));
+            .is_some_and(|position| visible_rect.contains(position));
         let contains_click = input
             .pointer
             .interact_pos()
-            .is_some_and(|position| card_rect.contains(position));
+            .is_some_and(|position| visible_rect.contains(position));
 
         (
             contains_pointer,
