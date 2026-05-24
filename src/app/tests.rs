@@ -108,7 +108,8 @@ fn app_with_one_item() -> (GhStreamApp, i64) {
         .expect("query");
     let item_id = storage
         .upsert_stream_item(&sample_item(host_id))
-        .expect("item");
+        .expect("item")
+        .id;
     storage
         .record_saved_query_match(query_id, item_id, Some(0))
         .expect("match");

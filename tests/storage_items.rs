@@ -17,7 +17,9 @@ fn item_state_survives_metadata_upsert() {
         .expect("query");
 
     let mut item = sample_item(host_id);
-    let item_id = storage.upsert_stream_item(&item).expect("item");
+    let save = storage.upsert_stream_item(&item).expect("item");
+    let item_id = save.id;
+    assert!(save.changed);
     storage
         .record_saved_query_match(query_id, item_id, Some(0))
         .expect("match");
@@ -25,7 +27,9 @@ fn item_state_survives_metadata_upsert() {
     storage.set_bookmarked(item_id, true).expect("bookmark");
 
     item.title = "Updated title".to_owned();
-    storage.upsert_stream_item(&item).expect("updated item");
+    let save = storage.upsert_stream_item(&item).expect("updated item");
+    assert_eq!(save.id, item_id);
+    assert!(!save.changed);
 
     let items = storage
         .list_items_for_saved_query(query_id, None, SortOrder::UpdatedDesc)
@@ -49,14 +53,16 @@ fn read_item_becomes_unread_when_github_updated_at_advances() {
         .expect("query");
 
     let mut item = sample_item(host_id);
-    let item_id = storage.upsert_stream_item(&item).expect("item");
+    let item_id = storage.upsert_stream_item(&item).expect("item").id;
     storage
         .record_saved_query_match(query_id, item_id, Some(0))
         .expect("match");
     storage.set_read_state(item_id, false).expect("read");
 
     item.updated_at_github = "2026-05-24T00:00:00+00:00".to_owned();
-    storage.upsert_stream_item(&item).expect("updated item");
+    let save = storage.upsert_stream_item(&item).expect("updated item");
+    assert_eq!(save.id, item_id);
+    assert!(save.changed);
 
     let items = storage
         .list_items_for_saved_query(query_id, None, SortOrder::UpdatedDesc)
@@ -75,7 +81,8 @@ fn archived_unread_items_are_excluded_from_query_badges() {
         .expect("query");
     let item_id = storage
         .upsert_stream_item(&sample_item(host_id))
-        .expect("item");
+        .expect("item")
+        .id;
     storage
         .record_saved_query_match(query_id, item_id, None)
         .expect("match");
@@ -107,7 +114,8 @@ fn library_unread_counts_cover_inbox_bookmark_and_archived() {
 
     let inbox_item_id = storage
         .upsert_stream_item(&sample_item(host_id))
-        .expect("inbox item");
+        .expect("inbox item")
+        .id;
     storage
         .record_saved_query_match(query_id, inbox_item_id, None)
         .expect("inbox match");
@@ -116,7 +124,8 @@ fn library_unread_counts_cover_inbox_bookmark_and_archived() {
     bookmarked_item.number = 43;
     let bookmarked_item_id = storage
         .upsert_stream_item(&bookmarked_item)
-        .expect("bookmarked item");
+        .expect("bookmarked item")
+        .id;
     storage
         .record_saved_query_match(query_id, bookmarked_item_id, None)
         .expect("bookmarked match");
@@ -128,7 +137,8 @@ fn library_unread_counts_cover_inbox_bookmark_and_archived() {
     archived_item.number = 44;
     let archived_item_id = storage
         .upsert_stream_item(&archived_item)
-        .expect("archived item");
+        .expect("archived item")
+        .id;
     storage
         .record_saved_query_match(query_id, archived_item_id, None)
         .expect("archived match");
@@ -159,7 +169,8 @@ fn mark_saved_query_read_marks_only_unarchived_matching_items_read() {
 
     let matching_item_id = storage
         .upsert_stream_item(&sample_item(host_id))
-        .expect("matching item");
+        .expect("matching item")
+        .id;
     storage
         .record_saved_query_match(query_id, matching_item_id, None)
         .expect("matching match");
@@ -168,7 +179,8 @@ fn mark_saved_query_read_marks_only_unarchived_matching_items_read() {
     archived_item.number = 43;
     let archived_item_id = storage
         .upsert_stream_item(&archived_item)
-        .expect("archived item");
+        .expect("archived item")
+        .id;
     storage
         .record_saved_query_match(query_id, archived_item_id, None)
         .expect("archived match");
@@ -178,7 +190,10 @@ fn mark_saved_query_read_marks_only_unarchived_matching_items_read() {
 
     let mut other_item = sample_item(host_id);
     other_item.number = 44;
-    let other_item_id = storage.upsert_stream_item(&other_item).expect("other item");
+    let other_item_id = storage
+        .upsert_stream_item(&other_item)
+        .expect("other item")
+        .id;
     storage
         .record_saved_query_match(other_query_id, other_item_id, None)
         .expect("other match");

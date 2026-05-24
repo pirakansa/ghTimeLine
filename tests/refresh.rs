@@ -34,13 +34,14 @@ fn refresh_writes_rest_results_and_graphql_enrichment_to_storage() {
         .find(|query| query.id == query_id)
         .expect("query");
 
-    let count = sync::refresh_saved_query(&config, &storage, host_id, &saved_query)
+    let stats = sync::refresh_saved_query(&config, &storage, host_id, &saved_query)
         .expect("refresh should succeed");
     let items = storage
         .list_items_for_saved_query(query_id, None, SortOrder::UpdatedDesc)
         .expect("items");
 
-    assert_eq!(count, 1);
+    assert_eq!(stats.processed_count, 1);
+    assert_eq!(stats.changed_count, 1);
     assert_eq!(items.len(), 1);
     assert_eq!(items[0].repository_full_name(), "acme/project");
     assert_eq!(items[0].review_status.as_deref(), Some("approved"));

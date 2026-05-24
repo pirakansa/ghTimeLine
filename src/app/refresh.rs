@@ -9,7 +9,8 @@ use crate::sync;
 
 pub(super) struct RefreshOutcome {
     pub label: String,
-    pub refreshed_count: usize,
+    pub processed_count: usize,
+    pub changed_count: usize,
     pub failed_count: usize,
 }
 
@@ -49,11 +50,14 @@ impl GhStreamApp {
         self.refresh_rx = None;
         self.status = refresh_status(
             &outcome.label,
-            outcome.refreshed_count,
+            outcome.processed_count,
+            outcome.changed_count,
             outcome.failed_count,
         );
-        self.reload_queries();
-        self.reload_current_view();
+        if outcome.changed_count > 0 || outcome.failed_count > 0 {
+            self.reload_queries();
+            self.reload_current_view();
+        }
     }
 
     fn refresh_selected_scope(&mut self, label: &str, ctx: egui::Context) {
@@ -112,15 +116,22 @@ impl GhStreamApp {
                 Err(_) => RefreshOutcome {
                     failed_count: queries.len(),
                     label,
-                    refreshed_count: 0,
+                    processed_count: 0,
+                    changed_count: 0,
                 },
                 Ok(storage) => {
                     let results = sync::refresh_saved_queries(&config, &storage, host_id, &queries);
                     RefreshOutcome {
-                        refreshed_count: results
+                        processed_count: results
                             .iter()
                             .filter_map(|(_, r)| r.as_ref().ok())
-                            .sum::<usize>(),
+                            .map(|stats| stats.processed_count)
+                            .sum(),
+                        changed_count: results
+                            .iter()
+                            .filter_map(|(_, r)| r.as_ref().ok())
+                            .map(|stats| stats.changed_count)
+                            .sum(),
                         failed_count: results.iter().filter(|(_, r)| r.is_err()).count(),
                         label,
                     }
@@ -132,12 +143,38 @@ impl GhStreamApp {
     }
 }
 
-fn refresh_status(label: &str, refreshed_count: usize, failed_count: usize) -> String {
+fn refresh_status(
+    label: &str,
+    processed_count: usize,
+    changed_count: usize,
+    failed_count: usize,
+) -> String {
     if failed_count == 0 {
-        format!("{label}: refreshed {refreshed_count} items.")
+        format!("{label}: processed {processed_count} items; {changed_count} changed.")
     } else {
         format!(
-            "{label}: refreshed {refreshed_count} items; {failed_count} query refreshes failed."
+            "{label}: processed {processed_count} items; {changed_count} changed; {failed_count} query refreshes failed."
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::refresh_status;
+
+    #[test]
+    fn refresh_status_reports_processed_and_changed_counts() {
+        assert_eq!(
+            refresh_status("Polling refresh", 51, 1, 0),
+            "Polling refresh: processed 51 items; 1 changed."
+        );
+    }
+
+    #[test]
+    fn refresh_status_reports_failures_with_processed_and_changed_counts() {
+        assert_eq!(
+            refresh_status("Polling refresh", 51, 1, 2),
+            "Polling refresh: processed 51 items; 1 changed; 2 query refreshes failed."
+        );
     }
 }

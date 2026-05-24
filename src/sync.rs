@@ -12,12 +12,18 @@ pub enum SyncError {
     Storage(#[from] StorageError),
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct RefreshStats {
+    pub processed_count: usize,
+    pub changed_count: usize,
+}
+
 pub fn refresh_saved_query(
     config: &AppConfig,
     storage: &Storage,
     host_id: i64,
     saved_query: &SavedQuery,
-) -> Result<usize, SyncError> {
+) -> Result<RefreshStats, SyncError> {
     let mut items = github::rest::search_issues_and_pull_requests(
         &config.host,
         &config.auth.pat,
@@ -27,13 +33,19 @@ pub fn refresh_saved_query(
     )?;
     let _ = github::graphql::enrich_pull_requests(&config.host, &config.auth.pat, &mut items);
 
-    let count = items.len();
+    let mut stats = RefreshStats {
+        processed_count: items.len(),
+        changed_count: 0,
+    };
     for (rank, item) in items.iter().enumerate() {
-        let stream_item_id = storage.upsert_stream_item(item)?;
-        storage.record_saved_query_match(saved_query.id, stream_item_id, Some(rank as i64))?;
+        let save = storage.upsert_stream_item(item)?;
+        if save.changed {
+            stats.changed_count += 1;
+        }
+        storage.record_saved_query_match(saved_query.id, save.id, Some(rank as i64))?;
     }
     storage.mark_saved_query_sync_success(saved_query.id)?;
-    Ok(count)
+    Ok(stats)
 }
 
 pub fn refresh_saved_queries(
@@ -41,7 +53,7 @@ pub fn refresh_saved_queries(
     storage: &Storage,
     host_id: i64,
     saved_queries: &[SavedQuery],
-) -> Vec<(i64, Result<usize, SyncError>)> {
+) -> Vec<(i64, Result<RefreshStats, SyncError>)> {
     saved_queries
         .iter()
         .filter(|query| query.enabled)

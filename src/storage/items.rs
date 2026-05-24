@@ -35,10 +35,19 @@ pub struct StreamItemUpsert {
     pub reviewers: Vec<ItemReview>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct StreamItemSave {
+    pub id: i64,
+    pub changed: bool,
+}
+
 impl Storage {
-    pub fn upsert_stream_item(&self, item: &StreamItemUpsert) -> Result<i64> {
+    pub fn upsert_stream_item(&self, item: &StreamItemUpsert) -> Result<StreamItemSave> {
         let now = Utc::now().to_rfc3339();
         let previous_updated_at_github = self.find_item_updated_at_github(item)?;
+        let changed = previous_updated_at_github
+            .as_deref()
+            .is_none_or(|previous| github_updated_at_advanced(previous, &item.updated_at_github));
         self.connection().execute(
             "INSERT INTO stream_items (
                 host_id, node_id, repository_owner, repository_name, number, item_type,
@@ -116,10 +125,7 @@ impl Storage {
             params![id, now],
         )?;
 
-        if previous_updated_at_github
-            .as_deref()
-            .is_some_and(|previous| github_updated_at_advanced(previous, &item.updated_at_github))
-        {
+        if previous_updated_at_github.is_some() && changed {
             self.set_read_state(id, true)?;
         }
 
@@ -128,7 +134,7 @@ impl Storage {
         self.replace_review_requests(id, &item.review_requests)?;
         self.replace_reviews(id, &item.reviewers)?;
 
-        Ok(id)
+        Ok(StreamItemSave { id, changed })
     }
 
     fn find_item_updated_at_github(&self, item: &StreamItemUpsert) -> Result<Option<String>> {
