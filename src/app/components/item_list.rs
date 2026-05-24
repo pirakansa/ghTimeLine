@@ -45,9 +45,14 @@ fn draw_item(
         ui.label(
             egui::RichText::new(format!("{} #{}", item.repository_full_name(), item.number)).weak(),
         );
-        ui.label(super::relative_time::format(
-            item.updated_at_github.as_str(),
-        ));
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            ui.label(
+                egui::RichText::new(super::relative_time::format(
+                    item.updated_at_github.as_str(),
+                ))
+                .weak(),
+            );
+        });
     });
     let title = if item.is_unread {
         egui::RichText::new(&item.title).strong()
@@ -79,7 +84,11 @@ fn draw_item(
                 .on_hover_text(&assignee.login);
             }
         }
-        ui.label(format!("{} comments", item.comment_count));
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            let font_size = egui::TextStyle::Body.resolve(ui.style()).size;
+            ui.label(item.comment_count.to_string());
+            paint_comment_bubble(ui, font_size);
+        });
     });
     metadata_rows(ui, item, avatar_cache, avatar_size);
     action_buttons(ui, item, event);
@@ -173,6 +182,37 @@ fn open_button(ui: &mut egui::Ui, item: &StreamItem, event: &mut Option<StreamEv
             item.html_url.clone(),
         )));
     }
+}
+
+fn paint_comment_bubble(ui: &mut egui::Ui, font_size: f32) {
+    let size = font_size * 1.1;
+    let tail = size * 0.28;
+    let total_h = size + tail;
+    let (rect, _) = ui.allocate_exact_size(egui::vec2(size, total_h), egui::Sense::hover());
+
+    let bubble = egui::Rect::from_min_size(rect.min, egui::vec2(size, size));
+    let color = ui
+        .visuals()
+        .widgets
+        .noninteractive
+        .fg_stroke
+        .color
+        .gamma_multiply(0.55);
+    let rounding = egui::CornerRadius::same((size * 0.22) as u8);
+    ui.painter().rect_filled(bubble, rounding, color);
+
+    // small tail at bottom-left
+    let bx = bubble.left() + size * 0.22;
+    let by = bubble.bottom();
+    ui.painter().add(egui::Shape::convex_polygon(
+        vec![
+            egui::pos2(bx, by),
+            egui::pos2(bx + tail, by),
+            egui::pos2(bx, by + tail),
+        ],
+        color,
+        egui::Stroke::NONE,
+    ));
 }
 
 fn item_background_fill(visuals: &egui::Visuals, is_unread: bool) -> egui::Color32 {
