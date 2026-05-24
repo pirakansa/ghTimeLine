@@ -9,10 +9,10 @@ pub fn show(
     saved_queries: &[SavedQuery],
     event: &mut Option<StreamEvent>,
 ) {
-    egui::CentralPanel::default().show(ctx, |ui| {
-        ui.heading("Saved queries");
-        ui.add_space(8.0);
+    egui::TopBottomPanel::top("saved-query-manager-toolbar").show(ctx, |ui| {
         ui.horizontal(|ui| {
+            ui.heading("Saved queries");
+            ui.separator();
             if ui.button("Back").clicked() {
                 state.saved_query_manager_open = false;
             }
@@ -20,16 +20,18 @@ pub fn show(
                 clear_query_draft(state);
             }
         });
-        ui.add_space(12.0);
-        ui.columns(2, |columns| {
-            columns[0].set_width(280.0);
-            saved_query_list(&mut columns[0], state, saved_queries);
-            columns[1].vertical(|ui| {
-                ui.separator();
-                ui.set_min_width(420.0);
-                saved_query_form(ui, state, event);
-            });
+    });
+
+    egui::SidePanel::left("saved-query-manager-list")
+        .resizable(true)
+        .default_width(280.0)
+        .width_range(180.0..=480.0)
+        .show(ctx, |ui| {
+            saved_query_list(ui, state, saved_queries);
         });
+
+    egui::CentralPanel::default().show(ctx, |ui| {
+        saved_query_form(ui, state, event);
     });
 }
 
@@ -62,12 +64,44 @@ fn saved_query_list(ui: &mut egui::Ui, state: &mut StreamState, saved_queries: &
                     } else {
                         format!("{} (disabled)", query.name)
                     };
-                    if ui.selectable_label(selected, label).clicked() {
+                    if full_width_selectable_row(ui, selected, &label).clicked() {
                         load_query_draft(state, query);
                     }
                 }
             });
     });
+}
+
+fn full_width_selectable_row(ui: &mut egui::Ui, selected: bool, label: &str) -> egui::Response {
+    let row_height = ui.spacing().interact_size.y;
+    let available_width = ui.available_width();
+    let (rect, response) = ui.allocate_exact_size(
+        egui::vec2(available_width, row_height),
+        egui::Sense::click(),
+    );
+
+    if ui.is_rect_visible(rect) {
+        let visuals = ui.style().interact_selectable(&response, selected);
+        if selected || response.hovered() {
+            ui.painter()
+                .rect_filled(rect, visuals.corner_radius, visuals.bg_fill);
+        }
+
+        ui.painter().text(
+            egui::pos2(rect.left() + ui.spacing().button_padding.x, rect.center().y),
+            egui::Align2::LEFT_CENTER,
+            label,
+            egui::TextStyle::Body.resolve(ui.style()),
+            visuals.text_color(),
+        );
+    }
+
+    let label = label.to_owned();
+    response.widget_info(move || {
+        egui::WidgetInfo::selected(egui::WidgetType::Button, true, selected, label.clone())
+    });
+
+    response.on_hover_cursor(egui::CursorIcon::PointingHand)
 }
 
 fn saved_query_form(ui: &mut egui::Ui, state: &mut StreamState, event: &mut Option<StreamEvent>) {
