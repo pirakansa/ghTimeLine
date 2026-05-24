@@ -32,7 +32,14 @@ impl GhStreamApp {
         self.reload_current_view();
     }
 
-    pub(super) fn update_query(&mut self, id: i64, name: &str, query: &str, sort: SortOrder) {
+    pub(super) fn update_query(
+        &mut self,
+        id: i64,
+        name: &str,
+        query: &str,
+        sort: SortOrder,
+        enabled: bool,
+    ) {
         if name.trim().is_empty() || query.trim().is_empty() {
             self.status = "Saved query name and query must not be empty.".to_owned();
             return;
@@ -40,24 +47,10 @@ impl GhStreamApp {
 
         if let AppMode::Main(runtime) = &mut self.mode {
             match runtime.storage.update_saved_query(id, name, query, sort) {
-                Ok(()) => self.status = "Saved query updated.".to_owned(),
-                Err(err) => self.status = format!("Could not update saved query: {err}"),
-            }
-        }
-        self.reload_queries();
-        self.reload_current_view();
-    }
-
-    pub(super) fn set_query_enabled(&mut self, id: i64, enabled: bool) {
-        if let AppMode::Main(runtime) = &mut self.mode {
-            match runtime.storage.set_saved_query_enabled(id, enabled) {
-                Ok(()) => {
-                    self.status = if enabled {
-                        "Saved query enabled.".to_owned()
-                    } else {
-                        "Saved query disabled.".to_owned()
-                    };
-                }
+                Ok(()) => match runtime.storage.set_saved_query_enabled(id, enabled) {
+                    Ok(()) => self.status = "Saved query updated.".to_owned(),
+                    Err(err) => self.status = format!("Could not update saved query: {err}"),
+                },
                 Err(err) => self.status = format!("Could not update saved query: {err}"),
             }
         }

@@ -144,7 +144,7 @@ fn left_pane_hides_disabled_saved_queries() {
 }
 
 #[test]
-fn saved_query_manager_emits_enabled_toggle_event() {
+fn saved_query_manager_saves_enabled_state_with_changes() {
     let saved_queries = vec![SavedQuery {
         id: 7,
         name: "Reviews".to_owned(),
@@ -175,13 +175,27 @@ fn saved_query_manager_emits_enabled_toggle_event() {
 
     harness.get_by_label("Enabled").click();
     harness.run();
+    assert!(harness.state().event.is_none());
+
+    harness.get_by_label("Save changes").click();
+    harness.run();
 
     match &harness.state().event {
-        Some(StreamEvent::SetQueryEnabled { id, enabled }) => {
-            assert_eq!((*id, *enabled), (7, false));
+        Some(StreamEvent::UpdateQuery {
+            id,
+            name,
+            query,
+            sort,
+            enabled,
+        }) => {
+            assert_eq!(*id, 7);
+            assert_eq!(name, "Reviews");
+            assert_eq!(query, "is:pr review-requested:@me");
+            assert_eq!(*sort, SortOrder::UpdatedDesc);
+            assert!(!enabled);
         }
         Some(_) => panic!("unexpected stream event"),
-        None => panic!("expected enabled toggle event"),
+        None => panic!("expected query update event"),
     }
 }
 

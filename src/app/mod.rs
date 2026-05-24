@@ -231,15 +231,13 @@ impl eframe::App for GhStreamApp {
                         query,
                         enabled,
                     }) => self.add_query(&name, &query, enabled),
-                    Some(screens::stream::StreamEvent::SetQueryEnabled { id, enabled }) => {
-                        self.set_query_enabled(id, enabled)
-                    }
                     Some(screens::stream::StreamEvent::UpdateQuery {
                         id,
                         name,
                         query,
                         sort,
-                    }) => self.update_query(id, &name, &query, sort),
+                        enabled,
+                    }) => self.update_query(id, &name, &query, sort, enabled),
                     Some(screens::stream::StreamEvent::DeleteQuery(id)) => self.delete_query(id),
                     Some(screens::stream::StreamEvent::RefreshNow) => self.refresh_now(ctx.clone()),
                     Some(screens::stream::StreamEvent::SetDefaultSort(sort)) => {

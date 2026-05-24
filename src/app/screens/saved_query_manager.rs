@@ -126,17 +126,7 @@ fn saved_query_form(
                 }
             });
 
-        let enabled_changed = ui
-            .checkbox(&mut state.edit_query_enabled, "Enabled")
-            .changed();
-        if enabled_changed {
-            if let Some(id) = state.edit_query_id {
-                *event = Some(StreamEvent::SetQueryEnabled {
-                    id,
-                    enabled: state.edit_query_enabled,
-                });
-            }
-        }
+        ui.checkbox(&mut state.edit_query_enabled, "Enabled");
 
         ui.separator();
         ui.horizontal(|ui| match state.edit_query_id {
@@ -147,6 +137,7 @@ fn saved_query_form(
                         name: state.edit_query_name.clone(),
                         query: state.edit_query_text.clone(),
                         sort: state.edit_query_sort,
+                        enabled: state.edit_query_enabled,
                     });
                 }
                 if ui.button("Delete").clicked() {

@@ -39,9 +39,6 @@ pub enum StreamEvent {
         name: String,
         query: String,
         sort: SortOrder,
-    },
-    SetQueryEnabled {
-        id: i64,
         enabled: bool,
     },
     DeleteQuery(i64),
