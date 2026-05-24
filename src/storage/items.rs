@@ -1,4 +1,4 @@
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use rusqlite::params;
 
 use crate::models::{
@@ -38,6 +38,7 @@ pub struct StreamItemUpsert {
 impl Storage {
     pub fn upsert_stream_item(&self, item: &StreamItemUpsert) -> Result<i64> {
         let now = Utc::now().to_rfc3339();
+        let previous_updated_at_github = self.find_item_updated_at_github(item)?;
         self.connection().execute(
             "INSERT INTO stream_items (
                 host_id, node_id, repository_owner, repository_name, number, item_type,
@@ -115,12 +116,44 @@ impl Storage {
             params![id, now],
         )?;
 
+        if previous_updated_at_github
+            .as_deref()
+            .is_some_and(|previous| github_updated_at_advanced(previous, &item.updated_at_github))
+        {
+            self.set_read_state(id, true)?;
+        }
+
         self.replace_labels(id, &item.labels)?;
         self.replace_assignees(id, &item.assignees)?;
         self.replace_review_requests(id, &item.review_requests)?;
         self.replace_reviews(id, &item.reviewers)?;
 
         Ok(id)
+    }
+
+    fn find_item_updated_at_github(&self, item: &StreamItemUpsert) -> Result<Option<String>> {
+        let result = self.connection().query_row(
+            "SELECT updated_at_github FROM stream_items
+             WHERE host_id = ?1
+               AND repository_owner = ?2
+               AND repository_name = ?3
+               AND number = ?4
+               AND item_type = ?5",
+            params![
+                item.host_id,
+                item.repository_owner,
+                item.repository_name,
+                item.number,
+                item_type_db_value(&item.item_type)
+            ],
+            |row| row.get::<_, String>(0),
+        );
+
+        match result {
+            Ok(updated_at) => Ok(Some(updated_at)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(err) => Err(err.into()),
+        }
     }
 
     pub fn record_saved_query_match(
@@ -481,5 +514,15 @@ fn item_type_from_db(value: &str) -> ItemType {
     match value {
         "pull_request" => ItemType::PullRequest,
         _ => ItemType::Issue,
+    }
+}
+
+fn github_updated_at_advanced(previous: &str, current: &str) -> bool {
+    let previous_datetime = DateTime::parse_from_rfc3339(previous);
+    let current_datetime = DateTime::parse_from_rfc3339(current);
+
+    match (previous_datetime, current_datetime) {
+        (Ok(previous), Ok(current)) => current > previous,
+        _ => current > previous,
     }
 }

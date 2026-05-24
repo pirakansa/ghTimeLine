@@ -40,6 +40,32 @@ fn item_state_survives_metadata_upsert() {
 }
 
 #[test]
+fn read_item_becomes_unread_when_github_updated_at_advances() {
+    let storage = Storage::in_memory().expect("storage");
+    let config = AppConfig::default_with_pat("token".to_owned());
+    let host_id = storage.ensure_host(&config.host).expect("host");
+    let query_id = storage
+        .add_saved_query(host_id, "Mine", "assignee:@me", SortOrder::UpdatedDesc)
+        .expect("query");
+
+    let mut item = sample_item(host_id);
+    let item_id = storage.upsert_stream_item(&item).expect("item");
+    storage
+        .record_saved_query_match(query_id, item_id, Some(0))
+        .expect("match");
+    storage.set_read_state(item_id, false).expect("read");
+
+    item.updated_at_github = "2026-05-24T00:00:00+00:00".to_owned();
+    storage.upsert_stream_item(&item).expect("updated item");
+
+    let items = storage
+        .list_items_for_saved_query(query_id, None, SortOrder::UpdatedDesc)
+        .expect("items");
+
+    assert!(items[0].is_unread);
+}
+
+#[test]
 fn archived_unread_items_are_excluded_from_query_badges() {
     let storage = Storage::in_memory().expect("storage");
     let config = AppConfig::default_with_pat("token".to_owned());
