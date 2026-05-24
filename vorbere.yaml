@@ -52,19 +52,19 @@ tasks:
     desc: run the test suite
   linux-amd64:
     depends_on: [assets]
-    run: CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=rust-lld cargo build --locked --release --target x86_64-unknown-linux-gnu
+    run: cargo build --locked --release --target x86_64-unknown-linux-gnu
     desc: build release binary for Linux amd64
   linux-arm:
     depends_on: [assets]
-    run: CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=rust-lld cargo build --locked --release --target armv7-unknown-linux-gnueabihf
+    run: cargo build --locked --release --target armv7-unknown-linux-gnueabihf
     desc: build release binary for Linux armv7
   linux-arm64:
     depends_on: [assets]
-    run: CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=rust-lld cargo build --locked --release --target aarch64-unknown-linux-gnu
+    run: cargo build --locked --release --target aarch64-unknown-linux-gnu
     desc: build release binary for Linux arm64
   win-amd64:
     depends_on: [assets]
-    run: CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc cargo build --locked --release --target x86_64-pc-windows-gnu
+    run: cargo build --locked --release --target x86_64-pc-windows-gnu
     desc: build release binary for Windows amd64
   release-build:
     depends_on: [linux-amd64, linux-arm, linux-arm64, win-amd64]
