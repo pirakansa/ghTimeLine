@@ -99,7 +99,7 @@ pub fn show(
 
 fn size_for_ui(ui: &egui::Ui) -> f32 {
     let font_size = egui::TextStyle::Body.resolve(ui.style()).size;
-    (font_size * 1.6).clamp(18.0, 28.0)
+    (font_size * 2.4).clamp(28.0, 44.0)
 }
 
 fn placeholder(ui: &mut egui::Ui, login: Option<&str>, size: f32) -> egui::Response {
