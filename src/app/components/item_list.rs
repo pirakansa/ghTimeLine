@@ -125,7 +125,11 @@ fn metadata_rows(
         );
     }
     if !item.labels.is_empty() {
-        ui.label(format!("Labels: {}", item.labels.join(", ")));
+        ui.horizontal_wrapped(|ui| {
+            for label in &item.labels {
+                show_label_badge(ui, label);
+            }
+        });
     }
 }
 
@@ -213,6 +217,33 @@ fn paint_comment_bubble(ui: &mut egui::Ui, font_size: f32) {
         color,
         egui::Stroke::NONE,
     ));
+}
+
+fn show_label_badge(ui: &mut egui::Ui, label: &str) {
+    let visuals = ui.visuals();
+    let fill = visuals
+        .widgets
+        .inactive
+        .bg_fill
+        .gamma_multiply(if visuals.dark_mode { 1.25 } else { 0.95 });
+    let stroke = egui::Stroke::new(
+        1.0,
+        visuals
+            .widgets
+            .noninteractive
+            .bg_stroke
+            .color
+            .gamma_multiply(0.8),
+    );
+
+    egui::Frame::new()
+        .fill(fill)
+        .stroke(stroke)
+        .corner_radius(egui::CornerRadius::same(7))
+        .inner_margin(egui::Margin::symmetric(8, 3))
+        .show(ui, |ui| {
+            ui.label(egui::RichText::new(label).small().strong());
+        });
 }
 
 fn item_background_fill(visuals: &egui::Visuals, is_unread: bool) -> egui::Color32 {
