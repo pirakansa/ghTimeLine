@@ -32,7 +32,9 @@ fn draw_item(ui: &mut egui::Ui, item: &StreamItem, event: &mut Option<StreamEven
     ui.horizontal(|ui| {
         let icon = status_icon::StatusIcon::for_item(item);
         status_icon::show(ui, icon).on_hover_text(icon.label());
-        ui.label(format!("#{}", item.number));
+        ui.label(
+            egui::RichText::new(format!("{} #{}", item.repository_full_name(), item.number)).weak(),
+        );
         ui.label(item.updated_at_github.as_str());
     });
     let title = if item.is_unread {
@@ -42,7 +44,6 @@ fn draw_item(ui: &mut egui::Ui, item: &StreamItem, event: &mut Option<StreamEven
     };
     ui.heading(title);
     ui.horizontal_wrapped(|ui| {
-        ui.label(item.repository_full_name());
         if let Some(author) = &item.author_login {
             ui.label(format!("by {author}"));
         }
