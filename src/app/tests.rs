@@ -175,6 +175,7 @@ fn app_with_one_item() -> (GhStreamApp, i64) {
             ..Default::default()
         },
         status: "Ready".to_owned(),
+        status_history: vec![StatusEntry::new("Ready")],
         last_poll_at: None,
         refresh_rx: None,
     };
@@ -272,4 +273,25 @@ fn temp_config_path() -> PathBuf {
     std::env::temp_dir()
         .join("ghstreamlistner-tests")
         .join(format!("config-{}-{nanos}.yml", std::process::id()))
+}
+
+#[test]
+fn status_history_keeps_recent_messages() {
+    let (mut app, _) = app_with_one_item();
+
+    for index in 0..=STATUS_HISTORY_LIMIT {
+        GhStreamApp::replace_status(
+            &mut app.status,
+            &mut app.status_history,
+            format!("Status {index}"),
+        );
+    }
+
+    assert_eq!(app.status, format!("Status {STATUS_HISTORY_LIMIT}"));
+    assert_eq!(app.status_history.len(), STATUS_HISTORY_LIMIT);
+    assert_eq!(app.status_history.first().unwrap().message, "Status 1");
+    assert_eq!(
+        app.status_history.last().unwrap().message,
+        format!("Status {STATUS_HISTORY_LIMIT}")
+    );
 }

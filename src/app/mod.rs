@@ -23,6 +23,7 @@ pub struct GhStreamApp {
     setup: screens::setup::SetupState,
     stream: screens::stream::StreamState,
     status: String,
+    status_history: Vec<StatusEntry>,
     last_poll_at: Option<Instant>,
     refresh_rx: Option<std::sync::mpsc::Receiver<refresh::RefreshOutcome>>,
 }
@@ -43,6 +44,20 @@ pub(super) enum AppMode {
     Main(Box<Runtime>),
 }
 
+const STATUS_HISTORY_LIMIT: usize = 200;
+
+pub(in crate::app) struct StatusEntry {
+    pub message: String,
+}
+
+impl StatusEntry {
+    fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+}
+
 impl GhStreamApp {
     pub fn new() -> Self {
         let config_path = config::default_config_path();
@@ -53,20 +68,41 @@ impl GhStreamApp {
         match config::load_config(&config_path) {
             Ok(config) => match Self::open_runtime(config, &database_path) {
                 Ok(runtime) => {
+                    let ready = "Ready".to_owned();
                     let mut app = Self {
                         config_path,
                         database_path,
                         mode: AppMode::Main(Box::new(runtime)),
                         setup,
                         stream,
-                        status: "Ready".to_owned(),
+                        status: ready.clone(),
+                        status_history: vec![StatusEntry::new(ready)],
                         last_poll_at: None,
                         refresh_rx: None,
                     };
                     app.reload_current_view();
                     app
                 }
-                Err(err) => Self {
+                Err(err) => {
+                    let status = format!("Database initialization failed: {err}");
+                    Self {
+                        config_path,
+                        database_path,
+                        mode: AppMode::Setup {
+                            previous_runtime: None,
+                        },
+                        setup,
+                        stream,
+                        status: status.clone(),
+                        status_history: vec![StatusEntry::new(status)],
+                        last_poll_at: None,
+                        refresh_rx: None,
+                    }
+                }
+            },
+            Err(err) => {
+                let status = first_run_status(&err);
+                Self {
                     config_path,
                     database_path,
                     mode: AppMode::Setup {
@@ -74,23 +110,12 @@ impl GhStreamApp {
                     },
                     setup,
                     stream,
-                    status: format!("Database initialization failed: {err}"),
+                    status: status.clone(),
+                    status_history: vec![StatusEntry::new(status)],
                     last_poll_at: None,
                     refresh_rx: None,
-                },
-            },
-            Err(err) => Self {
-                config_path,
-                database_path,
-                mode: AppMode::Setup {
-                    previous_runtime: None,
-                },
-                setup,
-                stream,
-                status: first_run_status(&err),
-                last_poll_at: None,
-                refresh_rx: None,
-            },
+                }
+            }
         }
     }
 
@@ -116,16 +141,23 @@ impl GhStreamApp {
             Ok(()) => match Self::open_runtime(config, &self.database_path) {
                 Ok(runtime) => {
                     self.mode = AppMode::Main(Box::new(runtime));
-                    self.status =
-                        "Configuration saved. PAT is stored as plain text in v1.".to_owned();
+                    Self::replace_status(
+                        &mut self.status,
+                        &mut self.status_history,
+                        "Configuration saved. PAT is stored as plain text in v1.",
+                    );
                     self.reload_current_view();
                 }
                 Err(err) => {
-                    self.status = format!("Configuration saved, but database failed: {err}");
+                    Self::replace_status(
+                        &mut self.status,
+                        &mut self.status_history,
+                        format!("Configuration saved, but database failed: {err}"),
+                    );
                 }
             },
             Err(err) => {
-                self.status = err.to_string();
+                Self::replace_status(&mut self.status, &mut self.status_history, err.to_string());
             }
         }
     }
@@ -143,7 +175,11 @@ impl GhStreamApp {
                 self.mode = AppMode::Setup {
                     previous_runtime: Some(runtime),
                 };
-                self.status = "Editing host settings.".to_owned();
+                Self::replace_status(
+                    &mut self.status,
+                    &mut self.status_history,
+                    "Editing host settings.",
+                );
             }
             setup @ AppMode::Setup { .. } => {
                 self.mode = setup;
@@ -154,12 +190,30 @@ impl GhStreamApp {
     fn cancel_setup(&mut self, previous_runtime: Option<Box<Runtime>>) {
         if let Some(runtime) = previous_runtime {
             self.mode = AppMode::Main(runtime);
-            self.status = "Host settings unchanged.".to_owned();
+            Self::replace_status(
+                &mut self.status,
+                &mut self.status_history,
+                "Host settings unchanged.",
+            );
             self.reload_current_view();
         } else {
             self.mode = AppMode::Setup {
                 previous_runtime: None,
             };
+        }
+    }
+
+    fn replace_status(
+        status: &mut String,
+        status_history: &mut Vec<StatusEntry>,
+        value: impl Into<String>,
+    ) {
+        let value = value.into();
+        *status = value.clone();
+        status_history.push(StatusEntry::new(value));
+        if status_history.len() > STATUS_HISTORY_LIMIT {
+            let overflow = status_history.len() - STATUS_HISTORY_LIMIT;
+            status_history.drain(0..overflow);
         }
     }
 }
@@ -219,7 +273,7 @@ impl eframe::App for GhStreamApp {
                     &runtime.library_counts,
                     &runtime.saved_queries,
                     &runtime.items,
-                    &self.status,
+                    &self.status_history,
                 );
                 self.mode = AppMode::Main(runtime);
                 match event {

@@ -49,11 +49,15 @@ impl GhStreamApp {
             None => return,
         };
         self.refresh_rx = None;
-        self.status = refresh_status(
-            &outcome.label,
-            outcome.processed_count,
-            outcome.changed_count,
-            outcome.failed_count,
+        Self::replace_status(
+            &mut self.status,
+            &mut self.status_history,
+            refresh_status(
+                &outcome.label,
+                outcome.processed_count,
+                outcome.changed_count,
+                outcome.failed_count,
+            ),
         );
         if !outcome.changed_item_ids.is_empty() || outcome.failed_count > 0 {
             self.reload_queries();
@@ -90,7 +94,11 @@ impl GhStreamApp {
 
     fn refresh_queries(&mut self, label: &str, queries: &[SavedQuery], ctx: egui::Context) {
         if queries.is_empty() {
-            self.status = format!("{label}: no saved queries to refresh.");
+            Self::replace_status(
+                &mut self.status,
+                &mut self.status_history,
+                format!("{label}: no saved queries to refresh."),
+            );
             return;
         }
 
@@ -109,7 +117,11 @@ impl GhStreamApp {
         let queries = queries.to_vec();
         let label = label.to_owned();
 
-        self.status = format!("{label}: refreshing...");
+        Self::replace_status(
+            &mut self.status,
+            &mut self.status_history,
+            format!("{label}: refreshing..."),
+        );
 
         let (tx, rx) = mpsc::channel();
         self.refresh_rx = Some(rx);

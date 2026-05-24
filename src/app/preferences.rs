@@ -9,8 +9,16 @@ impl GhStreamApp {
         if let AppMode::Main(runtime) = &mut self.mode {
             runtime.config.ui.default_sort = sort;
             match config::write_config(&self.config_path, &runtime.config) {
-                Ok(()) => self.status = "Sort preference saved.".to_owned(),
-                Err(err) => self.status = format!("Could not save sort preference: {err}"),
+                Ok(()) => Self::replace_status(
+                    &mut self.status,
+                    &mut self.status_history,
+                    "Sort preference saved.",
+                ),
+                Err(err) => Self::replace_status(
+                    &mut self.status,
+                    &mut self.status_history,
+                    format!("Could not save sort preference: {err}"),
+                ),
             }
         }
         self.reload_current_view();
@@ -23,8 +31,14 @@ impl GhStreamApp {
             let write_result = config::write_config(&self.config_path, &config_snapshot);
             apply_theme_from_config(ctx, &config_snapshot);
             match write_result {
-                Ok(()) => self.status = "Theme saved.".to_owned(),
-                Err(err) => self.status = format!("Could not save theme: {err}"),
+                Ok(()) => {
+                    Self::replace_status(&mut self.status, &mut self.status_history, "Theme saved.")
+                }
+                Err(err) => Self::replace_status(
+                    &mut self.status,
+                    &mut self.status_history,
+                    format!("Could not save theme: {err}"),
+                ),
             }
         }
     }
@@ -34,8 +48,16 @@ impl GhStreamApp {
             runtime.config.ui.font_size = font_size;
             apply_font_size_from_config(ctx, &runtime.config);
             match config::write_config(&self.config_path, &runtime.config) {
-                Ok(()) => self.status = "Font size saved.".to_owned(),
-                Err(err) => self.status = format!("Could not save font size: {err}"),
+                Ok(()) => Self::replace_status(
+                    &mut self.status,
+                    &mut self.status_history,
+                    "Font size saved.",
+                ),
+                Err(err) => Self::replace_status(
+                    &mut self.status,
+                    &mut self.status_history,
+                    format!("Could not save font size: {err}"),
+                ),
             }
         }
     }
@@ -44,8 +66,16 @@ impl GhStreamApp {
         if let AppMode::Main(runtime) = &mut self.mode {
             runtime.config.refresh.polling_interval_seconds = seconds;
             match config::write_config(&self.config_path, &runtime.config) {
-                Ok(()) => self.status = "Polling interval saved.".to_owned(),
-                Err(err) => self.status = format!("Could not save polling interval: {err}"),
+                Ok(()) => Self::replace_status(
+                    &mut self.status,
+                    &mut self.status_history,
+                    "Polling interval saved.",
+                ),
+                Err(err) => Self::replace_status(
+                    &mut self.status,
+                    &mut self.status_history,
+                    format!("Could not save polling interval: {err}"),
+                ),
             }
         }
     }

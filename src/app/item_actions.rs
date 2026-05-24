@@ -8,16 +8,22 @@ impl GhStreamApp {
                 let open_result = open::that(url);
                 let read_succeeded = read_result.is_ok();
 
-                self.status = match (read_result, open_result) {
-                    (Ok(()), Ok(())) => "Opened in external browser.".to_owned(),
-                    (Err(err), Ok(())) => {
-                        format!("Opened in external browser, but could not mark item read: {err}")
-                    }
-                    (Ok(()), Err(err)) => format!("Could not open browser: {err}"),
-                    (Err(read_err), Err(open_err)) => {
-                        format!("Could not open browser: {open_err}; could not mark item read: {read_err}")
-                    }
-                };
+                Self::replace_status(
+                    &mut self.status,
+                    &mut self.status_history,
+                    match (read_result, open_result) {
+                        (Ok(()), Ok(())) => "Opened in external browser.".to_owned(),
+                        (Err(err), Ok(())) => {
+                            format!(
+                                "Opened in external browser, but could not mark item read: {err}"
+                            )
+                        }
+                        (Ok(()), Err(err)) => format!("Could not open browser: {err}"),
+                        (Err(read_err), Err(open_err)) => {
+                            format!("Could not open browser: {open_err}; could not mark item read: {read_err}")
+                        }
+                    },
+                );
 
                 if read_succeeded {
                     self.reload_queries();
@@ -46,11 +52,19 @@ impl GhStreamApp {
             };
             match result {
                 Ok(()) => {
-                    self.status = "Item state updated.".to_owned();
+                    Self::replace_status(
+                        &mut self.status,
+                        &mut self.status_history,
+                        "Item state updated.",
+                    );
                     self.reload_queries();
                     self.reload_current_view_for_changed_items(&[item_id]);
                 }
-                Err(err) => self.status = format!("Could not update item state: {err}"),
+                Err(err) => Self::replace_status(
+                    &mut self.status,
+                    &mut self.status_history,
+                    format!("Could not update item state: {err}"),
+                ),
             }
         }
     }
