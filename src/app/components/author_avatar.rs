@@ -106,7 +106,7 @@ pub fn show_sized(
     placeholder(ui, login, size)
 }
 
-fn size_for_ui(ui: &egui::Ui) -> f32 {
+pub fn size_for_ui(ui: &egui::Ui) -> f32 {
     let font_size = egui::TextStyle::Body.resolve(ui.style()).size;
     (font_size * 2.4).clamp(28.0, 44.0)
 }

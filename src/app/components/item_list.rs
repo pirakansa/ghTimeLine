@@ -58,6 +58,7 @@ fn draw_item(
     };
     ui.heading(title);
     ui.horizontal_wrapped(|ui| {
+        let avatar_size = author_avatar::size_for_ui(ui);
         if let Some(author) = &item.author_login {
             author_avatar::show(
                 ui,
@@ -66,6 +67,19 @@ fn draw_item(
                 Some(author.as_str()),
             )
             .on_hover_text(author);
+        }
+        if !item.assignees.is_empty() {
+            ui.label(egui::RichText::new("→").weak());
+            for assignee in &item.assignees {
+                author_avatar::show_sized(
+                    ui,
+                    avatar_cache,
+                    assignee.avatar_url.as_deref(),
+                    Some(assignee.login.as_str()),
+                    avatar_size,
+                )
+                .on_hover_text(&assignee.login);
+            }
         }
         ui.label(format!("{} comments", item.comment_count));
     });
@@ -78,14 +92,6 @@ fn metadata_rows(
     item: &StreamItem,
     avatar_cache: &mut author_avatar::AvatarCache,
 ) {
-    if !item.assignees.is_empty() {
-        ui.horizontal_wrapped(|ui| {
-            ui.label("Assignees:");
-            for assignee in &item.assignees {
-                show_person_chip(ui, avatar_cache, assignee, None);
-            }
-        });
-    }
     if !item.review_requests.is_empty() || !item.reviewers.is_empty() {
         ui.horizontal_wrapped(|ui| {
             ui.label("Reviewers:");

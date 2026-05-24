@@ -272,7 +272,6 @@ fn item_list_hides_user_names_when_avatars_are_present() {
     assert!(harness.query_by_label("dev").is_none());
     assert!(harness.query_by_label("triage").is_none());
     assert!(harness.query_by_label("reviewer").is_none());
-    harness.get_by_label("Assignees:");
     harness.get_by_label("Reviewers:");
 }
 
