@@ -56,8 +56,19 @@ pub fn show(
 ) -> Option<SetupEvent> {
     let mut event = None;
 
+    egui::TopBottomPanel::top("setup-toolbar").show(ctx, |ui| {
+        ui.horizontal(|ui| {
+            ui.heading("Host settings");
+            if can_cancel {
+                ui.separator();
+                if ui.button("Back").clicked() {
+                    event = Some(SetupEvent::Cancel);
+                }
+            }
+        });
+    });
+
     egui::CentralPanel::default().show(ctx, |ui| {
-        ui.heading("Host settings");
         ui.label("Configure one GitHub or GHES host. The PAT is stored as plain text in config.yml for v1.");
         ui.add_space(12.0);
 
@@ -102,10 +113,6 @@ pub fn show(
 
         ui.add_space(12.0);
         ui.horizontal(|ui| {
-            if can_cancel && ui.button("Cancel").clicked() {
-                event = Some(SetupEvent::Cancel);
-            }
-
             if ui.button("Test").clicked() {
                 match config::validate_config(build_config(state)) {
                     Ok(config) => match github::test_connection(&config) {
