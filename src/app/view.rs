@@ -15,7 +15,7 @@ impl GhStreamApp {
                     runtime.library_counts = library_counts;
                     runtime.saved_queries = saved_queries;
                 }
-                Err(err) => Self::replace_status(
+                Err(err) => Self::replace_status_error(
                     &mut self.status,
                     &mut self.status_history,
                     format!("Could not load saved queries: {err}"),
@@ -31,7 +31,7 @@ impl GhStreamApp {
             let sort = current_sort(runtime, &selection);
             match load_current_view(&runtime.storage, runtime.host_id, &selection, filter, sort) {
                 Ok(items) => runtime.items = items,
-                Err(err) => Self::replace_status(
+                Err(err) => Self::replace_status_error(
                     &mut self.status,
                     &mut self.status_history,
                     format!("Could not load stream items: {err}"),
@@ -71,7 +71,7 @@ impl GhStreamApp {
                             sort,
                         ) {
                             Ok(items) => runtime.items = items,
-                            Err(err) => Self::replace_status(
+                            Err(err) => Self::replace_status_error(
                                 &mut self.status,
                                 &mut self.status_history,
                                 format!("Could not load stream items: {err}"),
@@ -81,7 +81,7 @@ impl GhStreamApp {
                         patch_current_items(&mut runtime.items, changed_items, sort);
                     }
                 }
-                Err(err) => Self::replace_status(
+                Err(err) => Self::replace_status_error(
                     &mut self.status,
                     &mut self.status_history,
                     format!("Could not load changed stream items: {err}"),

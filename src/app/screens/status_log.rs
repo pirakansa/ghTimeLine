@@ -1,7 +1,7 @@
 use eframe::egui;
 
 use crate::app::screens::stream::StreamState;
-use crate::app::StatusEntry;
+use crate::app::{StatusEntry, StatusLevel};
 
 #[derive(Default)]
 pub struct StatusLogState {
@@ -38,9 +38,15 @@ pub(in crate::app) fn show(
             .show(ui, |ui| {
                 for (index, entry) in status_history.iter().rev().enumerate() {
                     let prefix = if index == 0 { "Latest" } else { "Earlier" };
+                    let is_error = entry.level == StatusLevel::Error;
                     egui::Frame::group(ui.style()).show(ui, |ui| {
                         ui.set_min_width(ui.available_width());
-                        ui.label(egui::RichText::new(prefix).strong());
+                        let prefix_color = if is_error {
+                            egui::Color32::from_rgb(220, 50, 50)
+                        } else {
+                            ui.visuals().text_color()
+                        };
+                        ui.label(egui::RichText::new(prefix).strong().color(prefix_color));
                         ui.add_space(4.0);
                         ui.label(&entry.message);
                     });

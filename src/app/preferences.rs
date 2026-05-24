@@ -14,7 +14,7 @@ impl GhStreamApp {
                     &mut self.status_history,
                     "Sort preference saved.",
                 ),
-                Err(err) => Self::replace_status(
+                Err(err) => Self::replace_status_error(
                     &mut self.status,
                     &mut self.status_history,
                     format!("Could not save sort preference: {err}"),
@@ -34,7 +34,7 @@ impl GhStreamApp {
                 Ok(()) => {
                     Self::replace_status(&mut self.status, &mut self.status_history, "Theme saved.")
                 }
-                Err(err) => Self::replace_status(
+                Err(err) => Self::replace_status_error(
                     &mut self.status,
                     &mut self.status_history,
                     format!("Could not save theme: {err}"),
@@ -53,7 +53,7 @@ impl GhStreamApp {
                     &mut self.status_history,
                     "Font size saved.",
                 ),
-                Err(err) => Self::replace_status(
+                Err(err) => Self::replace_status_error(
                     &mut self.status,
                     &mut self.status_history,
                     format!("Could not save font size: {err}"),
@@ -71,7 +71,7 @@ impl GhStreamApp {
                     &mut self.status_history,
                     "Polling interval saved.",
                 ),
-                Err(err) => Self::replace_status(
+                Err(err) => Self::replace_status_error(
                     &mut self.status,
                     &mut self.status_history,
                     format!("Could not save polling interval: {err}"),

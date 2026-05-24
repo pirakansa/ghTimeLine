@@ -8,22 +8,40 @@ impl GhStreamApp {
                 let open_result = open::that(url);
                 let read_succeeded = read_result.is_ok();
 
-                Self::replace_status(
-                    &mut self.status,
-                    &mut self.status_history,
-                    match (read_result, open_result) {
-                        (Ok(()), Ok(())) => "Opened in external browser.".to_owned(),
-                        (Err(err), Ok(())) => {
+                match (read_result, open_result) {
+                    (Ok(()), Ok(())) => {
+                        Self::replace_status(
+                            &mut self.status,
+                            &mut self.status_history,
+                            "Opened in external browser.",
+                        );
+                    }
+                    (Err(err), Ok(())) => {
+                        Self::replace_status_error(
+                            &mut self.status,
+                            &mut self.status_history,
                             format!(
                                 "Opened in external browser, but could not mark item read: {err}"
-                            )
-                        }
-                        (Ok(()), Err(err)) => format!("Could not open browser: {err}"),
-                        (Err(read_err), Err(open_err)) => {
-                            format!("Could not open browser: {open_err}; could not mark item read: {read_err}")
-                        }
-                    },
-                );
+                            ),
+                        );
+                    }
+                    (Ok(()), Err(err)) => {
+                        Self::replace_status_error(
+                            &mut self.status,
+                            &mut self.status_history,
+                            format!("Could not open browser: {err}"),
+                        );
+                    }
+                    (Err(read_err), Err(open_err)) => {
+                        Self::replace_status_error(
+                            &mut self.status,
+                            &mut self.status_history,
+                            format!(
+                                "Could not open browser: {open_err}; could not mark item read: {read_err}"
+                            ),
+                        );
+                    }
+                };
 
                 if read_succeeded {
                     self.reload_queries();
@@ -60,7 +78,7 @@ impl GhStreamApp {
                     self.reload_queries();
                     self.reload_current_view_for_changed_items(&[item_id]);
                 }
-                Err(err) => Self::replace_status(
+                Err(err) => Self::replace_status_error(
                     &mut self.status,
                     &mut self.status_history,
                     format!("Could not update item state: {err}"),

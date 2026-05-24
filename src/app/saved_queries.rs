@@ -37,7 +37,7 @@ impl GhStreamApp {
                         "Saved query created.",
                     );
                 }
-                Err(err) => Self::replace_status(
+                Err(err) => Self::replace_status_error(
                     &mut self.status,
                     &mut self.status_history,
                     format!("Could not create saved query: {err}"),
@@ -73,13 +73,13 @@ impl GhStreamApp {
                         &mut self.status_history,
                         "Saved query updated.",
                     ),
-                    Err(err) => Self::replace_status(
+                    Err(err) => Self::replace_status_error(
                         &mut self.status,
                         &mut self.status_history,
                         format!("Could not update saved query: {err}"),
                     ),
                 },
-                Err(err) => Self::replace_status(
+                Err(err) => Self::replace_status_error(
                     &mut self.status,
                     &mut self.status_history,
                     format!("Could not update saved query: {err}"),
@@ -103,7 +103,7 @@ impl GhStreamApp {
                         "Saved query deleted.",
                     );
                 }
-                Err(err) => Self::replace_status(
+                Err(err) => Self::replace_status_error(
                     &mut self.status,
                     &mut self.status_history,
                     format!("Could not delete saved query: {err}"),
@@ -121,7 +121,7 @@ impl GhStreamApp {
             match runtime.storage.list_unread_item_ids_for_saved_query(id) {
                 Ok(ids) => changed_item_ids = ids,
                 Err(err) => {
-                    Self::replace_status(
+                    Self::replace_status_error(
                         &mut self.status,
                         &mut self.status_history,
                         format!("Could not inspect saved query items: {err}"),
@@ -143,7 +143,7 @@ impl GhStreamApp {
                     );
                     did_update_items = true;
                 }
-                Err(err) => Self::replace_status(
+                Err(err) => Self::replace_status_error(
                     &mut self.status,
                     &mut self.status_history,
                     format!("Could not mark saved query read: {err}"),

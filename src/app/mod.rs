@@ -46,14 +46,30 @@ pub(super) enum AppMode {
 
 const STATUS_HISTORY_LIMIT: usize = 200;
 
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
+pub(in crate::app) enum StatusLevel {
+    #[default]
+    Info,
+    Error,
+}
+
 pub(in crate::app) struct StatusEntry {
     pub message: String,
+    pub level: StatusLevel,
 }
 
 impl StatusEntry {
     fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
+            level: StatusLevel::Info,
+        }
+    }
+
+    fn new_error(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            level: StatusLevel::Error,
         }
     }
 }
@@ -149,7 +165,7 @@ impl GhStreamApp {
                     self.reload_current_view();
                 }
                 Err(err) => {
-                    Self::replace_status(
+                    Self::replace_status_error(
                         &mut self.status,
                         &mut self.status_history,
                         format!("Configuration saved, but database failed: {err}"),
@@ -157,7 +173,11 @@ impl GhStreamApp {
                 }
             },
             Err(err) => {
-                Self::replace_status(&mut self.status, &mut self.status_history, err.to_string());
+                Self::replace_status_error(
+                    &mut self.status,
+                    &mut self.status_history,
+                    err.to_string(),
+                );
             }
         }
     }
@@ -208,9 +228,20 @@ impl GhStreamApp {
         status_history: &mut Vec<StatusEntry>,
         value: impl Into<String>,
     ) {
-        let value = value.into();
-        *status = value.clone();
-        status_history.push(StatusEntry::new(value));
+        Self::push_entry(status, status_history, StatusEntry::new(value));
+    }
+
+    fn replace_status_error(
+        status: &mut String,
+        status_history: &mut Vec<StatusEntry>,
+        value: impl Into<String>,
+    ) {
+        Self::push_entry(status, status_history, StatusEntry::new_error(value));
+    }
+
+    fn push_entry(status: &mut String, status_history: &mut Vec<StatusEntry>, entry: StatusEntry) {
+        *status = entry.message.clone();
+        status_history.push(entry);
         if status_history.len() > STATUS_HISTORY_LIMIT {
             let overflow = status_history.len() - STATUS_HISTORY_LIMIT;
             status_history.drain(0..overflow);
