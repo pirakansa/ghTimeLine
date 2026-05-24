@@ -2,6 +2,7 @@ use eframe::egui;
 
 use super::saved_query_manager;
 use crate::app::components;
+use crate::app::screens::saved_query_manager::SavedQueryManagerState;
 use crate::models::{
     AppConfig, FontSize, LibraryCounts, LibraryView, SavedQuery, Selection, SortOrder,
     StreamFilter, StreamItem, Theme,
@@ -10,13 +11,8 @@ use crate::models::{
 pub struct StreamState {
     pub selection: Selection,
     pub filter: Option<StreamFilter>,
-    pub(in crate::app) edit_query_id: Option<i64>,
-    pub(in crate::app) edit_query_name: String,
-    pub(in crate::app) edit_query_text: String,
-    pub(in crate::app) edit_query_sort: SortOrder,
-    pub(in crate::app) edit_query_enabled: bool,
-    pub(in crate::app) saved_query_manager_open: bool,
     pub(in crate::app) polling_interval_draft: u32,
+    pub(in crate::app) saved_query_manager: SavedQueryManagerState,
 }
 
 impl Default for StreamState {
@@ -24,13 +20,8 @@ impl Default for StreamState {
         Self {
             selection: Selection::Library(LibraryView::Inbox),
             filter: None,
-            edit_query_id: None,
-            edit_query_name: String::new(),
-            edit_query_text: String::new(),
-            edit_query_sort: SortOrder::UpdatedDesc,
-            edit_query_enabled: true,
-            saved_query_manager_open: false,
             polling_interval_draft: 0,
+            saved_query_manager: SavedQueryManagerState::default(),
         }
     }
 }
@@ -85,7 +76,7 @@ pub fn show(
     }
     let mut event = None;
 
-    if state.saved_query_manager_open {
+    if state.saved_query_manager.open {
         saved_query_manager::show(ctx, state, saved_queries, &mut event);
         return event;
     }
