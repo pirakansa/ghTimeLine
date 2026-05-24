@@ -36,10 +36,9 @@ Current implemented foundation:
 - GraphQL enrichment for discovered pull requests to fill draft, merge, and
   review status metadata before rendering.
 
-For day-to-day usage, see the
-[desktop app user guide](docs/user-guides/desktop-app.md). For implemented
-behavior that should remain stable as the app evolves, see the
-[application behavior specification](docs/specifications/application-behavior.md).
+For day-to-day usage, see the [user guides](docs/user-guides/README.md). For
+implemented behavior that should remain stable as the app evolves, see the
+[specification references](docs/specifications/README.md).
 
 ## Development
 
