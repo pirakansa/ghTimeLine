@@ -75,14 +75,28 @@ impl GhStreamApp {
     }
 
     pub(super) fn mark_saved_query_read(&mut self, id: i64) {
+        let mut changed_item_ids = Vec::new();
+        let mut did_update_items = false;
         if let AppMode::Main(runtime) = &mut self.mode {
+            match runtime.storage.list_unread_item_ids_for_saved_query(id) {
+                Ok(ids) => changed_item_ids = ids,
+                Err(err) => {
+                    self.status = format!("Could not inspect saved query items: {err}");
+                    return;
+                }
+            }
             match runtime.storage.mark_saved_query_read(id) {
                 Ok(0) => self.status = "No unread items to mark read.".to_owned(),
-                Ok(count) => self.status = format!("Marked {count} items as read."),
+                Ok(count) => {
+                    self.status = format!("Marked {count} items as read.");
+                    did_update_items = true;
+                }
                 Err(err) => self.status = format!("Could not mark saved query read: {err}"),
             }
         }
-        self.reload_queries();
-        self.reload_current_view();
+        if did_update_items {
+            self.reload_queries();
+            self.reload_current_view_for_changed_items(&changed_item_ids);
+        }
     }
 }

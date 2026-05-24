@@ -86,6 +86,47 @@ fn mark_saved_query_read_updates_counts_and_current_view() {
 }
 
 #[test]
+fn changed_item_outside_current_view_does_not_reload_visible_items() {
+    let (mut app, item_id) = app_with_one_item();
+    let other_query_id = add_query_to_app(&mut app, "Backend");
+    let other_item_id = insert_item_into_query(
+        &mut app,
+        other_query_id,
+        sample_item_with_number(99, "Other item", "2026-05-24T00:00:00+00:00"),
+    );
+
+    app.reload_current_view_for_changed_items(&[other_item_id]);
+
+    let AppMode::Main(runtime) = &app.mode else {
+        panic!("app should be in main mode");
+    };
+    assert_eq!(runtime.items.len(), 1);
+    assert_eq!(runtime.items[0].id, item_id);
+}
+
+#[test]
+fn changed_item_that_enters_current_view_triggers_reload() {
+    let (mut app, item_id) = app_with_one_item();
+    let Selection::SavedQuery(query_id) = app.stream.selection else {
+        panic!("app should select saved query");
+    };
+    let inserted_item_id = insert_item_into_query(
+        &mut app,
+        query_id,
+        sample_item_with_number(100, "Fresh item", "2026-05-24T00:00:00+00:00"),
+    );
+
+    app.reload_current_view_for_changed_items(&[inserted_item_id]);
+
+    let AppMode::Main(runtime) = &app.mode else {
+        panic!("app should be in main mode");
+    };
+    assert_eq!(runtime.items.len(), 2);
+    assert_eq!(runtime.items[0].title, "Fresh item");
+    assert!(runtime.items.iter().any(|item| item.id == item_id));
+}
+
+#[test]
 fn polling_interval_change_updates_runtime_and_yaml_config() {
     let (mut app, _) = app_with_one_item();
     app.update_polling_interval(90);
@@ -142,17 +183,30 @@ fn app_with_one_item() -> (GhStreamApp, i64) {
 }
 
 fn sample_item(host_id: i64) -> StreamItemUpsert {
+    sample_item_with_number_for_host(host_id, 42, "Title", "2026-05-23T00:00:00+00:00")
+}
+
+fn sample_item_with_number(number: i64, title: &str, updated_at_github: &str) -> StreamItemUpsert {
+    sample_item_with_number_for_host(0, number, title, updated_at_github)
+}
+
+fn sample_item_with_number_for_host(
+    host_id: i64,
+    number: i64,
+    title: &str,
+    updated_at_github: &str,
+) -> StreamItemUpsert {
     StreamItemUpsert {
         host_id,
         node_id: Some("node".to_owned()),
         repository_owner: "owner".to_owned(),
         repository_name: "repo".to_owned(),
-        number: 42,
+        number,
         item_type: ItemType::PullRequest,
-        title: "Title".to_owned(),
+        title: title.to_owned(),
         author_login: Some("author".to_owned()),
         author_avatar_url: Some("https://avatars.githubusercontent.com/u/1?v=4".to_owned()),
-        html_url: "https://github.example.test/owner/repo/pull/42".to_owned(),
+        html_url: format!("https://github.example.test/owner/repo/pull/{number}"),
         api_url: None,
         state: "open".to_owned(),
         is_draft: Some(false),
@@ -160,7 +214,7 @@ fn sample_item(host_id: i64) -> StreamItemUpsert {
         review_status: Some("review_required".to_owned()),
         comment_count: 3,
         created_at_github: "2026-05-22T00:00:00+00:00".to_owned(),
-        updated_at_github: "2026-05-23T00:00:00+00:00".to_owned(),
+        updated_at_github: updated_at_github.to_owned(),
         closed_at_github: None,
         merged_at_github: None,
         labels: vec!["bug".to_owned()],
@@ -178,6 +232,29 @@ fn sample_item(host_id: i64) -> StreamItemUpsert {
             state: "approved".to_owned(),
         }],
     }
+}
+
+fn add_query_to_app(app: &mut GhStreamApp, name: &str) -> i64 {
+    let AppMode::Main(runtime) = &mut app.mode else {
+        panic!("app should be in main mode");
+    };
+    runtime
+        .storage
+        .add_saved_query(runtime.host_id, name, "is:open", SortOrder::UpdatedDesc)
+        .expect("query")
+}
+
+fn insert_item_into_query(app: &mut GhStreamApp, query_id: i64, mut item: StreamItemUpsert) -> i64 {
+    let AppMode::Main(runtime) = &mut app.mode else {
+        panic!("app should be in main mode");
+    };
+    item.host_id = runtime.host_id;
+    let item_id = runtime.storage.upsert_stream_item(&item).expect("item").id;
+    runtime
+        .storage
+        .record_saved_query_match(query_id, item_id, Some(0))
+        .expect("match");
+    item_id
 }
 
 fn assert_items_len(app: &GhStreamApp, expected: usize) {

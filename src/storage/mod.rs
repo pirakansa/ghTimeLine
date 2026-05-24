@@ -5,7 +5,7 @@ pub mod schema;
 use std::path::Path;
 
 use chrono::Utc;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBehavior};
 use thiserror::Error;
 
 use crate::models::HostConfig;
@@ -45,6 +45,23 @@ impl Storage {
 
     pub fn connection(&self) -> &Connection {
         &self.connection
+    }
+
+    pub fn with_immediate_transaction<T>(
+        &self,
+        action: impl FnOnce(&Self) -> Result<T>,
+    ) -> Result<T> {
+        let transaction =
+            Transaction::new_unchecked(&self.connection, TransactionBehavior::Immediate)
+                .map_err(StorageError::from)?;
+        let result = action(self);
+        match result {
+            Ok(value) => {
+                transaction.commit().map_err(StorageError::from)?;
+                Ok(value)
+            }
+            Err(err) => Err(err),
+        }
     }
 
     pub fn ensure_host(&self, host: &HostConfig) -> Result<i64> {

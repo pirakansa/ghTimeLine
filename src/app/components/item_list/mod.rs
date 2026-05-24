@@ -8,6 +8,10 @@ mod badges;
 mod people;
 mod styles;
 
+fn estimated_row_height(ui: &egui::Ui) -> f32 {
+    ui.spacing().interact_size.y * 7.0
+}
+
 pub fn show(
     ui: &mut egui::Ui,
     items: &[StreamItem],
@@ -21,21 +25,35 @@ pub fn show(
         return;
     }
 
-    egui::ScrollArea::vertical().show(ui, |ui| {
-        for item in items {
-            let frame = egui::Frame::group(ui.style())
-                .fill(styles::item_background_fill(ui.visuals(), item.is_unread))
-                .stroke(styles::item_background_stroke(ui.visuals(), item.is_unread));
-            let response = frame.show(ui, |ui| {
-                let available_width = ui.available_width();
-                ui.set_min_width(available_width);
-                ui.set_width(available_width);
-                show_item_card(ui, item, avatar_cache, event);
-            });
-            open_item_if_card_clicked(ui, item, response.response.rect, event);
-            ui.add_space(6.0);
-        }
-    });
+    egui::ScrollArea::vertical().show_rows(
+        ui,
+        estimated_row_height(ui),
+        items.len(),
+        |ui, rows| {
+            for row in rows {
+                let item = &items[row];
+                ui.allocate_ui_with_layout(
+                    egui::vec2(ui.available_width(), estimated_row_height(ui)),
+                    egui::Layout::top_down(egui::Align::Min),
+                    |ui| {
+                        let frame = egui::Frame::group(ui.style())
+                            .fill(styles::item_background_fill(ui.visuals(), item.is_unread))
+                            .stroke(styles::item_background_stroke(ui.visuals(), item.is_unread));
+                        let response = frame.show(ui, |ui| {
+                            let available_width = ui.available_width();
+                            ui.set_min_width(available_width);
+                            ui.set_width(available_width);
+                            show_item_card(ui, item, avatar_cache, event);
+                        });
+                        open_item_if_card_clicked(ui, item, response.response.rect, event);
+                    },
+                );
+                if row + 1 < items.len() {
+                    ui.add_space(6.0);
+                }
+            }
+        },
+    );
 }
 
 fn show_item_card(

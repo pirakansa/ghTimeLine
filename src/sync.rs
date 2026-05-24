@@ -12,10 +12,11 @@ pub enum SyncError {
     Storage(#[from] StorageError),
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct RefreshStats {
     pub processed_count: usize,
     pub changed_count: usize,
+    pub changed_item_ids: Vec<i64>,
 }
 
 pub fn refresh_saved_query(
@@ -33,19 +34,26 @@ pub fn refresh_saved_query(
     )?;
     let _ = github::graphql::enrich_pull_requests(&config.host, &config.auth.pat, &mut items);
 
-    let mut stats = RefreshStats {
-        processed_count: items.len(),
-        changed_count: 0,
-    };
-    for (rank, item) in items.iter().enumerate() {
-        let save = storage.upsert_stream_item(item)?;
-        if save.changed {
-            stats.changed_count += 1;
-        }
-        storage.record_saved_query_match(saved_query.id, save.id, Some(rank as i64))?;
-    }
-    storage.mark_saved_query_sync_success(saved_query.id)?;
-    Ok(stats)
+    storage
+        .with_immediate_transaction(|storage| {
+            let mut stats = RefreshStats {
+                processed_count: items.len(),
+                changed_count: 0,
+                changed_item_ids: Vec::new(),
+            };
+            for (rank, item) in items.iter().enumerate() {
+                let save = storage.upsert_stream_item(item)?;
+                let has_new_match =
+                    storage.record_saved_query_match(saved_query.id, save.id, Some(rank as i64))?;
+                if save.changed || has_new_match {
+                    stats.changed_count += 1;
+                    stats.changed_item_ids.push(save.id);
+                }
+            }
+            storage.mark_saved_query_sync_success(saved_query.id)?;
+            Ok(stats)
+        })
+        .map_err(SyncError::from)
 }
 
 pub fn refresh_saved_queries(

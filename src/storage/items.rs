@@ -1,11 +1,13 @@
 use chrono::{DateTime, Utc};
-use rusqlite::params;
+use rusqlite::{params, types::Value, OptionalExtension};
 
 use crate::models::{
-    ItemPerson, ItemReview, ItemType, LibraryView, SortOrder, StreamFilter, StreamItem,
+    ItemPerson, ItemReview, ItemType, LibraryView, Selection, SortOrder, StreamFilter, StreamItem,
 };
 
 use super::{Result, Storage};
+
+const STREAM_VIEW_LIMIT: usize = 500;
 
 #[derive(Clone, Debug)]
 pub struct StreamItemUpsert {
@@ -41,13 +43,22 @@ pub struct StreamItemSave {
     pub changed: bool,
 }
 
+#[derive(Clone, Debug)]
+struct ExistingStreamItem {
+    id: i64,
+    updated_at_github: String,
+}
+
 impl Storage {
     pub fn upsert_stream_item(&self, item: &StreamItemUpsert) -> Result<StreamItemSave> {
         let now = Utc::now().to_rfc3339();
-        let previous_updated_at_github = self.find_item_updated_at_github(item)?;
-        let changed = previous_updated_at_github
-            .as_deref()
-            .is_none_or(|previous| github_updated_at_advanced(previous, &item.updated_at_github));
+        let existing_item = self.find_existing_stream_item(item)?;
+        let changed = existing_item
+            .as_ref()
+            .map(|existing| {
+                github_updated_at_advanced(&existing.updated_at_github, &item.updated_at_github)
+            })
+            .unwrap_or(true);
         self.connection().execute(
             "INSERT INTO stream_items (
                 host_id, node_id, repository_owner, repository_name, number, item_type,
@@ -102,22 +113,10 @@ impl Storage {
             ],
         )?;
 
-        let id = self.connection().query_row(
-            "SELECT id FROM stream_items
-             WHERE host_id = ?1
-               AND repository_owner = ?2
-               AND repository_name = ?3
-               AND number = ?4
-               AND item_type = ?5",
-            params![
-                item.host_id,
-                item.repository_owner,
-                item.repository_name,
-                item.number,
-                item_type_db_value(&item.item_type)
-            ],
-            |row| row.get::<_, i64>(0),
-        )?;
+        let id = existing_item
+            .as_ref()
+            .map(|existing| existing.id)
+            .unwrap_or_else(|| self.connection().last_insert_rowid());
 
         self.connection().execute(
             "INSERT OR IGNORE INTO item_state (stream_item_id, updated_at)
@@ -125,21 +124,26 @@ impl Storage {
             params![id, now],
         )?;
 
-        if previous_updated_at_github.is_some() && changed {
+        if existing_item.is_some() && changed {
             self.set_read_state(id, true)?;
         }
 
-        self.replace_labels(id, &item.labels)?;
-        self.replace_assignees(id, &item.assignees)?;
-        self.replace_review_requests(id, &item.review_requests)?;
-        self.replace_reviews(id, &item.reviewers)?;
+        if changed || existing_item.is_none() {
+            self.replace_labels(id, &item.labels)?;
+            self.replace_assignees(id, &item.assignees)?;
+            self.replace_review_requests(id, &item.review_requests)?;
+            self.replace_reviews(id, &item.reviewers)?;
+        }
 
         Ok(StreamItemSave { id, changed })
     }
 
-    fn find_item_updated_at_github(&self, item: &StreamItemUpsert) -> Result<Option<String>> {
+    fn find_existing_stream_item(
+        &self,
+        item: &StreamItemUpsert,
+    ) -> Result<Option<ExistingStreamItem>> {
         let result = self.connection().query_row(
-            "SELECT updated_at_github FROM stream_items
+            "SELECT id, updated_at_github FROM stream_items
              WHERE host_id = ?1
                AND repository_owner = ?2
                AND repository_name = ?3
@@ -152,11 +156,16 @@ impl Storage {
                 item.number,
                 item_type_db_value(&item.item_type)
             ],
-            |row| row.get::<_, String>(0),
+            |row| {
+                Ok(ExistingStreamItem {
+                    id: row.get(0)?,
+                    updated_at_github: row.get(1)?,
+                })
+            },
         );
 
         match result {
-            Ok(updated_at) => Ok(Some(updated_at)),
+            Ok(existing_item) => Ok(Some(existing_item)),
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
             Err(err) => Err(err.into()),
         }
@@ -167,8 +176,19 @@ impl Storage {
         saved_query_id: i64,
         stream_item_id: i64,
         search_rank: Option<i64>,
-    ) -> Result<()> {
+    ) -> Result<bool> {
         let now = Utc::now().to_rfc3339();
+        let existed = self
+            .connection()
+            .query_row(
+                "SELECT 1
+                 FROM saved_query_matches
+                 WHERE saved_query_id = ?1 AND stream_item_id = ?2",
+                params![saved_query_id, stream_item_id],
+                |_| Ok(()),
+            )
+            .optional()?
+            .is_some();
         self.connection().execute(
             "INSERT INTO saved_query_matches (
                 saved_query_id, stream_item_id, first_seen_at, last_seen_at, search_rank
@@ -178,7 +198,7 @@ impl Storage {
                            search_rank = excluded.search_rank",
             params![saved_query_id, stream_item_id, now, search_rank],
         )?;
-        Ok(())
+        Ok(!existed)
     }
 
     pub fn list_items_for_saved_query(
@@ -190,10 +210,11 @@ impl Storage {
         let mut sql = item_select_sql(
             "JOIN saved_query_matches m ON m.stream_item_id = i.id",
             "m.saved_query_id = ?1 AND s.is_archived = 0",
+            "",
             filter,
             sort,
         );
-        sql.push_str(" LIMIT 500");
+        sql.push_str(&format!(" LIMIT {STREAM_VIEW_LIMIT}"));
         self.query_items(&sql, params![saved_query_id])
     }
 
@@ -216,8 +237,43 @@ impl Storage {
                 WHERE m.stream_item_id = i.id AND q.enabled = 1
              ) AND {library_clause}"
         );
-        let sql = item_select_sql("", &where_clause, filter, sort);
+        let mut sql = item_select_sql("", &where_clause, "", filter, sort);
+        sql.push_str(&format!(" LIMIT {STREAM_VIEW_LIMIT}"));
         self.query_items(&sql, params![host_id])
+    }
+
+    pub fn list_items_for_selection_by_ids(
+        &self,
+        host_id: i64,
+        selection: &Selection,
+        filter: Option<StreamFilter>,
+        sort: SortOrder,
+        item_ids: &[i64],
+    ) -> Result<Vec<StreamItem>> {
+        match selection {
+            Selection::Library(library) => {
+                self.list_items_for_library_by_ids(host_id, *library, filter, sort, item_ids)
+            }
+            Selection::SavedQuery(id) => {
+                self.list_items_for_saved_query_by_ids(*id, filter, sort, item_ids)
+            }
+        }
+    }
+
+    pub fn list_unread_item_ids_for_saved_query(&self, saved_query_id: i64) -> Result<Vec<i64>> {
+        let mut statement = self.connection().prepare(
+            "SELECT stream_item_id
+             FROM saved_query_matches
+             WHERE saved_query_id = ?1
+               AND stream_item_id IN (
+                   SELECT stream_item_id
+                   FROM item_state
+                   WHERE is_unread = 1 AND is_archived = 0
+               )",
+        )?;
+        let rows = statement.query_map([saved_query_id], |row| row.get::<_, i64>(0))?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(Into::into)
     }
 
     pub fn set_read_state(&self, stream_item_id: i64, unread: bool) -> Result<()> {
@@ -389,6 +445,73 @@ impl Storage {
         Ok(items)
     }
 
+    fn list_items_for_saved_query_by_ids(
+        &self,
+        saved_query_id: i64,
+        filter: Option<StreamFilter>,
+        sort: SortOrder,
+        item_ids: &[i64],
+    ) -> Result<Vec<StreamItem>> {
+        self.query_items_by_ids(
+            "JOIN saved_query_matches m ON m.stream_item_id = i.id",
+            "m.saved_query_id = ?1 AND s.is_archived = 0",
+            vec![Value::Integer(saved_query_id)],
+            item_ids,
+            filter,
+            sort,
+        )
+    }
+
+    fn list_items_for_library_by_ids(
+        &self,
+        host_id: i64,
+        library: LibraryView,
+        filter: Option<StreamFilter>,
+        sort: SortOrder,
+        item_ids: &[i64],
+    ) -> Result<Vec<StreamItem>> {
+        let library_clause = match library {
+            LibraryView::Inbox => "s.is_archived = 0",
+            LibraryView::Bookmark => "s.is_bookmarked = 1 AND s.is_archived = 0",
+            LibraryView::Archived => "s.is_archived = 1",
+        };
+        let where_clause = format!(
+            "i.host_id = ?1 AND EXISTS (
+                SELECT 1 FROM saved_query_matches m
+                JOIN saved_queries q ON q.id = m.saved_query_id
+                WHERE m.stream_item_id = i.id AND q.enabled = 1
+             ) AND {library_clause}"
+        );
+        self.query_items_by_ids(
+            "",
+            &where_clause,
+            vec![Value::Integer(host_id)],
+            item_ids,
+            filter,
+            sort,
+        )
+    }
+
+    fn query_items_by_ids(
+        &self,
+        extra_join: &str,
+        base_where: &str,
+        mut base_params: Vec<Value>,
+        item_ids: &[i64],
+        filter: Option<StreamFilter>,
+        sort: SortOrder,
+    ) -> Result<Vec<StreamItem>> {
+        if item_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let placeholders = vec!["?"; item_ids.len()].join(", ");
+        let extra_where = format!(" AND i.id IN ({placeholders})");
+        let sql = item_select_sql(extra_join, base_where, &extra_where, filter, sort);
+        base_params.extend(item_ids.iter().copied().map(Value::Integer));
+        self.query_items(&sql, rusqlite::params_from_iter(base_params))
+    }
+
     fn list_labels(&self, stream_item_id: i64) -> Result<Vec<String>> {
         let mut statement = self.connection().prepare(
             "SELECT name FROM stream_item_labels
@@ -460,6 +583,7 @@ impl Storage {
 fn item_select_sql(
     extra_join: &str,
     base_where: &str,
+    extra_where: &str,
     filter: Option<StreamFilter>,
     sort: SortOrder,
 ) -> String {
@@ -503,7 +627,7 @@ fn item_select_sql(
          FROM stream_items i
          JOIN item_state s ON s.stream_item_id = i.id
          {extra_join}
-         WHERE {base_where}{filter_clause}
+         WHERE {base_where}{extra_where}{filter_clause}
          GROUP BY i.id
          ORDER BY {order}"
     )

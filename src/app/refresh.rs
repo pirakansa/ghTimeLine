@@ -12,6 +12,7 @@ pub(super) struct RefreshOutcome {
     pub processed_count: usize,
     pub changed_count: usize,
     pub failed_count: usize,
+    pub changed_item_ids: Vec<i64>,
 }
 
 impl GhStreamApp {
@@ -54,9 +55,11 @@ impl GhStreamApp {
             outcome.changed_count,
             outcome.failed_count,
         );
-        if outcome.changed_count > 0 || outcome.failed_count > 0 {
+        if !outcome.changed_item_ids.is_empty() || outcome.failed_count > 0 {
             self.reload_queries();
-            self.reload_current_view();
+        }
+        if !outcome.changed_item_ids.is_empty() {
+            self.reload_current_view_for_changed_items(&outcome.changed_item_ids);
         }
     }
 
@@ -118,9 +121,17 @@ impl GhStreamApp {
                     label,
                     processed_count: 0,
                     changed_count: 0,
+                    changed_item_ids: Vec::new(),
                 },
                 Ok(storage) => {
                     let results = sync::refresh_saved_queries(&config, &storage, host_id, &queries);
+                    let mut changed_item_ids = results
+                        .iter()
+                        .filter_map(|(_, r)| r.as_ref().ok())
+                        .flat_map(|stats| stats.changed_item_ids.iter().copied())
+                        .collect::<Vec<_>>();
+                    changed_item_ids.sort_unstable();
+                    changed_item_ids.dedup();
                     RefreshOutcome {
                         processed_count: results
                             .iter()
@@ -134,6 +145,7 @@ impl GhStreamApp {
                             .sum(),
                         failed_count: results.iter().filter(|(_, r)| r.is_err()).count(),
                         label,
+                        changed_item_ids,
                     }
                 }
             };

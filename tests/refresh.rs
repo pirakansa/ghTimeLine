@@ -42,7 +42,9 @@ fn refresh_writes_rest_results_and_graphql_enrichment_to_storage() {
 
     assert_eq!(stats.processed_count, 1);
     assert_eq!(stats.changed_count, 1);
+    assert_eq!(stats.changed_item_ids.len(), 1);
     assert_eq!(items.len(), 1);
+    assert_eq!(stats.changed_item_ids[0], items[0].id);
     assert_eq!(items[0].repository_full_name(), "acme/project");
     assert_eq!(items[0].review_status.as_deref(), Some("approved"));
     assert_eq!(items[0].is_merged, Some(true));

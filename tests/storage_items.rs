@@ -72,6 +72,101 @@ fn read_item_becomes_unread_when_github_updated_at_advances() {
 }
 
 #[test]
+fn unchanged_upsert_preserves_existing_relation_rows() {
+    let storage = Storage::in_memory().expect("storage");
+    let config = AppConfig::default_with_pat("token".to_owned());
+    let host_id = storage.ensure_host(&config.host).expect("host");
+    let query_id = storage
+        .add_saved_query(host_id, "Mine", "assignee:@me", SortOrder::UpdatedDesc)
+        .expect("query");
+
+    let item_id = storage
+        .upsert_stream_item(&sample_item(host_id))
+        .expect("item")
+        .id;
+    storage
+        .record_saved_query_match(query_id, item_id, Some(0))
+        .expect("match");
+
+    let mut item = sample_item(host_id);
+    item.title = "Retitled".to_owned();
+    item.labels = vec!["regression".to_owned()];
+    item.assignees = vec![ItemPerson {
+        login: "other-dev".to_owned(),
+        avatar_url: None,
+    }];
+    item.review_requests = vec![ItemPerson {
+        login: "other-reviewer".to_owned(),
+        avatar_url: None,
+    }];
+    item.reviewers = vec![ItemReview {
+        login: "approver".to_owned(),
+        avatar_url: None,
+        state: "changes_requested".to_owned(),
+    }];
+    let save = storage.upsert_stream_item(&item).expect("updated item");
+    assert!(!save.changed);
+
+    let items = storage
+        .list_items_for_saved_query(query_id, None, SortOrder::UpdatedDesc)
+        .expect("items");
+
+    assert_eq!(items[0].title, "Retitled");
+    assert_eq!(items[0].labels, vec!["bug".to_owned()]);
+    assert_eq!(items[0].assignees[0].login, "dev");
+    assert_eq!(items[0].review_requests[0].login, "triage");
+    assert_eq!(items[0].reviewers[0].login, "reviewer");
+    assert_eq!(items[0].reviewers[0].state, "approved");
+}
+
+#[test]
+fn changed_upsert_rewrites_relation_rows() {
+    let storage = Storage::in_memory().expect("storage");
+    let config = AppConfig::default_with_pat("token".to_owned());
+    let host_id = storage.ensure_host(&config.host).expect("host");
+    let query_id = storage
+        .add_saved_query(host_id, "Mine", "assignee:@me", SortOrder::UpdatedDesc)
+        .expect("query");
+
+    let item_id = storage
+        .upsert_stream_item(&sample_item(host_id))
+        .expect("item")
+        .id;
+    storage
+        .record_saved_query_match(query_id, item_id, Some(0))
+        .expect("match");
+
+    let mut item = sample_item(host_id);
+    item.updated_at_github = "2026-05-24T00:00:00+00:00".to_owned();
+    item.labels = vec!["regression".to_owned()];
+    item.assignees = vec![ItemPerson {
+        login: "other-dev".to_owned(),
+        avatar_url: None,
+    }];
+    item.review_requests = vec![ItemPerson {
+        login: "other-reviewer".to_owned(),
+        avatar_url: None,
+    }];
+    item.reviewers = vec![ItemReview {
+        login: "approver".to_owned(),
+        avatar_url: None,
+        state: "changes_requested".to_owned(),
+    }];
+    let save = storage.upsert_stream_item(&item).expect("updated item");
+    assert!(save.changed);
+
+    let items = storage
+        .list_items_for_saved_query(query_id, None, SortOrder::UpdatedDesc)
+        .expect("items");
+
+    assert_eq!(items[0].labels, vec!["regression".to_owned()]);
+    assert_eq!(items[0].assignees[0].login, "other-dev");
+    assert_eq!(items[0].review_requests[0].login, "other-reviewer");
+    assert_eq!(items[0].reviewers[0].login, "approver");
+    assert_eq!(items[0].reviewers[0].state, "changes_requested");
+}
+
+#[test]
 fn archived_unread_items_are_excluded_from_query_badges() {
     let storage = Storage::in_memory().expect("storage");
     let config = AppConfig::default_with_pat("token".to_owned());
