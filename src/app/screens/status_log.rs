@@ -39,6 +39,7 @@ pub(in crate::app) fn show(
                 for (index, entry) in status_history.iter().rev().enumerate() {
                     let prefix = if index == 0 { "Latest" } else { "Earlier" };
                     egui::Frame::group(ui.style()).show(ui, |ui| {
+                        ui.set_min_width(ui.available_width());
                         ui.label(egui::RichText::new(prefix).strong());
                         ui.add_space(4.0);
                         ui.label(&entry.message);
