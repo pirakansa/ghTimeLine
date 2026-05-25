@@ -91,7 +91,6 @@ fn fetch_saved_query_items(
         &config.auth.pat,
         host_id,
         &saved_query.query,
-        saved_query.sort,
     )
     .map_err(SyncError::from)
 }

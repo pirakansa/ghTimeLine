@@ -18,6 +18,9 @@ flow.
 ## API Strategy
 
 - REST Search is the discovery source for issues and pull requests.
+- REST Search discovery always requests results ordered by most recently updated
+  first (`sort=updated&order=desc`) so display preferences do not displace
+  newly updated items from the fetched page.
 - REST Search results are parsed into normalized stream item data.
 - Pull requests with node IDs are enriched through GraphQL.
 - GraphQL enrichment fills draft state, merge state, merged timestamp, review

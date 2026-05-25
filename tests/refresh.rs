@@ -25,7 +25,7 @@ fn refresh_writes_rest_results_and_graphql_enrichment_to_storage() {
     let config = config_for_server(&server);
     let host_id = storage.ensure_host(&config.host).expect("host");
     let query_id = storage
-        .add_saved_query(host_id, "PRs", "is:pr", SortOrder::UpdatedDesc)
+        .add_saved_query(host_id, "PRs", "is:pr")
         .expect("saved query");
     let saved_query = storage
         .list_saved_queries(host_id)
@@ -63,6 +63,42 @@ fn refresh_writes_rest_results_and_graphql_enrichment_to_storage() {
 }
 
 #[test]
+fn refresh_fetches_recently_updated_items_first() {
+    let server = Server::run();
+    server.expect(
+        Expectation::matching(all_of![
+            request::method_path("GET", "/search/issues"),
+            request::query(url_decoded(all_of![
+                contains(("q", "is:pr")),
+                contains(("sort", "updated")),
+                contains(("order", "desc")),
+            ])),
+        ])
+        .respond_with(json_encoded(search_response())),
+    );
+    server.expect(
+        Expectation::matching(request::method_path("POST", "/api/graphql"))
+            .respond_with(json_encoded(graphql_response("APPROVED", true))),
+    );
+
+    let storage = Storage::in_memory().expect("storage");
+    let config = config_for_server(&server);
+    let host_id = storage.ensure_host(&config.host).expect("host");
+    let query_id = storage
+        .add_saved_query(host_id, "PRs", "is:pr")
+        .expect("saved query");
+    let saved_query = storage
+        .list_saved_queries(host_id)
+        .expect("queries")
+        .into_iter()
+        .find(|query| query.id == query_id)
+        .expect("query");
+
+    sync::refresh_saved_query(&config, &storage, host_id, &saved_query)
+        .expect("refresh should use update ordering");
+}
+
+#[test]
 fn failed_refresh_preserves_existing_items_and_records_sync_error() {
     let server = Server::run();
     server.expect(
@@ -82,7 +118,7 @@ fn failed_refresh_preserves_existing_items_and_records_sync_error() {
     let config = config_for_server(&server);
     let host_id = storage.ensure_host(&config.host).expect("host");
     let query_id = storage
-        .add_saved_query(host_id, "PRs", "is:pr", SortOrder::UpdatedDesc)
+        .add_saved_query(host_id, "PRs", "is:pr")
         .expect("saved query");
     let saved_query = storage
         .list_saved_queries(host_id)
@@ -138,7 +174,7 @@ fn graphql_failure_preserves_existing_pull_request_enrichment() {
     let config = config_for_server(&server);
     let host_id = storage.ensure_host(&config.host).expect("host");
     let query_id = storage
-        .add_saved_query(host_id, "PRs", "is:pr", SortOrder::UpdatedDesc)
+        .add_saved_query(host_id, "PRs", "is:pr")
         .expect("saved query");
     let saved_query = storage
         .list_saved_queries(host_id)
@@ -193,15 +229,10 @@ fn refreshing_overlapping_queries_updates_shared_item_metadata_once() {
     let config = config_for_server(&server);
     let host_id = storage.ensure_host(&config.host).expect("host");
     storage
-        .add_saved_query(host_id, "PRs", "is:pr", SortOrder::UpdatedDesc)
+        .add_saved_query(host_id, "PRs", "is:pr")
         .expect("first query");
     storage
-        .add_saved_query(
-            host_id,
-            "Reviews",
-            "review-requested:@me",
-            SortOrder::UpdatedDesc,
-        )
+        .add_saved_query(host_id, "Reviews", "review-requested:@me")
         .expect("second query");
     let saved_queries = storage.list_saved_queries(host_id).expect("queries");
 
@@ -234,7 +265,7 @@ fn refresh_batches_graphql_enrichment_for_large_pull_request_sets() {
     let config = config_for_server(&server);
     let host_id = storage.ensure_host(&config.host).expect("host");
     storage
-        .add_saved_query(host_id, "PRs", "is:pr", SortOrder::UpdatedDesc)
+        .add_saved_query(host_id, "PRs", "is:pr")
         .expect("query");
     let saved_queries = storage.list_saved_queries(host_id).expect("queries");
 
@@ -265,7 +296,7 @@ fn failed_graphql_batch_does_not_block_successful_batch_enrichment() {
     let config = config_for_server(&server);
     let host_id = storage.ensure_host(&config.host).expect("host");
     let query_id = storage
-        .add_saved_query(host_id, "PRs", "is:pr", SortOrder::UpdatedDesc)
+        .add_saved_query(host_id, "PRs", "is:pr")
         .expect("query");
     let saved_queries = storage.list_saved_queries(host_id).expect("queries");
 

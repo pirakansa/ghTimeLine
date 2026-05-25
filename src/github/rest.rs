@@ -1,19 +1,10 @@
 use crate::github::{client, GitHubError};
-use crate::models::{HostConfig, ItemPerson, ItemType, SortOrder};
+use crate::models::{HostConfig, ItemPerson, ItemType};
 use crate::storage::items::StreamItemUpsert;
 
 const SEARCH_PER_PAGE: u16 = 50;
-
-pub fn search_sort_query(sort: SortOrder) -> (&'static str, &'static str) {
-    match sort {
-        SortOrder::UpdatedDesc => ("updated", "desc"),
-        SortOrder::UpdatedAsc => ("updated", "asc"),
-        SortOrder::CreatedDesc => ("created", "desc"),
-        SortOrder::CreatedAsc => ("created", "asc"),
-        SortOrder::CommentsDesc => ("comments", "desc"),
-        SortOrder::CommentsAsc => ("comments", "asc"),
-    }
-}
+const SEARCH_SORT: &str = "updated";
+const SEARCH_ORDER: &str = "desc";
 
 pub fn test_connection(host: &HostConfig, pat: &str) -> Result<(), GitHubError> {
     let endpoint = api_url(host, "user");
@@ -26,11 +17,9 @@ pub fn search_issues_and_pull_requests(
     pat: &str,
     host_id: i64,
     query: &str,
-    sort: SortOrder,
 ) -> Result<Vec<StreamItemUpsert>, GitHubError> {
-    let (sort_key, order) = search_sort_query(sort);
     let endpoint = format!(
-        "{}?q={}&sort={sort_key}&order={order}&per_page={SEARCH_PER_PAGE}",
+        "{}?q={}&sort={SEARCH_SORT}&order={SEARCH_ORDER}&per_page={SEARCH_PER_PAGE}",
         api_url(host, "search/issues"),
         urlencoding::encode(query)
     );

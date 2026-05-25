@@ -1,5 +1,5 @@
 use crate::app::{AppMode, GhStreamApp};
-use crate::models::{LibraryView, Selection, SortOrder};
+use crate::models::{LibraryView, Selection};
 
 impl GhStreamApp {
     pub(super) fn add_query(&mut self, name: &str, query: &str, enabled: bool) {
@@ -13,12 +13,10 @@ impl GhStreamApp {
         }
 
         if let AppMode::Main(runtime) = &mut self.mode {
-            match runtime.storage.add_saved_query(
-                runtime.host_id,
-                name,
-                query,
-                runtime.config.ui.default_sort,
-            ) {
+            match runtime
+                .storage
+                .add_saved_query(runtime.host_id, name, query)
+            {
                 Ok(id) => {
                     if !enabled {
                         if let Err(err) = runtime.storage.set_saved_query_enabled(id, false) {
@@ -49,14 +47,7 @@ impl GhStreamApp {
         self.reload_current_view();
     }
 
-    pub(super) fn update_query(
-        &mut self,
-        id: i64,
-        name: &str,
-        query: &str,
-        sort: SortOrder,
-        enabled: bool,
-    ) {
+    pub(super) fn update_query(&mut self, id: i64, name: &str, query: &str, enabled: bool) {
         if name.trim().is_empty() || query.trim().is_empty() {
             Self::replace_status(
                 &mut self.status,
@@ -67,7 +58,7 @@ impl GhStreamApp {
         }
 
         if let AppMode::Main(runtime) = &mut self.mode {
-            match runtime.storage.update_saved_query(id, name, query, sort) {
+            match runtime.storage.update_saved_query(id, name, query) {
                 Ok(()) => match runtime.storage.set_saved_query_enabled(id, enabled) {
                     Ok(()) => Self::replace_status(
                         &mut self.status,

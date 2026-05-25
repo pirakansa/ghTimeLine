@@ -38,8 +38,10 @@ The sort selector supports:
 - Comments descending
 - Comments ascending
 
-Library views use the default sort from the YAML configuration. Saved query
-views use the sort configured for that saved query.
+Library views and saved query views use the toolbar sort, which is saved as the
+default sort in the YAML configuration. Sorting changes the stored item list
+display; saved query refreshes always retrieve recently updated GitHub items
+first.
 
 ## Item Actions
 

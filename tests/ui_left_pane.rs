@@ -8,7 +8,7 @@ use gh_stream_listner::app::screens::{
     saved_query_manager,
     stream::{StreamEvent, StreamState},
 };
-use gh_stream_listner::models::{LibraryCounts, SavedQuery, Selection, SortOrder};
+use gh_stream_listner::models::{LibraryCounts, SavedQuery, Selection};
 
 use crate::support::{sample_saved_query, LeftPaneHarness, StreamHarness};
 
@@ -135,6 +135,7 @@ fn saved_query_manager_saves_enabled_state_with_changes() {
     harness.get_by_label("Enabled").click();
     harness.run();
     assert!(harness.state().event.is_none());
+    assert!(harness.query_by_label("Display sort").is_none());
 
     harness.get_by_label("Save changes").click();
     harness.run();
@@ -144,13 +145,11 @@ fn saved_query_manager_saves_enabled_state_with_changes() {
             id,
             name,
             query,
-            sort,
             enabled,
         }) => {
             assert_eq!(*id, 7);
             assert_eq!(name, "Reviews");
             assert_eq!(query, "is:pr review-requested:@me");
-            assert_eq!(*sort, SortOrder::UpdatedDesc);
             assert!(!enabled);
         }
         Some(_) => panic!("unexpected stream event"),
@@ -199,7 +198,6 @@ fn saved_query_manager_move_down_button_emits_reorder_event() {
             id: 8,
             name: "Inbox".to_owned(),
             query: "is:open".to_owned(),
-            sort: SortOrder::UpdatedDesc,
             enabled: true,
             position: 1,
             unread_count: 1,

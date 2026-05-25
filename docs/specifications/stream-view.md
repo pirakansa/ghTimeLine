@@ -48,11 +48,11 @@ Sort values:
 
 The default sort is `updated_desc`.
 
-Library views use `ui.default_sort`. Saved query views use the saved query sort,
-falling back to `ui.default_sort` when needed.
+Library views and saved query views use `ui.default_sort`, which is controlled
+from the stream toolbar. This value controls local item list ordering only;
+refresh discovery uses updated descending order independently.
 
 Changing the default sort writes the updated value to the YAML configuration.
-Changing a saved query sort writes the updated value to the database.
 
 ## Item State
 

@@ -28,7 +28,7 @@ impl GhStreamApp {
         let selection = self.stream.selection.clone();
         let filter = self.stream.filter;
         if let AppMode::Main(runtime) = &mut self.mode {
-            let sort = current_sort(runtime, &selection);
+            let sort = current_sort(runtime);
             match load_current_view(&runtime.storage, runtime.host_id, &selection, filter, sort) {
                 Ok(items) => runtime.items = items,
                 Err(err) => Self::replace_status_error(
@@ -48,7 +48,7 @@ impl GhStreamApp {
         let selection = self.stream.selection.clone();
         let filter = self.stream.filter;
         if let AppMode::Main(runtime) = &mut self.mode {
-            let sort = current_sort(runtime, &selection);
+            let sort = current_sort(runtime);
             match runtime.storage.list_items_for_selection_by_ids(
                 runtime.host_id,
                 &selection,
@@ -129,16 +129,8 @@ fn load_current_view(
     }
 }
 
-fn current_sort(runtime: &Runtime, selection: &Selection) -> SortOrder {
-    match selection {
-        Selection::SavedQuery(id) => runtime
-            .saved_queries
-            .iter()
-            .find(|query| query.id == *id)
-            .map(|query| query.sort)
-            .unwrap_or(runtime.config.ui.default_sort),
-        Selection::Library(_) => runtime.config.ui.default_sort,
-    }
+fn current_sort(runtime: &Runtime) -> SortOrder {
+    runtime.config.ui.default_sort
 }
 
 fn current_view_membership_changed(

@@ -13,7 +13,7 @@ fn item_state_survives_metadata_upsert() {
     config.host.rest_api_base_path = "/api/v3/".to_owned();
     let host_id = storage.ensure_host(&config.host).expect("host");
     let query_id = storage
-        .add_saved_query(host_id, "Mine", "assignee:@me", SortOrder::UpdatedDesc)
+        .add_saved_query(host_id, "Mine", "assignee:@me")
         .expect("query");
 
     let mut item = sample_item(host_id);
@@ -49,7 +49,7 @@ fn read_item_becomes_unread_when_github_updated_at_advances() {
     let config = AppConfig::default_with_pat("token".to_owned());
     let host_id = storage.ensure_host(&config.host).expect("host");
     let query_id = storage
-        .add_saved_query(host_id, "Mine", "assignee:@me", SortOrder::UpdatedDesc)
+        .add_saved_query(host_id, "Mine", "assignee:@me")
         .expect("query");
 
     let mut item = sample_item(host_id);
@@ -77,7 +77,7 @@ fn unchanged_upsert_preserves_existing_relation_rows() {
     let config = AppConfig::default_with_pat("token".to_owned());
     let host_id = storage.ensure_host(&config.host).expect("host");
     let query_id = storage
-        .add_saved_query(host_id, "Mine", "assignee:@me", SortOrder::UpdatedDesc)
+        .add_saved_query(host_id, "Mine", "assignee:@me")
         .expect("query");
 
     let item_id = storage
@@ -125,7 +125,7 @@ fn changed_upsert_rewrites_relation_rows() {
     let config = AppConfig::default_with_pat("token".to_owned());
     let host_id = storage.ensure_host(&config.host).expect("host");
     let query_id = storage
-        .add_saved_query(host_id, "Mine", "assignee:@me", SortOrder::UpdatedDesc)
+        .add_saved_query(host_id, "Mine", "assignee:@me")
         .expect("query");
 
     let item_id = storage
@@ -172,7 +172,7 @@ fn archived_unread_items_are_excluded_from_query_badges() {
     let config = AppConfig::default_with_pat("token".to_owned());
     let host_id = storage.ensure_host(&config.host).expect("host");
     let query_id = storage
-        .add_saved_query(host_id, "Inbox", "is:open", SortOrder::UpdatedDesc)
+        .add_saved_query(host_id, "Inbox", "is:open")
         .expect("query");
     let item_id = storage
         .upsert_stream_item(&sample_item(host_id))
@@ -204,7 +204,7 @@ fn library_unread_counts_cover_inbox_bookmark_and_archived() {
     let config = AppConfig::default_with_pat("token".to_owned());
     let host_id = storage.ensure_host(&config.host).expect("host");
     let query_id = storage
-        .add_saved_query(host_id, "Inbox", "is:open", SortOrder::UpdatedDesc)
+        .add_saved_query(host_id, "Inbox", "is:open")
         .expect("query");
 
     let inbox_item_id = storage
@@ -256,10 +256,10 @@ fn mark_saved_query_read_marks_only_unarchived_matching_items_read() {
     let config = AppConfig::default_with_pat("token".to_owned());
     let host_id = storage.ensure_host(&config.host).expect("host");
     let query_id = storage
-        .add_saved_query(host_id, "Inbox", "is:open", SortOrder::UpdatedDesc)
+        .add_saved_query(host_id, "Inbox", "is:open")
         .expect("query");
     let other_query_id = storage
-        .add_saved_query(host_id, "Other", "is:issue", SortOrder::UpdatedDesc)
+        .add_saved_query(host_id, "Other", "is:issue")
         .expect("other query");
 
     let matching_item_id = storage
@@ -330,16 +330,11 @@ fn saved_query_updates_are_persisted() {
     let config = AppConfig::default_with_pat("token".to_owned());
     let host_id = storage.ensure_host(&config.host).expect("host");
     let query_id = storage
-        .add_saved_query(host_id, "Old", "is:open", SortOrder::UpdatedDesc)
+        .add_saved_query(host_id, "Old", "is:open")
         .expect("query");
 
     storage
-        .update_saved_query(
-            query_id,
-            "Reviews",
-            "is:pr review-requested:@me",
-            SortOrder::CommentsDesc,
-        )
+        .update_saved_query(query_id, "Reviews", "is:pr review-requested:@me")
         .expect("update query");
 
     let queries = storage.list_saved_queries(host_id).expect("queries");
@@ -348,7 +343,6 @@ fn saved_query_updates_are_persisted() {
     assert_eq!(queries[0].id, query_id);
     assert_eq!(queries[0].name, "Reviews");
     assert_eq!(queries[0].query, "is:pr review-requested:@me");
-    assert_eq!(queries[0].sort, SortOrder::CommentsDesc);
 }
 
 #[test]
@@ -357,7 +351,7 @@ fn saved_query_enabled_state_is_persisted() {
     let config = AppConfig::default_with_pat("token".to_owned());
     let host_id = storage.ensure_host(&config.host).expect("host");
     let query_id = storage
-        .add_saved_query(host_id, "Inbox", "is:open", SortOrder::UpdatedDesc)
+        .add_saved_query(host_id, "Inbox", "is:open")
         .expect("query");
 
     storage
@@ -377,13 +371,13 @@ fn saved_query_positions_can_be_reordered() {
     let config = AppConfig::default_with_pat("token".to_owned());
     let host_id = storage.ensure_host(&config.host).expect("host");
     let first_id = storage
-        .add_saved_query(host_id, "First", "is:open", SortOrder::UpdatedDesc)
+        .add_saved_query(host_id, "First", "is:open")
         .expect("first query");
     let second_id = storage
-        .add_saved_query(host_id, "Second", "is:pr", SortOrder::UpdatedDesc)
+        .add_saved_query(host_id, "Second", "is:pr")
         .expect("second query");
     let third_id = storage
-        .add_saved_query(host_id, "Third", "is:issue", SortOrder::UpdatedDesc)
+        .add_saved_query(host_id, "Third", "is:issue")
         .expect("third query");
 
     assert!(storage

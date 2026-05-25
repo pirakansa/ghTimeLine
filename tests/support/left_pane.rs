@@ -1,5 +1,5 @@
 use gh_stream_listner::app::screens::stream::{StreamEvent, StreamState};
-use gh_stream_listner::models::{LibraryCounts, SavedQuery, SortOrder};
+use gh_stream_listner::models::{LibraryCounts, SavedQuery};
 
 pub struct LeftPaneHarness {
     pub stream: StreamState,
@@ -19,7 +19,6 @@ pub fn sample_saved_query() -> SavedQuery {
         id: 7,
         name: "Reviews".to_owned(),
         query: "is:pr review-requested:@me".to_owned(),
-        sort: SortOrder::UpdatedDesc,
         enabled: true,
         position: 0,
         unread_count: 3,

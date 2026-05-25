@@ -14,8 +14,11 @@ Saved queries are GitHub Search query strings for issues and pull requests. Use
 ## Edit A Query
 
 1. Select a saved query in the saved query management screen.
-2. Update the name, query string, sort order, or **Enabled** state.
+2. Update the name, query string, or **Enabled** state.
 3. Select **Save changes**.
+
+Refreshes always look for the most recently updated GitHub items first. Change
+the stored item list ordering from the stream toolbar.
 
 ## Delete A Query
 

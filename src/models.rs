@@ -299,7 +299,6 @@ pub struct SavedQuery {
     pub id: i64,
     pub name: String,
     pub query: String,
-    pub sort: SortOrder,
     pub enabled: bool,
     pub position: i64,
     pub unread_count: i64,

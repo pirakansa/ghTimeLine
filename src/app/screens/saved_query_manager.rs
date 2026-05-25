@@ -2,14 +2,13 @@ use eframe::egui;
 
 use crate::app::components::selectable_row;
 use crate::app::screens::stream::{StreamEvent, StreamState};
-use crate::models::{SavedQuery, Selection, SortOrder};
+use crate::models::{SavedQuery, Selection};
 
 pub struct SavedQueryManagerState {
     pub(in crate::app) open: bool,
     edit_query_id: Option<i64>,
     edit_query_name: String,
     edit_query_text: String,
-    edit_query_sort: SortOrder,
     edit_query_enabled: bool,
 }
 
@@ -20,7 +19,6 @@ impl Default for SavedQueryManagerState {
             edit_query_id: None,
             edit_query_name: String::new(),
             edit_query_text: String::new(),
-            edit_query_sort: SortOrder::UpdatedDesc,
             edit_query_enabled: true,
         }
     }
@@ -176,15 +174,6 @@ fn saved_query_form(
         ui.text_edit_singleline(&mut state.edit_query_name);
         ui.label("Query");
         ui.text_edit_singleline(&mut state.edit_query_text);
-        ui.label("Sort");
-        egui::ComboBox::from_id_salt("saved-query-manager-sort")
-            .selected_text(state.edit_query_sort.label())
-            .show_ui(ui, |ui| {
-                for sort in SortOrder::ALL {
-                    ui.selectable_value(&mut state.edit_query_sort, sort, sort.label());
-                }
-            });
-
         ui.checkbox(&mut state.edit_query_enabled, "Enabled");
 
         ui.separator();
@@ -195,7 +184,6 @@ fn saved_query_form(
                         id,
                         name: state.edit_query_name.clone(),
                         query: state.edit_query_text.clone(),
-                        sort: state.edit_query_sort,
                         enabled: state.edit_query_enabled,
                     });
                 }
@@ -222,7 +210,6 @@ fn load_query_draft(state: &mut SavedQueryManagerState, query: &SavedQuery) {
     state.edit_query_id = Some(query.id);
     state.edit_query_name = query.name.clone();
     state.edit_query_text = query.query.clone();
-    state.edit_query_sort = query.sort;
     state.edit_query_enabled = query.enabled;
 }
 
@@ -230,6 +217,5 @@ fn clear_query_draft(state: &mut SavedQueryManagerState) {
     state.edit_query_id = None;
     state.edit_query_name.clear();
     state.edit_query_text.clear();
-    state.edit_query_sort = SortOrder::UpdatedDesc;
     state.edit_query_enabled = true;
 }

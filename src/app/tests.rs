@@ -115,6 +115,27 @@ fn query_creation_and_selected_query_deletion_request_item_list_scroll_reset() {
 }
 
 #[test]
+fn toolbar_sort_controls_selected_saved_query_view() {
+    let (mut app, _) = app_with_one_item();
+    let Selection::SavedQuery(query_id) = app.stream.selection else {
+        panic!("app should select saved query");
+    };
+    insert_item_into_query(
+        &mut app,
+        query_id,
+        sample_item_with_number(100, "Fresh item", "2026-05-24T00:00:00+00:00"),
+    );
+
+    app.update_default_sort(SortOrder::UpdatedAsc);
+
+    let AppMode::Main(runtime) = &app.mode else {
+        panic!("app should be in main mode");
+    };
+    assert_eq!(runtime.items[0].title, "Title");
+    assert_eq!(runtime.items[1].title, "Fresh item");
+}
+
+#[test]
 fn changed_item_outside_current_view_does_not_reload_visible_items() {
     let (mut app, item_id) = app_with_one_item();
     let other_query_id = add_query_to_app(&mut app, "Backend");
@@ -174,7 +195,7 @@ fn app_with_one_item() -> (GhStreamApp, i64) {
     let storage = Storage::in_memory().expect("storage");
     let host_id = storage.ensure_host(&config.host).expect("host");
     let query_id = storage
-        .add_saved_query(host_id, "Inbox", "is:open", SortOrder::UpdatedDesc)
+        .add_saved_query(host_id, "Inbox", "is:open")
         .expect("query");
     let item_id = storage
         .upsert_stream_item(&sample_item(host_id))
@@ -271,7 +292,7 @@ fn add_query_to_app(app: &mut GhStreamApp, name: &str) -> i64 {
     };
     runtime
         .storage
-        .add_saved_query(runtime.host_id, name, "is:open", SortOrder::UpdatedDesc)
+        .add_saved_query(runtime.host_id, name, "is:open")
         .expect("query")
 }
 
