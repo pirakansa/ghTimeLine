@@ -226,6 +226,8 @@ pub struct AuthConfig {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FontSize {
+    XSmall,
+    Small,
     Default,
     Large,
     XLarge,
@@ -234,14 +236,18 @@ pub enum FontSize {
 impl FontSize {
     pub fn label(self) -> &'static str {
         match self {
+            FontSize::XSmall => "X-Small",
+            FontSize::Small => "Small",
             FontSize::Default => "Default",
-            FontSize::Large => "Large (1.1×)",
-            FontSize::XLarge => "X-Large (1.2×)",
+            FontSize::Large => "Large",
+            FontSize::XLarge => "X-Large",
         }
     }
 
     pub fn scale(self) -> f32 {
         match self {
+            FontSize::XSmall => 0.80,
+            FontSize::Small => 0.90,
             FontSize::Default => 1.0,
             FontSize::Large => 1.1,
             FontSize::XLarge => 1.2,

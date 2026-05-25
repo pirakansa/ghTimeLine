@@ -47,7 +47,13 @@ fn preferences_menu(
 fn font_size_submenu(ui: &mut egui::Ui, config: &AppConfig, event: &mut Option<StreamEvent>) {
     ui.menu_button("Font size", |ui| {
         ui.set_min_width(ui.text_style_height(&egui::TextStyle::Body) * 10.0);
-        for size in [FontSize::Default, FontSize::Large, FontSize::XLarge] {
+        for size in [
+            FontSize::XSmall,
+            FontSize::Small,
+            FontSize::Default,
+            FontSize::Large,
+            FontSize::XLarge,
+        ] {
             if ui
                 .selectable_label(config.ui.font_size == size, size.label())
                 .clicked()
