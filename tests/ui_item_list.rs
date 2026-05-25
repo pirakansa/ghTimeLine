@@ -21,6 +21,10 @@ fn item_list_action_buttons_emit_item_events() {
         },
     );
 
+    // Hover over the item card to reveal the action overlay
+    harness.get_by_label("Improve stream").hover();
+    harness.run();
+
     harness.get_by_label("Mark read").click();
     harness.run();
     assert!(matches!(
@@ -54,6 +58,10 @@ fn item_list_action_buttons_emit_item_events() {
             event: None,
         },
     );
+
+    // Hover over the item card to reveal the action overlay
+    harness.get_by_label("Improve stream").hover();
+    harness.run();
 
     harness.get_by_label("Unarchive").click();
     harness.run();

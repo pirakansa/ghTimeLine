@@ -32,7 +32,7 @@ pub fn show(
         |ui, rows| {
             for row in rows {
                 let item = &items[row];
-                ui.allocate_ui_with_layout(
+                let inner = ui.allocate_ui_with_layout(
                     egui::vec2(ui.available_width(), estimated_row_height(ui)),
                     egui::Layout::top_down(egui::Align::Min),
                     |ui| {
@@ -43,11 +43,38 @@ pub fn show(
                             let available_width = ui.available_width();
                             ui.set_min_width(available_width);
                             ui.set_width(available_width);
-                            show_item_card(ui, item, avatar_cache, event);
+                            show_item_card(ui, item, avatar_cache);
                         });
-                        open_item_if_card_clicked(ui, item, response.response.rect, event);
+                        let card_rect = response.response.rect;
+                        let visible_rect = card_rect.intersect(ui.clip_rect());
+                        let is_hovered = ui.input(|input| {
+                            input
+                                .pointer
+                                .hover_pos()
+                                .is_some_and(|pos| visible_rect.contains(pos))
+                        });
+                        (card_rect, visible_rect, is_hovered)
                     },
                 );
+
+                let (card_rect, visible_rect, is_hovered) = inner.inner;
+
+                if is_hovered {
+                    ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                    show_action_overlay(ui.ctx(), item, card_rect, event);
+                }
+
+                let is_clicked = ui.input(|input| {
+                    input.pointer.primary_clicked()
+                        && input
+                            .pointer
+                            .interact_pos()
+                            .is_some_and(|pos| visible_rect.contains(pos))
+                });
+                if is_clicked && event.is_none() {
+                    open_item(item, event);
+                }
+
                 if row + 1 < items.len() {
                     ui.add_space(6.0);
                 }
@@ -60,14 +87,39 @@ fn show_item_card(
     ui: &mut egui::Ui,
     item: &StreamItem,
     avatar_cache: &mut author_avatar::AvatarCache,
-    event: &mut Option<StreamEvent>,
 ) {
     show_header_row(ui, item);
     show_title(ui, item);
     let avatar_size = author_avatar::size_for_ui(ui);
     people::show_author_and_assignees_row(ui, item, avatar_cache, avatar_size);
     show_metadata_rows(ui, item, avatar_cache, avatar_size);
-    action_buttons(ui, item, event);
+}
+
+fn show_action_overlay(
+    ctx: &egui::Context,
+    item: &StreamItem,
+    card_rect: egui::Rect,
+    event: &mut Option<StreamEvent>,
+) {
+    let area_id = egui::Id::new("item_action_overlay").with(item.id);
+    egui::Area::new(area_id)
+        .order(egui::Order::Foreground)
+        .pivot(egui::Align2::RIGHT_TOP)
+        .fixed_pos(card_rect.right_top() + egui::vec2(-4.0, 4.0))
+        .show(ctx, |ui| {
+            egui::Frame::new()
+                .fill(ui.visuals().window_fill)
+                .stroke(ui.visuals().widgets.noninteractive.bg_stroke)
+                .corner_radius(4.0)
+                .inner_margin(egui::Margin::same(4))
+                .show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        read_state_button(ui, item, event);
+                        bookmark_button(ui, item, event);
+                        archive_button(ui, item, event);
+                    });
+                });
+        });
 }
 
 fn show_header_row(ui: &mut egui::Ui, item: &StreamItem) {
@@ -113,14 +165,6 @@ fn show_metadata_rows(
     }
 }
 
-fn action_buttons(ui: &mut egui::Ui, item: &StreamItem, event: &mut Option<StreamEvent>) {
-    ui.horizontal(|ui| {
-        read_state_button(ui, item, event);
-        bookmark_button(ui, item, event);
-        archive_button(ui, item, event);
-    });
-}
-
 fn read_state_button(ui: &mut egui::Ui, item: &StreamItem, event: &mut Option<StreamEvent>) {
     if item.is_unread {
         if ui.button("Mark read").clicked() {
@@ -156,38 +200,6 @@ fn archive_button(ui: &mut egui::Ui, item: &StreamItem, event: &mut Option<Strea
             item.id,
             !item.is_archived,
         )));
-    }
-}
-
-fn open_item_if_card_clicked(
-    ui: &egui::Ui,
-    item: &StreamItem,
-    card_rect: egui::Rect,
-    event: &mut Option<StreamEvent>,
-) {
-    let visible_rect = card_rect.intersect(ui.clip_rect());
-    let (is_hovered, is_clicked) = ui.input(|input| {
-        let contains_pointer = input
-            .pointer
-            .hover_pos()
-            .is_some_and(|position| visible_rect.contains(position));
-        let contains_click = input
-            .pointer
-            .interact_pos()
-            .is_some_and(|position| visible_rect.contains(position));
-
-        (
-            contains_pointer,
-            input.pointer.primary_clicked() && contains_click,
-        )
-    });
-
-    if is_hovered {
-        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
-    }
-
-    if is_clicked && event.is_none() {
-        open_item(item, event);
     }
 }
 
