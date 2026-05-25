@@ -49,6 +49,17 @@ struct CachedSave {
     save: StreamItemSave,
 }
 
+enum PendingRefresh {
+    Fetched {
+        query: SavedQuery,
+        items: Vec<StreamItemUpsert>,
+    },
+    Failed {
+        query_id: i64,
+        error: SyncError,
+    },
+}
+
 pub fn refresh_saved_query(
     config: &AppConfig,
     storage: &Storage,
@@ -65,15 +76,32 @@ fn refresh_saved_query_with_cache(
     saved_query: &SavedQuery,
     item_cache: &mut HashMap<StreamItemKey, CachedSave>,
 ) -> Result<RefreshStats, SyncError> {
-    let mut items = github::rest::search_issues_and_pull_requests(
+    let mut items = fetch_saved_query_items(config, host_id, saved_query)?;
+    let _ = github::graphql::enrich_pull_requests(&config.host, &config.auth.pat, &mut items);
+    persist_saved_query_items(storage, saved_query, &items, item_cache)
+}
+
+fn fetch_saved_query_items(
+    config: &AppConfig,
+    host_id: i64,
+    saved_query: &SavedQuery,
+) -> Result<Vec<StreamItemUpsert>, SyncError> {
+    github::rest::search_issues_and_pull_requests(
         &config.host,
         &config.auth.pat,
         host_id,
         &saved_query.query,
         saved_query.sort,
-    )?;
-    let _ = github::graphql::enrich_pull_requests(&config.host, &config.auth.pat, &mut items);
+    )
+    .map_err(SyncError::from)
+}
 
+fn persist_saved_query_items(
+    storage: &Storage,
+    saved_query: &SavedQuery,
+    items: &[StreamItemUpsert],
+    item_cache: &mut HashMap<StreamItemKey, CachedSave>,
+) -> Result<RefreshStats, SyncError> {
     let mut pending_cache = HashMap::<StreamItemKey, CachedSave>::new();
     let stats = storage
         .with_immediate_transaction(|storage| {
@@ -124,17 +152,51 @@ pub fn refresh_saved_queries(
     host_id: i64,
     saved_queries: &[SavedQuery],
 ) -> Vec<(i64, Result<RefreshStats, SyncError>)> {
-    let mut item_cache = HashMap::new();
-    saved_queries
+    let mut pending = saved_queries
         .iter()
         .filter(|query| query.enabled)
-        .map(|query| {
-            let result =
-                refresh_saved_query_with_cache(config, storage, host_id, query, &mut item_cache);
+        .map(
+            |query| match fetch_saved_query_items(config, host_id, query) {
+                Ok(items) => PendingRefresh::Fetched {
+                    query: query.clone(),
+                    items,
+                },
+                Err(error) => PendingRefresh::Failed {
+                    query_id: query.id,
+                    error,
+                },
+            },
+        )
+        .collect::<Vec<_>>();
+
+    let successful_items = pending
+        .iter_mut()
+        .filter_map(|refresh| match refresh {
+            PendingRefresh::Fetched { items, .. } => Some(items),
+            PendingRefresh::Failed { .. } => None,
+        })
+        .flat_map(|items| items.iter_mut());
+    let _ = github::graphql::enrich_pull_request_items(
+        &config.host,
+        &config.auth.pat,
+        successful_items,
+    );
+
+    let mut item_cache = HashMap::new();
+    pending
+        .into_iter()
+        .map(|refresh| {
+            let (query_id, result) = match refresh {
+                PendingRefresh::Fetched { query, items } => (
+                    query.id,
+                    persist_saved_query_items(storage, &query, &items, &mut item_cache),
+                ),
+                PendingRefresh::Failed { query_id, error } => (query_id, Err(error)),
+            };
             if let Err(error) = &result {
-                let _ = storage.mark_saved_query_sync_error(query.id, &short_error(error));
+                let _ = storage.mark_saved_query_sync_error(query_id, &short_error(error));
             }
-            (query.id, result)
+            (query_id, result)
         })
         .collect()
 }

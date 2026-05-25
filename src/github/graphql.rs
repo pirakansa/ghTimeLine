@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::github::{client, GitHubError};
 use crate::models::{HostConfig, ItemType};
@@ -42,6 +42,7 @@ query PullRequestEnrichment($ids: [ID!]!) {
   }
 }
 "#;
+const PULL_REQUEST_ENRICHMENT_BATCH_SIZE: usize = 50;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ReviewSignal {
@@ -69,18 +70,38 @@ pub fn enrich_pull_requests(
     pat: &str,
     items: &mut [StreamItemUpsert],
 ) -> Result<(), GitHubError> {
+    enrich_pull_request_items(host, pat, items.iter_mut())
+}
+
+pub(crate) fn enrich_pull_request_items<'a>(
+    host: &HostConfig,
+    pat: &str,
+    items: impl IntoIterator<Item = &'a mut StreamItemUpsert>,
+) -> Result<(), GitHubError> {
+    let mut items = items.into_iter().collect::<Vec<_>>();
+    let mut seen_ids = HashSet::new();
     let ids = items
         .iter()
         .filter(|item| item.item_type == ItemType::PullRequest)
         .filter_map(|item| item.node_id.clone())
+        .filter(|node_id| seen_ids.insert(node_id.clone()))
         .collect::<Vec<_>>();
 
     if ids.is_empty() {
         return Ok(());
     }
 
-    let enrichment_by_id = fetch_pull_request_enrichment(host, pat, &ids)?;
-    for item in items {
+    let mut enrichment_by_id = HashMap::new();
+    let mut first_error = None;
+    for batch in ids.chunks(PULL_REQUEST_ENRICHMENT_BATCH_SIZE) {
+        match fetch_pull_request_enrichment(host, pat, batch) {
+            Ok(batch_enrichment) => enrichment_by_id.extend(batch_enrichment),
+            Err(error) if first_error.is_none() => first_error = Some(error),
+            Err(_) => {}
+        }
+    }
+
+    for item in &mut items {
         let Some(node_id) = &item.node_id else {
             continue;
         };
@@ -97,7 +118,10 @@ pub fn enrich_pull_requests(
         item.graphql_enriched = true;
     }
 
-    Ok(())
+    match first_error {
+        Some(error) => Err(error),
+        None => Ok(()),
+    }
 }
 
 fn fetch_pull_request_enrichment(

@@ -10,6 +10,8 @@ The current test suite covers:
 - Refresh failure preserving existing stored items
 - GraphQL enrichment failure preserving existing pull request metadata
 - Shared item metadata save deduplication across overlapping saved queries
+- GraphQL enrichment deduplication and bounded batch execution
+- Successful GraphQL batch application when another batch fails
 - Host initialization without storing the PAT
 - Item state persistence across metadata upserts
 - Archived unread badge behavior

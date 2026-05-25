@@ -26,6 +26,12 @@ flow.
   or rendered.
 - Failed GraphQL enrichment must preserve previously stored merge and review
   metadata for an existing pull request.
+- When multiple saved queries refresh together, REST Search requests remain
+  sequential and query-specific.
+- GraphQL enrichment deduplicates pull request node IDs across those REST Search
+  results and fetches enrichment in batches of at most 50 node IDs.
+- A failed GraphQL enrichment batch must not prevent other batches from being
+  applied or REST Search data from being stored.
 
 ## Refresh Write Flow
 

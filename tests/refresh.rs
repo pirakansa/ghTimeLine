@@ -174,7 +174,6 @@ fn refreshing_overlapping_queries_updates_shared_item_metadata_once() {
     );
     server.expect(
         Expectation::matching(request::method_path("POST", "/api/graphql"))
-            .times(2)
             .respond_with(json_encoded(graphql_response("APPROVED", false))),
     );
 
@@ -216,6 +215,72 @@ fn refreshing_overlapping_queries_updates_shared_item_metadata_once() {
 
     assert!(results.iter().all(|(_, result)| result.is_ok()));
     assert_eq!(update_count, 0);
+}
+
+#[test]
+fn refresh_batches_graphql_enrichment_for_large_pull_request_sets() {
+    let server = Server::run();
+    server.expect(
+        Expectation::matching(request::method_path("GET", "/search/issues"))
+            .respond_with(json_encoded(search_response_with_pull_requests(51))),
+    );
+    server.expect(
+        Expectation::matching(request::method_path("POST", "/api/graphql"))
+            .times(2)
+            .respond_with(json_encoded(json!({ "data": { "nodes": [] } }))),
+    );
+
+    let storage = Storage::in_memory().expect("storage");
+    let config = config_for_server(&server);
+    let host_id = storage.ensure_host(&config.host).expect("host");
+    storage
+        .add_saved_query(host_id, "PRs", "is:pr", SortOrder::UpdatedDesc)
+        .expect("query");
+    let saved_queries = storage.list_saved_queries(host_id).expect("queries");
+
+    let results = sync::refresh_saved_queries(&config, &storage, host_id, &saved_queries);
+
+    assert_eq!(results[0].1.as_ref().expect("refresh").processed_count, 51);
+}
+
+#[test]
+fn failed_graphql_batch_does_not_block_successful_batch_enrichment() {
+    let server = Server::run();
+    server.expect(
+        Expectation::matching(request::method_path("GET", "/search/issues"))
+            .respond_with(json_encoded(search_response_with_pull_requests(51))),
+    );
+    server.expect(
+        Expectation::matching(request::method_path("POST", "/api/graphql"))
+            .times(2)
+            .respond_with(cycle(vec![
+                Box::new(status_code(500)),
+                Box::new(json_encoded(graphql_response_for_node(
+                    "PR_51", "APPROVED", true,
+                ))),
+            ])),
+    );
+
+    let storage = Storage::in_memory().expect("storage");
+    let config = config_for_server(&server);
+    let host_id = storage.ensure_host(&config.host).expect("host");
+    let query_id = storage
+        .add_saved_query(host_id, "PRs", "is:pr", SortOrder::UpdatedDesc)
+        .expect("query");
+    let saved_queries = storage.list_saved_queries(host_id).expect("queries");
+
+    let results = sync::refresh_saved_queries(&config, &storage, host_id, &saved_queries);
+    let items = storage
+        .list_items_for_saved_query(query_id, None, SortOrder::UpdatedDesc)
+        .expect("items");
+    let last_item = items
+        .iter()
+        .find(|item| item.number == 51)
+        .expect("last item");
+
+    assert!(results[0].1.is_ok());
+    assert_eq!(last_item.review_status.as_deref(), Some("approved"));
+    assert_eq!(last_item.is_merged, Some(true));
 }
 
 fn config_for_server(server: &Server) -> AppConfig {
@@ -287,11 +352,49 @@ fn search_response_updated() -> serde_json::Value {
     response
 }
 
+fn search_response_with_pull_requests(count: i64) -> serde_json::Value {
+    let items = (1..=count)
+        .map(|number| {
+            json!({
+                "url": format!("https://api.github.com/repos/acme/project/issues/{number}"),
+                "repository_url": "https://api.github.com/repos/acme/project",
+                "html_url": format!("https://github.com/acme/project/pull/{number}"),
+                "node_id": format!("PR_{number}"),
+                "number": number,
+                "title": format!("Pull request {number}"),
+                "user": null,
+                "labels": [],
+                "state": "open",
+                "assignees": [],
+                "comments": 0,
+                "created_at": "2026-05-22T00:00:00Z",
+                "updated_at": "2026-05-23T00:00:00Z",
+                "closed_at": null,
+                "draft": false,
+                "pull_request": { "url": format!("https://api.github.com/repos/acme/project/pulls/{number}") }
+            })
+        })
+        .collect::<Vec<_>>();
+    json!({
+        "total_count": count,
+        "incomplete_results": false,
+        "items": items
+    })
+}
+
 fn graphql_response(review_decision: &str, merged: bool) -> serde_json::Value {
+    graphql_response_for_node("PR_kwDO", review_decision, merged)
+}
+
+fn graphql_response_for_node(
+    node_id: &str,
+    review_decision: &str,
+    merged: bool,
+) -> serde_json::Value {
     json!({
         "data": {
             "nodes": [{
-                "id": "PR_kwDO",
+                "id": node_id,
                 "number": 7,
                 "title": "Improve stream",
                 "state": if merged { "MERGED" } else { "OPEN" },
