@@ -25,6 +25,8 @@ library views display it as a single item.
 
 The right pane may show `0 items` when no stored item matches the selected view.
 Refresh and network errors must not clear the previously stored list.
+Changing the selected library entry or saved query resets the item list scroll
+position to the top.
 
 ## Filters And Sorting
 

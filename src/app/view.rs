@@ -96,6 +96,9 @@ impl GhStreamApp {
     }
 
     pub(super) fn select(&mut self, selection: Selection) {
+        if self.stream.selection != selection {
+            self.stream.reset_item_list_scroll = true;
+        }
         self.stream.selection = selection;
         self.reload_current_view();
     }

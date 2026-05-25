@@ -16,6 +16,7 @@ pub fn show(
     ui: &mut egui::Ui,
     items: &[StreamItem],
     avatar_cache: &mut author_avatar::AvatarCache,
+    reset_scroll_to_top: &mut bool,
     event: &mut Option<StreamEvent>,
 ) {
     if items.is_empty() {
@@ -25,62 +26,62 @@ pub fn show(
         return;
     }
 
-    egui::ScrollArea::vertical().show_rows(
-        ui,
-        estimated_row_height(ui),
-        items.len(),
-        |ui, rows| {
-            for row in rows {
-                let item = &items[row];
-                let inner = ui.allocate_ui_with_layout(
-                    egui::vec2(ui.available_width(), estimated_row_height(ui)),
-                    egui::Layout::top_down(egui::Align::Min),
-                    |ui| {
-                        let frame = egui::Frame::group(ui.style())
-                            .fill(styles::item_background_fill(ui.visuals(), item.is_unread))
-                            .stroke(styles::item_background_stroke(ui.visuals(), item.is_unread));
-                        let response = frame.show(ui, |ui| {
-                            let available_width = ui.available_width();
-                            ui.set_min_width(available_width);
-                            ui.set_width(available_width);
-                            show_item_card(ui, item, avatar_cache);
-                        });
-                        let card_rect = response.response.rect;
-                        let visible_rect = card_rect.intersect(ui.clip_rect());
-                        let is_hovered = ui.input(|input| {
-                            input
-                                .pointer
-                                .hover_pos()
-                                .is_some_and(|pos| visible_rect.contains(pos))
-                        });
-                        (card_rect, visible_rect, is_hovered)
-                    },
-                );
+    let mut scroll_area = egui::ScrollArea::vertical();
+    if std::mem::take(reset_scroll_to_top) {
+        scroll_area = scroll_area.vertical_scroll_offset(0.0);
+    }
 
-                let (card_rect, visible_rect, is_hovered) = inner.inner;
-
-                if is_hovered {
-                    ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
-                    show_action_overlay(ui.ctx(), item, card_rect, event);
-                }
-
-                let is_clicked = ui.input(|input| {
-                    input.pointer.primary_clicked()
-                        && input
+    scroll_area.show_rows(ui, estimated_row_height(ui), items.len(), |ui, rows| {
+        for row in rows {
+            let item = &items[row];
+            let inner = ui.allocate_ui_with_layout(
+                egui::vec2(ui.available_width(), estimated_row_height(ui)),
+                egui::Layout::top_down(egui::Align::Min),
+                |ui| {
+                    let frame = egui::Frame::group(ui.style())
+                        .fill(styles::item_background_fill(ui.visuals(), item.is_unread))
+                        .stroke(styles::item_background_stroke(ui.visuals(), item.is_unread));
+                    let response = frame.show(ui, |ui| {
+                        let available_width = ui.available_width();
+                        ui.set_min_width(available_width);
+                        ui.set_width(available_width);
+                        show_item_card(ui, item, avatar_cache);
+                    });
+                    let card_rect = response.response.rect;
+                    let visible_rect = card_rect.intersect(ui.clip_rect());
+                    let is_hovered = ui.input(|input| {
+                        input
                             .pointer
-                            .interact_pos()
+                            .hover_pos()
                             .is_some_and(|pos| visible_rect.contains(pos))
-                });
-                if is_clicked && event.is_none() {
-                    open_item(item, event);
-                }
+                    });
+                    (card_rect, visible_rect, is_hovered)
+                },
+            );
 
-                if row + 1 < items.len() {
-                    ui.add_space(6.0);
-                }
+            let (card_rect, visible_rect, is_hovered) = inner.inner;
+
+            if is_hovered {
+                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                show_action_overlay(ui.ctx(), item, card_rect, event);
             }
-        },
-    );
+
+            let is_clicked = ui.input(|input| {
+                input.pointer.primary_clicked()
+                    && input
+                        .pointer
+                        .interact_pos()
+                        .is_some_and(|pos| visible_rect.contains(pos))
+            });
+            if is_clicked && event.is_none() {
+                open_item(item, event);
+            }
+
+            if row + 1 < items.len() {
+                ui.add_space(6.0);
+            }
+        }
+    });
 }
 
 fn show_item_card(

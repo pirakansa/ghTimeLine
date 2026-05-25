@@ -86,6 +86,35 @@ fn mark_saved_query_read_updates_counts_and_current_view() {
 }
 
 #[test]
+fn changing_saved_query_requests_item_list_scroll_reset() {
+    let (mut app, _) = app_with_one_item();
+    let current_selection = app.stream.selection.clone();
+    let other_query_id = add_query_to_app(&mut app, "Backend");
+
+    app.select(current_selection);
+    assert!(!app.stream.reset_item_list_scroll);
+
+    app.select(Selection::SavedQuery(other_query_id));
+    assert!(app.stream.reset_item_list_scroll);
+}
+
+#[test]
+fn query_creation_and_selected_query_deletion_request_item_list_scroll_reset() {
+    let (mut app, _) = app_with_one_item();
+
+    app.add_query("New", "is:issue", true);
+    assert!(app.stream.reset_item_list_scroll);
+    let Selection::SavedQuery(new_query_id) = app.stream.selection else {
+        panic!("new query should be selected");
+    };
+
+    app.stream.reset_item_list_scroll = false;
+    app.delete_query(new_query_id);
+    assert!(app.stream.reset_item_list_scroll);
+    assert_eq!(app.stream.selection, Selection::Library(LibraryView::Inbox));
+}
+
+#[test]
 fn changed_item_outside_current_view_does_not_reload_visible_items() {
     let (mut app, item_id) = app_with_one_item();
     let other_query_id = add_query_to_app(&mut app, "Backend");

@@ -31,6 +31,7 @@ impl GhStreamApp {
                         }
                     }
                     self.stream.selection = Selection::SavedQuery(id);
+                    self.stream.reset_item_list_scroll = true;
                     Self::replace_status(
                         &mut self.status,
                         &mut self.status_history,
@@ -96,6 +97,7 @@ impl GhStreamApp {
                 Ok(()) => {
                     if self.stream.selection == Selection::SavedQuery(id) {
                         self.stream.selection = Selection::Library(LibraryView::Inbox);
+                        self.stream.reset_item_list_scroll = true;
                     }
                     Self::replace_status(
                         &mut self.status,
