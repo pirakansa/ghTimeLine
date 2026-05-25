@@ -167,10 +167,10 @@ fn show_metadata_rows(
 
 fn read_state_button(ui: &mut egui::Ui, item: &StreamItem, event: &mut Option<StreamEvent>) {
     if item.is_unread {
-        if ui.button("Mark read").clicked() {
+        if action_icon_button(ui, ActionIcon::MarkRead, "Mark read").clicked() {
             *event = Some(StreamEvent::ItemAction(ItemAction::MarkRead(item.id)));
         }
-    } else if ui.button("Mark unread").clicked() {
+    } else if action_icon_button(ui, ActionIcon::MarkUnread, "Mark unread").clicked() {
         *event = Some(StreamEvent::ItemAction(ItemAction::MarkUnread(item.id)));
     }
 }
@@ -181,7 +181,7 @@ fn bookmark_button(ui: &mut egui::Ui, item: &StreamItem, event: &mut Option<Stre
     } else {
         "Bookmark"
     };
-    if ui.button(bookmark_label).clicked() {
+    if action_icon_button(ui, ActionIcon::Bookmark(item.is_bookmarked), bookmark_label).clicked() {
         *event = Some(StreamEvent::ItemAction(ItemAction::Bookmark(
             item.id,
             !item.is_bookmarked,
@@ -195,7 +195,7 @@ fn archive_button(ui: &mut egui::Ui, item: &StreamItem, event: &mut Option<Strea
     } else {
         "Archive"
     };
-    if ui.button(archive_label).clicked() {
+    if action_icon_button(ui, ActionIcon::Archive(item.is_archived), archive_label).clicked() {
         *event = Some(StreamEvent::ItemAction(ItemAction::Archive(
             item.id,
             !item.is_archived,
@@ -208,6 +208,182 @@ fn open_item(item: &StreamItem, event: &mut Option<StreamEvent>) {
         id: item.id,
         url: item.html_url.clone(),
     }));
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ActionIcon {
+    MarkRead,
+    MarkUnread,
+    Bookmark(bool),
+    Archive(bool),
+}
+
+fn action_icon_button(
+    ui: &mut egui::Ui,
+    icon: ActionIcon,
+    accessible_label: &'static str,
+) -> egui::Response {
+    let icon_size = (status_icon::size_for_ui(ui) * 0.9).clamp(16.0, 22.0);
+    let button_size = (icon_size + 8.0).clamp(22.0, 30.0);
+    let (rect, response) =
+        ui.allocate_exact_size(egui::vec2(button_size, button_size), egui::Sense::click());
+
+    response.widget_info(|| {
+        egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), accessible_label)
+    });
+
+    if ui.is_rect_visible(rect) {
+        let painter = ui.painter();
+        let visuals = ui.style().interact(&response);
+        let corner_radius = 4.0;
+        let frame_rect = rect.shrink(1.0);
+
+        if response.hovered() || response.has_focus() || response.is_pointer_button_down_on() {
+            painter.rect(
+                frame_rect,
+                corner_radius,
+                visuals.weak_bg_fill,
+                visuals.bg_stroke,
+                egui::StrokeKind::Inside,
+            );
+        }
+
+        draw_action_icon(
+            painter,
+            frame_rect.shrink2(egui::vec2(4.0, 4.0)),
+            icon,
+            visuals.fg_stroke.color,
+        );
+    }
+
+    response.on_hover_text(accessible_label)
+}
+
+fn draw_action_icon(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    icon: ActionIcon,
+    color: egui::Color32,
+) {
+    match icon {
+        ActionIcon::MarkRead => draw_mark_read_icon(painter, rect, color),
+        ActionIcon::MarkUnread => draw_mark_unread_icon(painter, rect, color),
+        ActionIcon::Bookmark(active) => draw_bookmark_icon(painter, rect, color, active),
+        ActionIcon::Archive(active) => draw_archive_icon(painter, rect, color, active),
+    }
+}
+
+fn draw_mark_read_icon(painter: &egui::Painter, rect: egui::Rect, color: egui::Color32) {
+    let radius = rect.width().min(rect.height()) * 0.42;
+    let stroke = egui::Stroke::new(stroke_width(rect, 0.10), color);
+    painter.circle_stroke(rect.center(), radius, stroke);
+    painter.line_segment(
+        [lerp_point(rect, 0.24, 0.54), lerp_point(rect, 0.43, 0.72)],
+        stroke,
+    );
+    painter.line_segment(
+        [lerp_point(rect, 0.43, 0.72), lerp_point(rect, 0.77, 0.30)],
+        stroke,
+    );
+}
+
+fn draw_mark_unread_icon(painter: &egui::Painter, rect: egui::Rect, color: egui::Color32) {
+    let radius = rect.width().min(rect.height()) * 0.42;
+    painter.circle_stroke(
+        rect.center(),
+        radius,
+        egui::Stroke::new(stroke_width(rect, 0.10), color),
+    );
+    painter.circle_filled(rect.center(), radius * 0.34, color);
+}
+
+fn draw_bookmark_icon(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    color: egui::Color32,
+    active: bool,
+) {
+    let points = vec![
+        lerp_point(rect, 0.28, 0.16),
+        lerp_point(rect, 0.72, 0.16),
+        lerp_point(rect, 0.72, 0.82),
+        lerp_point(rect, 0.50, 0.63),
+        lerp_point(rect, 0.28, 0.82),
+    ];
+    let stroke = egui::Stroke::new(stroke_width(rect, 0.10), color);
+
+    if active {
+        painter.add(egui::Shape::convex_polygon(
+            points,
+            color,
+            egui::Stroke::NONE,
+        ));
+    } else {
+        painter.add(egui::Shape::closed_line(points, stroke));
+    }
+}
+
+fn draw_archive_icon(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    color: egui::Color32,
+    active: bool,
+) {
+    let stroke = egui::Stroke::new(stroke_width(rect, 0.09), color);
+    let box_rect =
+        egui::Rect::from_min_max(lerp_point(rect, 0.18, 0.28), lerp_point(rect, 0.82, 0.78));
+    let lid_y = egui::lerp(rect.top()..=rect.bottom(), 0.34);
+    let slot_left = egui::lerp(rect.left()..=rect.right(), 0.38);
+    let slot_right = egui::lerp(rect.left()..=rect.right(), 0.62);
+
+    painter.rect_stroke(box_rect, 2.0, stroke, egui::StrokeKind::Inside);
+    painter.line_segment(
+        [
+            egui::pos2(box_rect.left(), lid_y),
+            egui::pos2(box_rect.right(), lid_y),
+        ],
+        stroke,
+    );
+    painter.line_segment(
+        [egui::pos2(slot_left, lid_y), egui::pos2(slot_right, lid_y)],
+        stroke,
+    );
+
+    let arrow_tip = if active {
+        lerp_point(rect, 0.50, 0.20)
+    } else {
+        lerp_point(rect, 0.50, 0.86)
+    };
+    let arrow_base = if active {
+        lerp_point(rect, 0.50, 0.52)
+    } else {
+        lerp_point(rect, 0.50, 0.48)
+    };
+    let wing_left = if active {
+        lerp_point(rect, 0.36, 0.34)
+    } else {
+        lerp_point(rect, 0.36, 0.70)
+    };
+    let wing_right = if active {
+        lerp_point(rect, 0.64, 0.34)
+    } else {
+        lerp_point(rect, 0.64, 0.70)
+    };
+
+    painter.line_segment([arrow_base, arrow_tip], stroke);
+    painter.line_segment([wing_left, arrow_tip], stroke);
+    painter.line_segment([wing_right, arrow_tip], stroke);
+}
+
+fn stroke_width(rect: egui::Rect, scale: f32) -> f32 {
+    (rect.width().min(rect.height()) * scale).max(1.4)
+}
+
+fn lerp_point(rect: egui::Rect, x: f32, y: f32) -> egui::Pos2 {
+    egui::pos2(
+        egui::lerp(rect.left()..=rect.right(), x),
+        egui::lerp(rect.top()..=rect.bottom(), y),
+    )
 }
 
 #[cfg(test)]
