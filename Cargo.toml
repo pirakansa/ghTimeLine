@@ -1,0 +1,36 @@
+[package]
+name = "gh_stream_listner"
+version = "0.1.0"
+edition = "2021"
+description = "GitHub Stream reader for saved search queries"
+license = "MIT"
+repository = ""
+readme = "README.md"
+
+[[bin]]
+name = "ghStreamListner"
+path = "src/main.rs"
+
+[dependencies]
+chrono = "0.4.44"
+dirs-next = "2.0.0"
+eframe = "0.33"
+image = { version = "0.25.8", default-features = false, features = ["jpeg", "png", "webp"] }
+open = "5.3.5"
+rusqlite = { version = "0.39.0", features = ["bundled"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.150"
+serde_yaml = "0.9.34"
+thiserror = "2.0.18"
+ureq = { version = "3.3.0", features = ["rustls"] }
+urlencoding = "2.1.3"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "z"
+strip = true
+
+[dev-dependencies]
+egui_kittest = "0.33.0"
+httptest = "0.16.4"

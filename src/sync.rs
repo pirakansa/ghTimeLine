@@ -1,0 +1,206 @@
+use std::collections::HashMap;
+
+use thiserror::Error;
+
+use crate::github;
+use crate::models::{AppConfig, SavedQuery};
+use crate::storage::items::{StreamItemSave, StreamItemUpsert};
+use crate::storage::{Storage, StorageError};
+
+#[derive(Debug, Error)]
+pub enum SyncError {
+    #[error("{0}")]
+    GitHub(#[from] github::GitHubError),
+    #[error("{0}")]
+    Storage(#[from] StorageError),
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct RefreshStats {
+    pub processed_count: usize,
+    pub changed_count: usize,
+    pub changed_item_ids: Vec<i64>,
+}
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+struct StreamItemKey {
+    host_id: i64,
+    repository_owner: String,
+    repository_name: String,
+    number: i64,
+    is_pull_request: bool,
+}
+
+impl From<&StreamItemUpsert> for StreamItemKey {
+    fn from(item: &StreamItemUpsert) -> Self {
+        Self {
+            host_id: item.host_id,
+            repository_owner: item.repository_owner.clone(),
+            repository_name: item.repository_name.clone(),
+            number: item.number,
+            is_pull_request: item.item_type == crate::models::ItemType::PullRequest,
+        }
+    }
+}
+
+#[derive(Clone)]
+struct CachedSave {
+    item: StreamItemUpsert,
+    save: StreamItemSave,
+}
+
+enum PendingRefresh {
+    Fetched {
+        query: SavedQuery,
+        items: Vec<StreamItemUpsert>,
+    },
+    Failed {
+        query_id: i64,
+        error: SyncError,
+    },
+}
+
+pub fn refresh_saved_query(
+    config: &AppConfig,
+    storage: &Storage,
+    host_id: i64,
+    saved_query: &SavedQuery,
+) -> Result<RefreshStats, SyncError> {
+    refresh_saved_query_with_cache(config, storage, host_id, saved_query, &mut HashMap::new())
+}
+
+fn refresh_saved_query_with_cache(
+    config: &AppConfig,
+    storage: &Storage,
+    host_id: i64,
+    saved_query: &SavedQuery,
+    item_cache: &mut HashMap<StreamItemKey, CachedSave>,
+) -> Result<RefreshStats, SyncError> {
+    let mut items = fetch_saved_query_items(config, host_id, saved_query)?;
+    let _ = github::graphql::enrich_pull_requests(&config.host, &config.auth.pat, &mut items);
+    persist_saved_query_items(storage, saved_query, &items, item_cache)
+}
+
+fn fetch_saved_query_items(
+    config: &AppConfig,
+    host_id: i64,
+    saved_query: &SavedQuery,
+) -> Result<Vec<StreamItemUpsert>, SyncError> {
+    github::rest::search_issues_and_pull_requests(
+        &config.host,
+        &config.auth.pat,
+        host_id,
+        &saved_query.query,
+    )
+    .map_err(SyncError::from)
+}
+
+fn persist_saved_query_items(
+    storage: &Storage,
+    saved_query: &SavedQuery,
+    items: &[StreamItemUpsert],
+    item_cache: &mut HashMap<StreamItemKey, CachedSave>,
+) -> Result<RefreshStats, SyncError> {
+    let mut pending_cache = HashMap::<StreamItemKey, CachedSave>::new();
+    let stats = storage
+        .with_immediate_transaction(|storage| {
+            let mut stats = RefreshStats {
+                processed_count: items.len(),
+                changed_count: 0,
+                changed_item_ids: Vec::new(),
+            };
+            for (rank, item) in items.iter().enumerate() {
+                let key = StreamItemKey::from(item);
+                let cached_save = pending_cache
+                    .get(&key)
+                    .or_else(|| item_cache.get(&key))
+                    .filter(|cached| cached.item == *item)
+                    .map(|cached| cached.save);
+                let save = match cached_save {
+                    Some(save) => save,
+                    None => {
+                        let save = storage.upsert_stream_item(item)?;
+                        pending_cache.insert(
+                            key,
+                            CachedSave {
+                                item: item.clone(),
+                                save,
+                            },
+                        );
+                        save
+                    }
+                };
+                let has_new_match =
+                    storage.record_saved_query_match(saved_query.id, save.id, Some(rank as i64))?;
+                if save.changed || has_new_match {
+                    stats.changed_count += 1;
+                    stats.changed_item_ids.push(save.id);
+                }
+            }
+            storage.mark_saved_query_sync_success(saved_query.id)?;
+            Ok(stats)
+        })
+        .map_err(SyncError::from)?;
+    item_cache.extend(pending_cache);
+    Ok(stats)
+}
+
+pub fn refresh_saved_queries(
+    config: &AppConfig,
+    storage: &Storage,
+    host_id: i64,
+    saved_queries: &[SavedQuery],
+) -> Vec<(i64, Result<RefreshStats, SyncError>)> {
+    let mut pending = saved_queries
+        .iter()
+        .filter(|query| query.enabled)
+        .map(
+            |query| match fetch_saved_query_items(config, host_id, query) {
+                Ok(items) => PendingRefresh::Fetched {
+                    query: query.clone(),
+                    items,
+                },
+                Err(error) => PendingRefresh::Failed {
+                    query_id: query.id,
+                    error,
+                },
+            },
+        )
+        .collect::<Vec<_>>();
+
+    let successful_items = pending
+        .iter_mut()
+        .filter_map(|refresh| match refresh {
+            PendingRefresh::Fetched { items, .. } => Some(items),
+            PendingRefresh::Failed { .. } => None,
+        })
+        .flat_map(|items| items.iter_mut());
+    let _ = github::graphql::enrich_pull_request_items(
+        &config.host,
+        &config.auth.pat,
+        successful_items,
+    );
+
+    let mut item_cache = HashMap::new();
+    pending
+        .into_iter()
+        .map(|refresh| {
+            let (query_id, result) = match refresh {
+                PendingRefresh::Fetched { query, items } => (
+                    query.id,
+                    persist_saved_query_items(storage, &query, &items, &mut item_cache),
+                ),
+                PendingRefresh::Failed { query_id, error } => (query_id, Err(error)),
+            };
+            if let Err(error) = &result {
+                let _ = storage.mark_saved_query_sync_error(query_id, &short_error(error));
+            }
+            (query_id, result)
+        })
+        .collect()
+}
+
+fn short_error(error: &SyncError) -> String {
+    let message = error.to_string();
+    message.chars().take(240).collect()
+}

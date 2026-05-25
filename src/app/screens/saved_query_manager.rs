@@ -1,0 +1,238 @@
+use eframe::egui;
+
+use crate::app::components::selectable_row;
+use crate::app::screens::stream::{StreamEvent, StreamState};
+use crate::config;
+use crate::models::{SavedQuery, Selection};
+
+pub struct SavedQueryManagerState {
+    pub(in crate::app) open: bool,
+    edit_query_id: Option<i64>,
+    edit_query_name: String,
+    edit_query_text: String,
+    edit_query_enabled: bool,
+    transfer_path: String,
+}
+
+impl Default for SavedQueryManagerState {
+    fn default() -> Self {
+        Self {
+            open: false,
+            edit_query_id: None,
+            edit_query_name: String::new(),
+            edit_query_text: String::new(),
+            edit_query_enabled: true,
+            transfer_path: config::default_saved_queries_path().display().to_string(),
+        }
+    }
+}
+
+pub fn show(
+    ctx: &egui::Context,
+    state: &mut StreamState,
+    saved_queries: &[SavedQuery],
+    event: &mut Option<StreamEvent>,
+) {
+    egui::TopBottomPanel::top("saved-query-manager-toolbar").show(ctx, |ui| {
+        ui.horizontal(|ui| {
+            ui.heading("Saved queries");
+            ui.separator();
+            if ui.button("Back").clicked() {
+                state.saved_query_manager.open = false;
+            }
+        });
+    });
+
+    egui::SidePanel::left("saved-query-manager-list")
+        .resizable(true)
+        .default_width(280.0)
+        .width_range(180.0..=480.0)
+        .show(ctx, |ui| {
+            saved_query_list(ui, &mut state.saved_query_manager, saved_queries, event);
+        });
+
+    egui::CentralPanel::default().show(ctx, |ui| {
+        saved_query_form(ui, &mut state.saved_query_manager, event);
+    });
+}
+
+pub fn open(state: &mut StreamState, saved_queries: &[SavedQuery]) {
+    state.saved_query_manager.open = true;
+    if let Selection::SavedQuery(id) = state.selection {
+        if let Some(query) = saved_queries.iter().find(|query| query.id == id) {
+            load_query_draft(&mut state.saved_query_manager, query);
+            return;
+        }
+    }
+    if state.saved_query_manager.edit_query_id.is_none()
+        && state.saved_query_manager.edit_query_name.is_empty()
+    {
+        if let Some(query) = saved_queries.first() {
+            load_query_draft(&mut state.saved_query_manager, query);
+        }
+    }
+}
+
+fn saved_query_list(
+    ui: &mut egui::Ui,
+    state: &mut SavedQueryManagerState,
+    saved_queries: &[SavedQuery],
+    event: &mut Option<StreamEvent>,
+) {
+    ui.vertical(|ui| {
+        ui.horizontal(|ui| {
+            ui.heading("Queries");
+            if ui
+                .small_button("+")
+                .on_hover_text("New saved query")
+                .clicked()
+            {
+                clear_query_draft(state);
+            }
+            let can_move_up = can_move_selected_query(saved_queries, state.edit_query_id, true);
+            if ui
+                .add_enabled(can_move_up, egui::Button::new("▲"))
+                .on_hover_text("Move selected query up")
+                .clicked()
+            {
+                if let Some(id) = state.edit_query_id {
+                    *event = Some(StreamEvent::MoveQueryUp(id));
+                }
+            }
+            let can_move_down = can_move_selected_query(saved_queries, state.edit_query_id, false);
+            if ui
+                .add_enabled(can_move_down, egui::Button::new("▼"))
+                .on_hover_text("Move selected query down")
+                .clicked()
+            {
+                if let Some(id) = state.edit_query_id {
+                    *event = Some(StreamEvent::MoveQueryDown(id));
+                }
+            }
+        });
+        ui.add_space(6.0);
+        egui::ScrollArea::vertical()
+            .id_salt("saved-query-manager-list")
+            .show(ui, |ui| {
+                for query in saved_queries {
+                    let selected = state.edit_query_id == Some(query.id);
+                    let label = if query.enabled {
+                        query.name.clone()
+                    } else {
+                        format!("{} (disabled)", query.name)
+                    };
+                    if selectable_row::show(ui, selected, &label, None).clicked() {
+                        load_query_draft(state, query);
+                    }
+                }
+            });
+    });
+}
+
+fn can_move_selected_query(
+    saved_queries: &[SavedQuery],
+    selected_query_id: Option<i64>,
+    move_up: bool,
+) -> bool {
+    let Some(selected_query_id) = selected_query_id else {
+        return false;
+    };
+    let Some(selected_query) = saved_queries
+        .iter()
+        .find(|query| query.id == selected_query_id)
+    else {
+        return false;
+    };
+
+    let group_index = saved_queries
+        .iter()
+        .filter(|query| query.enabled == selected_query.enabled)
+        .position(|query| query.id == selected_query_id);
+    let group_len = saved_queries
+        .iter()
+        .filter(|query| query.enabled == selected_query.enabled)
+        .count();
+
+    match group_index {
+        Some(0) if move_up => false,
+        Some(index) if !move_up => index + 1 < group_len,
+        Some(_) => true,
+        None => false,
+    }
+}
+
+fn saved_query_form(
+    ui: &mut egui::Ui,
+    state: &mut SavedQueryManagerState,
+    event: &mut Option<StreamEvent>,
+) {
+    ui.vertical(|ui| {
+        ui.set_min_width(360.0);
+        ui.heading(if state.edit_query_id.is_some() {
+            "Edit query"
+        } else {
+            "New query"
+        });
+        ui.label("Name");
+        ui.text_edit_singleline(&mut state.edit_query_name);
+        ui.label("Query");
+        ui.text_edit_singleline(&mut state.edit_query_text);
+        ui.checkbox(&mut state.edit_query_enabled, "Enabled");
+
+        ui.separator();
+        ui.horizontal(|ui| match state.edit_query_id {
+            Some(id) => {
+                if ui.button("Save changes").clicked() {
+                    *event = Some(StreamEvent::UpdateQuery {
+                        id,
+                        name: state.edit_query_name.clone(),
+                        query: state.edit_query_text.clone(),
+                        enabled: state.edit_query_enabled,
+                    });
+                }
+                if ui.button("Delete").clicked() {
+                    *event = Some(StreamEvent::DeleteQuery(id));
+                    clear_query_draft(state);
+                }
+            }
+            None => {
+                if ui.button("Add").clicked() {
+                    *event = Some(StreamEvent::AddQuery {
+                        name: state.edit_query_name.clone(),
+                        query: state.edit_query_text.clone(),
+                        enabled: state.edit_query_enabled,
+                    });
+                    clear_query_draft(state);
+                }
+            }
+        });
+
+        ui.separator();
+        ui.heading("Import / export");
+        ui.label("YAML file");
+        ui.text_edit_singleline(&mut state.transfer_path);
+        ui.label("Import replaces this host's saved queries and clears cached matches until the next refresh.");
+        ui.horizontal(|ui| {
+            if ui.button("Export").clicked() {
+                *event = Some(StreamEvent::ExportQueries(state.transfer_path.clone()));
+            }
+            if ui.button("Import").clicked() {
+                *event = Some(StreamEvent::ImportQueries(state.transfer_path.clone()));
+            }
+        });
+    });
+}
+
+fn load_query_draft(state: &mut SavedQueryManagerState, query: &SavedQuery) {
+    state.edit_query_id = Some(query.id);
+    state.edit_query_name = query.name.clone();
+    state.edit_query_text = query.query.clone();
+    state.edit_query_enabled = query.enabled;
+}
+
+fn clear_query_draft(state: &mut SavedQueryManagerState) {
+    state.edit_query_id = None;
+    state.edit_query_name.clear();
+    state.edit_query_text.clear();
+    state.edit_query_enabled = true;
+}
