@@ -19,6 +19,7 @@ pub struct StreamState {
     pub(in crate::app) saved_query_manager: SavedQueryManagerState,
     pub(in crate::app) status_log: StatusLogState,
     pub(in crate::app) avatar_cache: components::author_avatar::AvatarCache,
+    pub(in crate::app) item_list: components::item_list::ItemListState,
 }
 
 impl Default for StreamState {
@@ -31,6 +32,7 @@ impl Default for StreamState {
             saved_query_manager: SavedQueryManagerState::default(),
             status_log: StatusLogState::default(),
             avatar_cache: components::author_avatar::AvatarCache::default(),
+            item_list: components::item_list::ItemListState::default(),
         }
     }
 }
@@ -106,6 +108,7 @@ pub(in crate::app) fn show(
             ui,
             items,
             &mut state.avatar_cache,
+            &mut state.item_list,
             &mut state.reset_item_list_scroll,
             &mut event,
         );

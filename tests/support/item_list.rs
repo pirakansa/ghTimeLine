@@ -3,6 +3,7 @@ use gh_stream_listner::models::{ItemPerson, ItemReview, ItemType, StreamItem};
 
 pub struct ItemListHarness {
     pub items: Vec<StreamItem>,
+    pub list_state: gh_stream_listner::app::components::item_list::ItemListState,
     pub reset_scroll_to_top: bool,
     pub event: Option<StreamEvent>,
 }

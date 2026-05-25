@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use eframe::egui;
 
 use super::{author_avatar, status_icon};
@@ -8,6 +10,15 @@ mod badges;
 mod people;
 mod styles;
 
+const ITEM_GAP: f32 = 6.0;
+
+#[derive(Default)]
+pub struct ItemListState {
+    measured_heights: HashMap<i64, f32>,
+    measurement_width: Option<f32>,
+    estimated_height: Option<f32>,
+}
+
 fn estimated_row_height(ui: &egui::Ui) -> f32 {
     ui.spacing().interact_size.y * 7.0
 }
@@ -16,6 +27,7 @@ pub fn show(
     ui: &mut egui::Ui,
     items: &[StreamItem],
     avatar_cache: &mut author_avatar::AvatarCache,
+    state: &mut ItemListState,
     reset_scroll_to_top: &mut bool,
     event: &mut Option<StreamEvent>,
 ) {
@@ -26,62 +38,138 @@ pub fn show(
         return;
     }
 
+    let estimate = estimated_row_height(ui);
+
     let mut scroll_area = egui::ScrollArea::vertical();
     if std::mem::take(reset_scroll_to_top) {
         scroll_area = scroll_area.vertical_scroll_offset(0.0);
     }
 
-    scroll_area.show_rows(ui, estimated_row_height(ui), items.len(), |ui, rows| {
-        for row in rows {
+    scroll_area.show_viewport(ui, |ui, viewport| {
+        state.prepare(items, ui.available_width(), estimate);
+        let mut positions = state.positions(items, estimate);
+        let mut content_height = positions.last().map_or(0.0, |row| row.top + row.height);
+        ui.set_height(content_height);
+
+        for row in 0..positions.len() {
+            let position = positions[row];
+            if position.bottom() < viewport.top() || position.top > viewport.bottom() {
+                continue;
+            }
+
             let item = &items[row];
-            let inner = ui.allocate_ui_with_layout(
-                egui::vec2(ui.available_width(), estimated_row_height(ui)),
-                egui::Layout::top_down(egui::Align::Min),
-                |ui| {
-                    let frame = egui::Frame::group(ui.style())
-                        .fill(styles::item_background_fill(ui.visuals(), item.is_unread))
-                        .stroke(styles::item_background_stroke(ui.visuals(), item.is_unread));
-                    let response = frame.show(ui, |ui| {
-                        let available_width = ui.available_width();
-                        ui.set_min_width(available_width);
-                        ui.set_width(available_width);
-                        show_item_card(ui, item, avatar_cache);
-                    });
-                    let card_rect = response.response.rect;
-                    let visible_rect = card_rect.intersect(ui.clip_rect());
-                    let is_hovered = ui.input(|input| {
-                        input
-                            .pointer
-                            .hover_pos()
-                            .is_some_and(|pos| visible_rect.contains(pos))
-                    });
-                    (card_rect, visible_rect, is_hovered)
-                },
+            let width = ui.available_width();
+            let top_left = ui.max_rect().left_top() + egui::vec2(0.0, position.top);
+            let inner = ui.scope_builder(
+                egui::UiBuilder::new()
+                    .id_salt(("item", item.id))
+                    .max_rect(egui::Rect::from_min_size(top_left, egui::vec2(width, 0.0)))
+                    .layout(egui::Layout::top_down(egui::Align::Min)),
+                |ui| show_row(ui, item, avatar_cache, event),
             );
-
-            let (card_rect, visible_rect, is_hovered) = inner.inner;
-
-            if is_hovered {
-                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
-                show_action_overlay(ui.ctx(), item, card_rect, event);
-            }
-
-            let is_clicked = ui.input(|input| {
-                input.pointer.primary_clicked()
-                    && input
-                        .pointer
-                        .interact_pos()
-                        .is_some_and(|pos| visible_rect.contains(pos))
-            });
-            if is_clicked && event.is_none() {
-                open_item(item, event);
-            }
-
-            if row + 1 < items.len() {
-                ui.add_space(6.0);
+            let measured_height = inner.response.rect.height();
+            let height_delta = measured_height - position.height;
+            state.measured_heights.insert(item.id, measured_height);
+            positions[row].height = measured_height;
+            if height_delta != 0.0 {
+                content_height += height_delta;
+                for following in positions.iter_mut().skip(row + 1) {
+                    following.top += height_delta;
+                }
+                if height_delta > 0.0 {
+                    ui.set_min_height(content_height);
+                }
             }
         }
     });
+}
+
+#[derive(Clone, Copy)]
+struct RowPosition {
+    top: f32,
+    height: f32,
+}
+
+impl RowPosition {
+    fn bottom(self) -> f32 {
+        self.top + self.height
+    }
+}
+
+impl ItemListState {
+    fn prepare(&mut self, items: &[StreamItem], width: f32, estimate: f32) {
+        let dimensions_changed = self
+            .measurement_width
+            .is_some_and(|last| (last - width).abs() > f32::EPSILON)
+            || self
+                .estimated_height
+                .is_some_and(|last| (last - estimate).abs() > f32::EPSILON);
+        if dimensions_changed {
+            self.measured_heights.clear();
+        } else {
+            self.measured_heights
+                .retain(|id, _| items.iter().any(|item| item.id == *id));
+        }
+        self.measurement_width = Some(width);
+        self.estimated_height = Some(estimate);
+    }
+
+    fn positions(&self, items: &[StreamItem], estimate: f32) -> Vec<RowPosition> {
+        let mut top = 0.0;
+        items
+            .iter()
+            .map(|item| {
+                let height = self
+                    .measured_heights
+                    .get(&item.id)
+                    .copied()
+                    .unwrap_or(estimate);
+                let position = RowPosition { top, height };
+                top += height + ITEM_GAP;
+                position
+            })
+            .collect()
+    }
+}
+
+fn show_row(
+    ui: &mut egui::Ui,
+    item: &StreamItem,
+    avatar_cache: &mut author_avatar::AvatarCache,
+    event: &mut Option<StreamEvent>,
+) {
+    let frame = egui::Frame::group(ui.style())
+        .fill(styles::item_background_fill(ui.visuals(), item.is_unread))
+        .stroke(styles::item_background_stroke(ui.visuals(), item.is_unread));
+    let response = frame.show(ui, |ui| {
+        let available_width = ui.available_width();
+        ui.set_width(available_width);
+        show_item_card(ui, item, avatar_cache);
+    });
+    let card_rect = response.response.rect;
+    let visible_rect = card_rect.intersect(ui.clip_rect());
+    let is_hovered = ui.input(|input| {
+        input
+            .pointer
+            .hover_pos()
+            .is_some_and(|pos| visible_rect.contains(pos))
+    });
+
+    if is_hovered {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+        show_action_overlay(ui.ctx(), item, card_rect, event);
+    }
+
+    let is_clicked = ui.input(|input| {
+        input.pointer.primary_clicked()
+            && input
+                .pointer
+                .interact_pos()
+                .is_some_and(|pos| visible_rect.contains(pos))
+    });
+    if is_clicked && event.is_none() {
+        open_item(item, event);
+    }
 }
 
 fn show_item_card(

@@ -17,12 +17,14 @@ fn item_list_action_buttons_emit_item_events() {
                 ui,
                 &state.items,
                 &mut avatar_cache,
+                &mut state.list_state,
                 &mut state.reset_scroll_to_top,
                 &mut state.event,
             );
         },
         ItemListHarness {
             items: vec![sample_stream_item()],
+            list_state: components::item_list::ItemListState::default(),
             reset_scroll_to_top: false,
             event: None,
         },
@@ -62,12 +64,14 @@ fn item_list_action_buttons_emit_item_events() {
                 ui,
                 &state.items,
                 &mut avatar_cache,
+                &mut state.list_state,
                 &mut state.reset_scroll_to_top,
                 &mut state.event,
             );
         },
         ItemListHarness {
             items: vec![sample_archived_stream_item()],
+            list_state: components::item_list::ItemListState::default(),
             reset_scroll_to_top: false,
             event: None,
         },
@@ -94,12 +98,14 @@ fn item_list_item_click_emits_open_event() {
                 ui,
                 &state.items,
                 &mut avatar_cache,
+                &mut state.list_state,
                 &mut state.reset_scroll_to_top,
                 &mut state.event,
             );
         },
         ItemListHarness {
             items: vec![sample_stream_item()],
+            list_state: components::item_list::ItemListState::default(),
             reset_scroll_to_top: false,
             event: None,
         },
@@ -124,12 +130,14 @@ fn item_list_hides_user_names_when_avatars_are_present() {
                 ui,
                 &state.items,
                 &mut avatar_cache,
+                &mut state.list_state,
                 &mut state.reset_scroll_to_top,
                 &mut state.event,
             );
         },
         ItemListHarness {
             items: vec![sample_stream_item()],
+            list_state: components::item_list::ItemListState::default(),
             reset_scroll_to_top: false,
             event: None,
         },
@@ -150,12 +158,14 @@ fn item_list_shows_labels_as_badges_without_heading() {
                 ui,
                 &state.items,
                 &mut avatar_cache,
+                &mut state.list_state,
                 &mut state.reset_scroll_to_top,
                 &mut state.event,
             );
         },
         ItemListHarness {
             items: vec![sample_stream_item()],
+            list_state: components::item_list::ItemListState::default(),
             reset_scroll_to_top: false,
             event: None,
         },
@@ -175,12 +185,14 @@ fn item_list_keeps_comment_count_and_reviewer_row_visible() {
                 ui,
                 &state.items,
                 &mut avatar_cache,
+                &mut state.list_state,
                 &mut state.reset_scroll_to_top,
                 &mut state.event,
             );
         },
         ItemListHarness {
             items: vec![sample_stream_item()],
+            list_state: components::item_list::ItemListState::default(),
             reset_scroll_to_top: false,
             event: None,
         },
@@ -202,18 +214,56 @@ fn item_list_shows_requested_reviewer_row_without_completed_reviews() {
                 ui,
                 &state.items,
                 &mut avatar_cache,
+                &mut state.list_state,
                 &mut state.reset_scroll_to_top,
                 &mut state.event,
             );
         },
         ItemListHarness {
             items: vec![item],
+            list_state: components::item_list::ItemListState::default(),
             reset_scroll_to_top: false,
             event: None,
         },
     );
 
     harness.get_by_label("←");
+}
+
+#[test]
+fn item_list_places_following_item_below_a_measured_tall_item() {
+    let mut tall_item = sample_stream_item();
+    tall_item.title = "A title long enough to wrap in the card ".repeat(10);
+    tall_item.labels = vec!["end-of-tall-item".to_owned()];
+
+    let mut next_item = sample_stream_item();
+    next_item.id = 43;
+    next_item.title = "Next item".to_owned();
+    next_item.labels.clear();
+
+    let harness = Harness::new_ui_state(
+        |ui, state: &mut ItemListHarness| {
+            let mut avatar_cache = components::author_avatar::AvatarCache::default();
+            components::item_list::show(
+                ui,
+                &state.items,
+                &mut avatar_cache,
+                &mut state.list_state,
+                &mut state.reset_scroll_to_top,
+                &mut state.event,
+            );
+        },
+        ItemListHarness {
+            items: vec![tall_item, next_item],
+            list_state: components::item_list::ItemListState::default(),
+            reset_scroll_to_top: false,
+            event: None,
+        },
+    );
+
+    let tall_item_bottom = harness.get_by_label("end-of-tall-item").rect().bottom();
+    let next_item_top = harness.get_by_label("Next item").rect().top();
+    assert!(next_item_top > tall_item_bottom);
 }
 
 #[test]
@@ -233,12 +283,14 @@ fn item_list_scroll_reset_returns_virtualized_list_to_first_item() {
                 ui,
                 &state.items,
                 &mut avatar_cache,
+                &mut state.list_state,
                 &mut state.reset_scroll_to_top,
                 &mut state.event,
             );
         },
         ItemListHarness {
             items,
+            list_state: components::item_list::ItemListState::default(),
             reset_scroll_to_top: false,
             event: None,
         },
