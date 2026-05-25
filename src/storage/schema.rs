@@ -56,16 +56,6 @@ CREATE TABLE saved_queries (
     query TEXT NOT NULL,
     resource_type TEXT NOT NULL DEFAULT 'issue_or_pull_request'
         CHECK (resource_type IN ('issue_or_pull_request')),
-    -- Retained for compatibility with databases created before sorting became view-local.
-    sort TEXT NOT NULL DEFAULT 'updated_desc'
-        CHECK (sort IN (
-            'updated_desc',
-            'updated_asc',
-            'created_desc',
-            'created_asc',
-            'comments_desc',
-            'comments_asc'
-        )),
     enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
     position INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
