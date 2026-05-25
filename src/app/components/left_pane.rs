@@ -52,19 +52,26 @@ fn saved_query_section(
             }
         });
     });
-    for query in saved_queries.iter().filter(|query| query.enabled) {
-        let selected = state.selection == Selection::SavedQuery(query.id);
-        let response = selectable_row::show(ui, selected, &query.name, Some(query.unread_count));
-        if query.unread_count > 0 {
-            response.context_menu(|ui| {
-                if ui.button("Mark all as read").clicked() {
-                    *event = Some(StreamEvent::MarkSavedQueryRead(query.id));
-                    ui.close();
+    ui.add_space(6.0);
+    egui::ScrollArea::vertical()
+        .id_salt("saved-query-list")
+        .auto_shrink([false, false])
+        .show(ui, |ui| {
+            for query in saved_queries.iter().filter(|query| query.enabled) {
+                let selected = state.selection == Selection::SavedQuery(query.id);
+                let response =
+                    selectable_row::show(ui, selected, &query.name, Some(query.unread_count));
+                if query.unread_count > 0 {
+                    response.context_menu(|ui| {
+                        if ui.button("Mark all as read").clicked() {
+                            *event = Some(StreamEvent::MarkSavedQueryRead(query.id));
+                            ui.close();
+                        }
+                    });
                 }
-            });
-        }
-        if response.clicked() {
-            *event = Some(StreamEvent::Select(Selection::SavedQuery(query.id)));
-        }
-    }
+                if response.clicked() {
+                    *event = Some(StreamEvent::Select(Selection::SavedQuery(query.id)));
+                }
+            }
+        });
 }
