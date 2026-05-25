@@ -190,3 +190,46 @@ fn saved_query_manager_new_button_is_next_to_queries_heading() {
     harness.get_by_label("New query");
     assert!(harness.state().event.is_none());
 }
+
+#[test]
+fn saved_query_manager_move_down_button_emits_reorder_event() {
+    let saved_queries = vec![
+        sample_saved_query(),
+        SavedQuery {
+            id: 8,
+            name: "Inbox".to_owned(),
+            query: "is:open".to_owned(),
+            sort: SortOrder::UpdatedDesc,
+            enabled: true,
+            position: 1,
+            unread_count: 1,
+        },
+    ];
+    let mut stream = StreamState::default();
+    stream.selection = Selection::SavedQuery(7);
+    saved_query_manager::open(&mut stream, &saved_queries);
+
+    let mut harness = Harness::new_state(
+        |ctx, state: &mut StreamHarness| {
+            saved_query_manager::show(
+                ctx,
+                &mut state.stream,
+                &state.saved_queries,
+                &mut state.event,
+            );
+        },
+        StreamHarness {
+            stream,
+            saved_queries,
+            event: None,
+        },
+    );
+
+    harness.get_by_label("▼").click();
+    harness.run();
+
+    assert!(matches!(
+        harness.state().event,
+        Some(StreamEvent::MoveQueryDown(7))
+    ));
+}

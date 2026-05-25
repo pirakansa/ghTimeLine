@@ -47,7 +47,7 @@ pub fn show(
         .default_width(280.0)
         .width_range(180.0..=480.0)
         .show(ctx, |ui| {
-            saved_query_list(ui, &mut state.saved_query_manager, saved_queries);
+            saved_query_list(ui, &mut state.saved_query_manager, saved_queries, event);
         });
 
     egui::CentralPanel::default().show(ctx, |ui| {
@@ -76,6 +76,7 @@ fn saved_query_list(
     ui: &mut egui::Ui,
     state: &mut SavedQueryManagerState,
     saved_queries: &[SavedQuery],
+    event: &mut Option<StreamEvent>,
 ) {
     ui.vertical(|ui| {
         ui.horizontal(|ui| {
@@ -86,6 +87,26 @@ fn saved_query_list(
                 .clicked()
             {
                 clear_query_draft(state);
+            }
+            let can_move_up = can_move_selected_query(saved_queries, state.edit_query_id, true);
+            if ui
+                .add_enabled(can_move_up, egui::Button::new("▲"))
+                .on_hover_text("Move selected query up")
+                .clicked()
+            {
+                if let Some(id) = state.edit_query_id {
+                    *event = Some(StreamEvent::MoveQueryUp(id));
+                }
+            }
+            let can_move_down = can_move_selected_query(saved_queries, state.edit_query_id, false);
+            if ui
+                .add_enabled(can_move_down, egui::Button::new("▼"))
+                .on_hover_text("Move selected query down")
+                .clicked()
+            {
+                if let Some(id) = state.edit_query_id {
+                    *event = Some(StreamEvent::MoveQueryDown(id));
+                }
             }
         });
         ui.add_space(6.0);
@@ -105,6 +126,38 @@ fn saved_query_list(
                 }
             });
     });
+}
+
+fn can_move_selected_query(
+    saved_queries: &[SavedQuery],
+    selected_query_id: Option<i64>,
+    move_up: bool,
+) -> bool {
+    let Some(selected_query_id) = selected_query_id else {
+        return false;
+    };
+    let Some(selected_query) = saved_queries
+        .iter()
+        .find(|query| query.id == selected_query_id)
+    else {
+        return false;
+    };
+
+    let group_index = saved_queries
+        .iter()
+        .filter(|query| query.enabled == selected_query.enabled)
+        .position(|query| query.id == selected_query_id);
+    let group_len = saved_queries
+        .iter()
+        .filter(|query| query.enabled == selected_query.enabled)
+        .count();
+
+    match group_index {
+        Some(0) if move_up => false,
+        Some(index) if !move_up => index + 1 < group_len,
+        Some(_) => true,
+        None => false,
+    }
 }
 
 fn saved_query_form(

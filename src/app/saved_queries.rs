@@ -114,6 +114,52 @@ impl GhStreamApp {
         self.reload_current_view();
     }
 
+    pub(super) fn move_query_up(&mut self, id: i64) {
+        if let AppMode::Main(runtime) = &mut self.mode {
+            match runtime.storage.move_saved_query_up(id) {
+                Ok(true) => Self::replace_status(
+                    &mut self.status,
+                    &mut self.status_history,
+                    "Saved query moved up.",
+                ),
+                Ok(false) => Self::replace_status(
+                    &mut self.status,
+                    &mut self.status_history,
+                    "Saved query is already at the top.",
+                ),
+                Err(err) => Self::replace_status_error(
+                    &mut self.status,
+                    &mut self.status_history,
+                    format!("Could not move saved query: {err}"),
+                ),
+            }
+        }
+        self.reload_queries();
+    }
+
+    pub(super) fn move_query_down(&mut self, id: i64) {
+        if let AppMode::Main(runtime) = &mut self.mode {
+            match runtime.storage.move_saved_query_down(id) {
+                Ok(true) => Self::replace_status(
+                    &mut self.status,
+                    &mut self.status_history,
+                    "Saved query moved down.",
+                ),
+                Ok(false) => Self::replace_status(
+                    &mut self.status,
+                    &mut self.status_history,
+                    "Saved query is already at the bottom.",
+                ),
+                Err(err) => Self::replace_status_error(
+                    &mut self.status,
+                    &mut self.status_history,
+                    format!("Could not move saved query: {err}"),
+                ),
+            }
+        }
+        self.reload_queries();
+    }
+
     pub(super) fn mark_saved_query_read(&mut self, id: i64) {
         let mut changed_item_ids = Vec::new();
         let mut did_update_items = false;

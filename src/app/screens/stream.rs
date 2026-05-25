@@ -49,6 +49,8 @@ pub enum StreamEvent {
         enabled: bool,
     },
     DeleteQuery(i64),
+    MoveQueryUp(i64),
+    MoveQueryDown(i64),
     MarkSavedQueryRead(i64),
     RefreshNow,
     SetDefaultSort(SortOrder),

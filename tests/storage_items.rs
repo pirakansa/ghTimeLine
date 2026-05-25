@@ -371,6 +371,40 @@ fn saved_query_enabled_state_is_persisted() {
     assert!(!queries[0].enabled);
 }
 
+#[test]
+fn saved_query_positions_can_be_reordered() {
+    let storage = Storage::in_memory().expect("storage");
+    let config = AppConfig::default_with_pat("token".to_owned());
+    let host_id = storage.ensure_host(&config.host).expect("host");
+    let first_id = storage
+        .add_saved_query(host_id, "First", "is:open", SortOrder::UpdatedDesc)
+        .expect("first query");
+    let second_id = storage
+        .add_saved_query(host_id, "Second", "is:pr", SortOrder::UpdatedDesc)
+        .expect("second query");
+    let third_id = storage
+        .add_saved_query(host_id, "Third", "is:issue", SortOrder::UpdatedDesc)
+        .expect("third query");
+
+    assert!(storage
+        .move_saved_query_down(first_id)
+        .expect("move first down"));
+    assert!(storage
+        .move_saved_query_up(third_id)
+        .expect("move third up"));
+
+    let queries = storage.list_saved_queries(host_id).expect("queries");
+    let names = queries
+        .iter()
+        .map(|query| query.name.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(names, vec!["Second", "Third", "First"]);
+    assert!(!storage
+        .move_saved_query_up(second_id)
+        .expect("top query cannot move up"));
+}
+
 fn sample_item(host_id: i64) -> StreamItemUpsert {
     StreamItemUpsert {
         host_id,

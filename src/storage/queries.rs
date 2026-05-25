@@ -150,6 +150,74 @@ impl Storage {
         Ok(())
     }
 
+    pub fn move_saved_query_up(&self, saved_query_id: i64) -> Result<bool> {
+        self.move_saved_query(saved_query_id, true)
+    }
+
+    pub fn move_saved_query_down(&self, saved_query_id: i64) -> Result<bool> {
+        self.move_saved_query(saved_query_id, false)
+    }
+
+    fn move_saved_query(&self, saved_query_id: i64, move_up: bool) -> Result<bool> {
+        self.with_immediate_transaction(|storage| {
+            let (host_id, enabled, position): (i64, i64, i64) = storage.connection().query_row(
+                "SELECT host_id, enabled, position
+                 FROM saved_queries
+                 WHERE id = ?1",
+                params![saved_query_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )?;
+
+            let target = if move_up {
+                storage
+                    .connection()
+                    .query_row(
+                        "SELECT id, position
+                         FROM saved_queries
+                         WHERE host_id = ?1 AND enabled = ?2 AND position < ?3
+                         ORDER BY position DESC
+                         LIMIT 1",
+                        params![host_id, enabled, position],
+                        |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)),
+                    )
+                    .optional()?
+            } else {
+                storage
+                    .connection()
+                    .query_row(
+                        "SELECT id, position
+                         FROM saved_queries
+                         WHERE host_id = ?1 AND enabled = ?2 AND position > ?3
+                         ORDER BY position ASC
+                         LIMIT 1",
+                        params![host_id, enabled, position],
+                        |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)),
+                    )
+                    .optional()?
+            };
+
+            let Some((target_id, target_position)) = target else {
+                return Ok(false);
+            };
+
+            let now = Utc::now().to_rfc3339();
+            storage.connection().execute(
+                "UPDATE saved_queries
+                 SET position = ?1, updated_at = ?2
+                 WHERE id = ?3",
+                params![target_position, now, saved_query_id],
+            )?;
+            storage.connection().execute(
+                "UPDATE saved_queries
+                 SET position = ?1, updated_at = ?2
+                 WHERE id = ?3",
+                params![position, now, target_id],
+            )?;
+
+            Ok(true)
+        })
+    }
+
     pub fn mark_saved_query_sync_success(&self, saved_query_id: i64) -> Result<()> {
         let now = Utc::now().to_rfc3339();
         self.connection().execute(
