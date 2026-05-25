@@ -7,6 +7,9 @@ This reference defines the local persistence boundary and host identity behavior
 The YAML configuration stores user-editable app settings and the Personal Access
 Token.
 
+Saved query import/export uses a separate YAML document for transferring saved
+query definitions between databases or machines.
+
 The local SQLite database stores:
 
 - Host identity metadata

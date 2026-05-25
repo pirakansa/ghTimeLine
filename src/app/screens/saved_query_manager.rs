@@ -2,6 +2,7 @@ use eframe::egui;
 
 use crate::app::components::selectable_row;
 use crate::app::screens::stream::{StreamEvent, StreamState};
+use crate::config;
 use crate::models::{SavedQuery, Selection};
 
 pub struct SavedQueryManagerState {
@@ -10,6 +11,7 @@ pub struct SavedQueryManagerState {
     edit_query_name: String,
     edit_query_text: String,
     edit_query_enabled: bool,
+    transfer_path: String,
 }
 
 impl Default for SavedQueryManagerState {
@@ -20,6 +22,7 @@ impl Default for SavedQueryManagerState {
             edit_query_name: String::new(),
             edit_query_text: String::new(),
             edit_query_enabled: true,
+            transfer_path: config::default_saved_queries_path().display().to_string(),
         }
     }
 }
@@ -201,6 +204,20 @@ fn saved_query_form(
                     });
                     clear_query_draft(state);
                 }
+            }
+        });
+
+        ui.separator();
+        ui.heading("Import / export");
+        ui.label("YAML file");
+        ui.text_edit_singleline(&mut state.transfer_path);
+        ui.label("Import replaces this host's saved queries and clears cached matches until the next refresh.");
+        ui.horizontal(|ui| {
+            if ui.button("Export").clicked() {
+                *event = Some(StreamEvent::ExportQueries(state.transfer_path.clone()));
+            }
+            if ui.button("Import").clicked() {
+                *event = Some(StreamEvent::ImportQueries(state.transfer_path.clone()));
             }
         });
     });

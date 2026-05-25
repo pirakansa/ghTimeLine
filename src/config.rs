@@ -23,6 +23,10 @@ pub fn default_config_path() -> PathBuf {
     config_dir().join("config.yml")
 }
 
+pub fn default_saved_queries_path() -> PathBuf {
+    config_dir().join("saved-queries.yml")
+}
+
 pub fn default_database_path() -> PathBuf {
     data_dir().join("ghstreamlistner.db")
 }
@@ -71,17 +75,25 @@ pub fn write_config(path: &Path, config: &AppConfig) -> Result<()> {
     Ok(())
 }
 
-pub fn validate_config(mut config: AppConfig) -> Result<AppConfig> {
-    config.host.name = trim_required("host.name", &config.host.name)?;
-    config.host.hostname = validate_hostname(&config.host.hostname)?;
-    config.host.rest_api_base_path = normalize_rest_api_base_path(&config.host.rest_api_base_path)?;
-    config.auth.pat = trim_required("auth.pat", &config.auth.pat)?;
+pub fn validate_host_config(
+    mut host: crate::models::HostConfig,
+) -> Result<crate::models::HostConfig> {
+    host.name = trim_required("host.name", &host.name)?;
+    host.hostname = validate_hostname(&host.hostname)?;
+    host.rest_api_base_path = normalize_rest_api_base_path(&host.rest_api_base_path)?;
 
-    if config.host.kind == HostKind::GitHub && config.host.hostname != "api.github.com" {
+    if host.kind == HostKind::GitHub && host.hostname != "api.github.com" {
         return Err(ConfigError::Validation(
             "host.kind github requires host.hostname api.github.com".to_owned(),
         ));
     }
+
+    Ok(host)
+}
+
+pub fn validate_config(mut config: AppConfig) -> Result<AppConfig> {
+    config.host = validate_host_config(config.host)?;
+    config.auth.pat = trim_required("auth.pat", &config.auth.pat)?;
 
     if !is_hex_color(&config.ui.accent_color) {
         return Err(ConfigError::Validation(

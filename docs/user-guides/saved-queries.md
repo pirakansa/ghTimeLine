@@ -24,6 +24,16 @@ the stored item list ordering from the stream toolbar.
 
 Select a saved query in the saved query management screen and use **Delete**.
 
+## Export And Import Queries
+
+Use the **Import / export** section in the saved query management screen to save
+or restore saved query definitions as YAML.
+
+- The default file path is `saved-queries.yml` under the app config directory.
+- Export writes the current host and saved query definitions only.
+- Import replaces the current host's saved queries and clears cached matches
+  until the next refresh rebuilds them.
+
 ## Disabled Queries
 
 Disabled queries remain visible in the saved query management screen, but are

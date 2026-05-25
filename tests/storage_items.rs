@@ -1,6 +1,7 @@
 use gh_stream_listner::models::{
     AppConfig, HostKind, ItemPerson, ItemReview, ItemType, LibraryView, SortOrder, StreamFilter,
 };
+use gh_stream_listner::saved_query_io::ImportedSavedQuery;
 use gh_stream_listner::storage::items::StreamItemUpsert;
 use gh_stream_listner::storage::Storage;
 
@@ -397,6 +398,55 @@ fn saved_query_positions_can_be_reordered() {
     assert!(!storage
         .move_saved_query_up(second_id)
         .expect("top query cannot move up"));
+}
+
+#[test]
+fn replacing_saved_queries_clears_old_matches_and_preserves_import_order() {
+    let storage = Storage::in_memory().expect("storage");
+    let config = AppConfig::default_with_pat("token".to_owned());
+    let host_id = storage.ensure_host(&config.host).expect("host");
+    let query_id = storage
+        .add_saved_query(host_id, "Inbox", "is:open")
+        .expect("query");
+    let item_id = storage
+        .upsert_stream_item(&sample_item(host_id))
+        .expect("item")
+        .id;
+    storage
+        .record_saved_query_match(query_id, item_id, None)
+        .expect("match");
+
+    let inserted_ids = storage
+        .replace_saved_queries(
+            host_id,
+            &[
+                ImportedSavedQuery {
+                    name: "Review requested".to_owned(),
+                    query: "is:pr review-requested:@me".to_owned(),
+                    enabled: true,
+                    position: 0,
+                },
+                ImportedSavedQuery {
+                    name: "Disabled inbox".to_owned(),
+                    query: "is:issue is:open".to_owned(),
+                    enabled: false,
+                    position: 1,
+                },
+            ],
+        )
+        .expect("replace");
+
+    let queries = storage.list_saved_queries(host_id).expect("queries");
+    let library_counts = storage
+        .list_library_counts(host_id)
+        .expect("library counts");
+
+    assert_eq!(inserted_ids.len(), 2);
+    assert_eq!(queries[0].name, "Review requested");
+    assert_eq!(queries[0].position, 0);
+    assert_eq!(queries[1].name, "Disabled inbox");
+    assert_eq!(queries[1].position, 1);
+    assert_eq!(library_counts.inbox_unread_count, 0);
 }
 
 fn sample_item(host_id: i64) -> StreamItemUpsert {

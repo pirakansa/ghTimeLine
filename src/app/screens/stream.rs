@@ -55,6 +55,8 @@ pub enum StreamEvent {
     MoveQueryUp(i64),
     MoveQueryDown(i64),
     MarkSavedQueryRead(i64),
+    ExportQueries(String),
+    ImportQueries(String),
     RefreshNow,
     SetDefaultSort(SortOrder),
     SetPollingInterval(u32),

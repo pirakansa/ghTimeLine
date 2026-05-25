@@ -2,6 +2,7 @@ use chrono::Utc;
 use rusqlite::{params, OptionalExtension};
 
 use crate::models::{LibraryCounts, SavedQuery};
+use crate::saved_query_io::ImportedSavedQuery;
 
 use super::{Result, Storage};
 
@@ -118,6 +119,40 @@ impl Storage {
             params![saved_query_id],
         )?;
         Ok(())
+    }
+
+    pub fn replace_saved_queries(
+        &self,
+        host_id: i64,
+        queries: &[ImportedSavedQuery],
+    ) -> Result<Vec<i64>> {
+        self.with_immediate_transaction(|storage| {
+            storage.connection().execute(
+                "DELETE FROM saved_queries WHERE host_id = ?1",
+                params![host_id],
+            )?;
+
+            let now = Utc::now().to_rfc3339();
+            let mut inserted_ids = Vec::with_capacity(queries.len());
+            for query in queries {
+                storage.connection().execute(
+                    "INSERT INTO saved_queries (
+                        host_id, name, query, enabled, position, created_at, updated_at
+                     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
+                    params![
+                        host_id,
+                        query.name,
+                        query.query,
+                        if query.enabled { 1 } else { 0 },
+                        query.position,
+                        now
+                    ],
+                )?;
+                inserted_ids.push(storage.connection().last_insert_rowid());
+            }
+
+            Ok(inserted_ids)
+        })
     }
 
     pub fn move_saved_query_up(&self, saved_query_id: i64) -> Result<bool> {

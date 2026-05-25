@@ -231,3 +231,45 @@ fn saved_query_manager_move_down_button_emits_reorder_event() {
         Some(StreamEvent::MoveQueryDown(7))
     ));
 }
+
+#[test]
+fn saved_query_manager_import_export_buttons_emit_events_with_path() {
+    let saved_queries = vec![sample_saved_query()];
+    let mut stream = StreamState::default();
+    stream.selection = Selection::SavedQuery(7);
+    saved_query_manager::open(&mut stream, &saved_queries);
+
+    let mut harness = Harness::new_state(
+        |ctx, state: &mut StreamHarness| {
+            saved_query_manager::show(
+                ctx,
+                &mut state.stream,
+                &state.saved_queries,
+                &mut state.event,
+            );
+        },
+        StreamHarness {
+            stream,
+            saved_queries,
+            event: None,
+        },
+    );
+
+    harness.get_by_label("YAML file");
+    harness.get_by_label("Export").click();
+    harness.run();
+
+    assert!(matches!(
+        &harness.state().event,
+        Some(StreamEvent::ExportQueries(actual)) if !actual.is_empty()
+    ));
+
+    harness.state_mut().event = None;
+    harness.get_by_label("Import").click();
+    harness.run();
+
+    assert!(matches!(
+        &harness.state().event,
+        Some(StreamEvent::ImportQueries(actual)) if !actual.is_empty()
+    ));
+}

@@ -4,6 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::models::{
     AppConfig, ItemPerson, ItemReview, ItemType, LibraryView, Selection, SortOrder, StreamFilter,
 };
+use crate::saved_query_io::read_saved_queries;
 use crate::storage::items::StreamItemUpsert;
 
 use super::*;
@@ -190,6 +191,105 @@ fn polling_interval_change_updates_runtime_and_yaml_config() {
     assert_eq!(written.refresh.polling_interval_seconds, 90);
 }
 
+#[test]
+fn export_queries_writes_yaml_without_runtime_fields() {
+    let (mut app, _) = app_with_one_item();
+    let path = temp_saved_queries_path("export");
+
+    app.export_queries(path.to_str().expect("path should be utf-8"));
+
+    let imported = read_saved_queries(&path).expect("export should deserialize");
+    assert_eq!(imported.queries.len(), 1);
+    assert_eq!(imported.queries[0].name, "Inbox");
+    assert_eq!(imported.queries[0].query, "is:open");
+    let yaml = std::fs::read_to_string(&path).expect("yaml should be readable");
+    assert!(!yaml.contains("unread_count"));
+    assert!(!yaml.contains("id:"));
+}
+
+#[test]
+fn import_queries_replaces_existing_queries_and_resets_selection() {
+    let (mut app, _) = app_with_one_item();
+    let path = temp_saved_queries_path("import");
+    std::fs::create_dir_all(path.parent().expect("temp dir")).expect("temp dir");
+    std::fs::write(
+        &path,
+        r#"version: 1
+host:
+  name: GitHub.com
+  scheme: https
+  hostname: api.github.com
+  rest_api_base_path: /
+  kind: github
+queries:
+  - name: Review requested
+    query: "is:pr review-requested:@me"
+    enabled: true
+    position: 0
+  - name: Disabled inbox
+    query: "is:issue is:open"
+    enabled: false
+    position: 1
+"#,
+    )
+    .expect("yaml");
+
+    app.import_queries(path.to_str().expect("path should be utf-8"));
+
+    let AppMode::Main(runtime) = &app.mode else {
+        panic!("app should be in main mode");
+    };
+    assert_eq!(runtime.saved_queries.len(), 2);
+    assert_eq!(runtime.saved_queries[0].name, "Review requested");
+    assert_eq!(runtime.saved_queries[0].position, 0);
+    assert_eq!(runtime.saved_queries[1].name, "Disabled inbox");
+    assert!(!runtime.saved_queries[1].enabled);
+    assert!(matches!(app.stream.selection, Selection::SavedQuery(_)));
+    assert_eq!(
+        app.status,
+        format!(
+            "Imported 2 saved queries from {}. Refresh to rebuild matches.",
+            path.display()
+        )
+    );
+}
+
+#[test]
+fn import_queries_rejects_host_mismatch() {
+    let (mut app, _) = app_with_one_item();
+    let path = temp_saved_queries_path("host-mismatch");
+    std::fs::create_dir_all(path.parent().expect("temp dir")).expect("temp dir");
+    std::fs::write(
+        &path,
+        r#"version: 1
+host:
+  name: GHES
+  scheme: https
+  hostname: ghe.example.test
+  rest_api_base_path: /api/v3/
+  kind: ghes
+queries:
+  - name: Review requested
+    query: "is:pr review-requested:@me"
+    enabled: true
+    position: 0
+"#,
+    )
+    .expect("yaml");
+
+    app.import_queries(path.to_str().expect("path should be utf-8"));
+
+    let AppMode::Main(runtime) = &app.mode else {
+        panic!("app should be in main mode");
+    };
+    assert_eq!(runtime.saved_queries.len(), 1);
+    assert_eq!(runtime.saved_queries[0].name, "Inbox");
+    assert_eq!(
+        app.status,
+        "Could not import saved queries: saved query file host does not match the current host."
+    );
+}
+
 fn app_with_one_item() -> (GhStreamApp, i64) {
     let config = AppConfig::default_with_pat("ghp_test".to_owned());
     let storage = Storage::in_memory().expect("storage");
@@ -324,6 +424,16 @@ fn temp_config_path() -> PathBuf {
     std::env::temp_dir()
         .join("ghstreamlistner-tests")
         .join(format!("config-{}-{nanos}.yml", std::process::id()))
+}
+
+fn temp_saved_queries_path(label: &str) -> PathBuf {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system time should be after epoch")
+        .as_nanos();
+    std::env::temp_dir()
+        .join("ghstreamlistner-tests")
+        .join(format!("{label}-{}-{nanos}.yml", std::process::id()))
 }
 
 #[test]

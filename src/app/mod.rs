@@ -331,6 +331,12 @@ impl eframe::App for GhStreamApp {
                     Some(screens::stream::StreamEvent::MarkSavedQueryRead(id)) => {
                         self.mark_saved_query_read(id)
                     }
+                    Some(screens::stream::StreamEvent::ExportQueries(path)) => {
+                        self.export_queries(&path)
+                    }
+                    Some(screens::stream::StreamEvent::ImportQueries(path)) => {
+                        self.import_queries(&path)
+                    }
                     Some(screens::stream::StreamEvent::RefreshNow) => self.refresh_now(ctx.clone()),
                     Some(screens::stream::StreamEvent::SetDefaultSort(sort)) => {
                         self.update_default_sort(sort)
