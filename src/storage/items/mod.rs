@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 
 use crate::models::{ItemPerson, ItemReview, ItemType};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StreamItemUpsert {
     pub host_id: i64,
     pub node_id: Option<String>,
@@ -33,6 +33,7 @@ pub struct StreamItemUpsert {
     pub assignees: Vec<ItemPerson>,
     pub review_requests: Vec<ItemPerson>,
     pub reviewers: Vec<ItemReview>,
+    pub graphql_enriched: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

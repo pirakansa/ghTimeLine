@@ -114,6 +114,110 @@ fn failed_refresh_preserves_existing_items_and_records_sync_error() {
         .contains("500"));
 }
 
+#[test]
+fn graphql_failure_preserves_existing_pull_request_enrichment() {
+    let server = Server::run();
+    server.expect(
+        Expectation::matching(request::method_path("GET", "/search/issues"))
+            .times(2)
+            .respond_with(cycle(vec![
+                Box::new(json_encoded(search_response())),
+                Box::new(json_encoded(search_response_updated())),
+            ])),
+    );
+    server.expect(
+        Expectation::matching(request::method_path("POST", "/api/graphql"))
+            .times(2)
+            .respond_with(cycle(vec![
+                Box::new(json_encoded(graphql_response("APPROVED", true))),
+                Box::new(status_code(500)),
+            ])),
+    );
+
+    let storage = Storage::in_memory().expect("storage");
+    let config = config_for_server(&server);
+    let host_id = storage.ensure_host(&config.host).expect("host");
+    let query_id = storage
+        .add_saved_query(host_id, "PRs", "is:pr", SortOrder::UpdatedDesc)
+        .expect("saved query");
+    let saved_query = storage
+        .list_saved_queries(host_id)
+        .expect("queries")
+        .into_iter()
+        .find(|query| query.id == query_id)
+        .expect("query");
+
+    sync::refresh_saved_query(&config, &storage, host_id, &saved_query)
+        .expect("first refresh should succeed");
+    sync::refresh_saved_query(&config, &storage, host_id, &saved_query)
+        .expect("REST data should still be saved when GraphQL fails");
+
+    let items = storage
+        .list_items_for_saved_query(query_id, None, SortOrder::UpdatedDesc)
+        .expect("items");
+
+    assert_eq!(items[0].title, "Improve stream after comment");
+    assert_eq!(items[0].updated_at_github, "2026-05-25T00:00:00Z");
+    assert_eq!(items[0].review_status.as_deref(), Some("approved"));
+    assert_eq!(items[0].is_merged, Some(true));
+    assert_eq!(items[0].review_requests[0].login, "triage");
+    assert_eq!(items[0].reviewers[0].login, "reviewer");
+}
+
+#[test]
+fn refreshing_overlapping_queries_updates_shared_item_metadata_once() {
+    let server = Server::run();
+    server.expect(
+        Expectation::matching(request::method_path("GET", "/search/issues"))
+            .times(2)
+            .respond_with(json_encoded(search_response())),
+    );
+    server.expect(
+        Expectation::matching(request::method_path("POST", "/api/graphql"))
+            .times(2)
+            .respond_with(json_encoded(graphql_response("APPROVED", false))),
+    );
+
+    let storage = Storage::in_memory().expect("storage");
+    storage
+        .connection()
+        .execute_batch(
+            "CREATE TEMP TABLE stream_item_update_count (updates INTEGER NOT NULL);
+             INSERT INTO stream_item_update_count (updates) VALUES (0);
+             CREATE TEMP TRIGGER count_stream_item_updates
+             AFTER UPDATE ON stream_items
+             BEGIN
+               UPDATE stream_item_update_count SET updates = updates + 1;
+             END;",
+        )
+        .expect("update counter trigger");
+    let config = config_for_server(&server);
+    let host_id = storage.ensure_host(&config.host).expect("host");
+    storage
+        .add_saved_query(host_id, "PRs", "is:pr", SortOrder::UpdatedDesc)
+        .expect("first query");
+    storage
+        .add_saved_query(
+            host_id,
+            "Reviews",
+            "review-requested:@me",
+            SortOrder::UpdatedDesc,
+        )
+        .expect("second query");
+    let saved_queries = storage.list_saved_queries(host_id).expect("queries");
+
+    let results = sync::refresh_saved_queries(&config, &storage, host_id, &saved_queries);
+    let update_count: i64 = storage
+        .connection()
+        .query_row("SELECT updates FROM stream_item_update_count", [], |row| {
+            row.get(0)
+        })
+        .expect("update count");
+
+    assert!(results.iter().all(|(_, result)| result.is_ok()));
+    assert_eq!(update_count, 0);
+}
+
 fn config_for_server(server: &Server) -> AppConfig {
     AppConfig {
         host: HostConfig {
@@ -167,6 +271,20 @@ fn search_response() -> serde_json::Value {
             "pull_request": { "url": "https://api.github.com/repos/acme/project/pulls/7" }
         }]
     })
+}
+
+fn search_response_updated() -> serde_json::Value {
+    let mut response = search_response();
+    let item = response["items"][0].as_object_mut().expect("search item");
+    item.insert(
+        "title".to_owned(),
+        serde_json::Value::String("Improve stream after comment".to_owned()),
+    );
+    item.insert(
+        "updated_at".to_owned(),
+        serde_json::Value::String("2026-05-25T00:00:00Z".to_owned()),
+    );
+    response
 }
 
 fn graphql_response(review_decision: &str, merged: bool) -> serde_json::Value {

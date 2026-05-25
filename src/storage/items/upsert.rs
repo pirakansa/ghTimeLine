@@ -42,13 +42,13 @@ impl Storage {
                 api_url = excluded.api_url,
                 state = excluded.state,
                 is_draft = excluded.is_draft,
-                is_merged = excluded.is_merged,
-                review_status = excluded.review_status,
+                is_merged = CASE WHEN ?22 = 1 THEN excluded.is_merged ELSE stream_items.is_merged END,
+                review_status = CASE WHEN ?22 = 1 THEN excluded.review_status ELSE stream_items.review_status END,
                 comment_count = excluded.comment_count,
                 created_at_github = excluded.created_at_github,
                 updated_at_github = excluded.updated_at_github,
                 closed_at_github = excluded.closed_at_github,
-                merged_at_github = excluded.merged_at_github,
+                merged_at_github = CASE WHEN ?22 = 1 THEN excluded.merged_at_github ELSE stream_items.merged_at_github END,
                 last_seen_at = excluded.last_seen_at,
                 updated_at = excluded.updated_at",
             params![
@@ -72,7 +72,8 @@ impl Storage {
                 item.updated_at_github,
                 item.closed_at_github,
                 item.merged_at_github,
-                now
+                now,
+                i64::from(item.graphql_enriched)
             ],
         )?;
 
@@ -94,8 +95,10 @@ impl Storage {
         if changed || existing_item.is_none() {
             self.replace_labels(id, &item.labels)?;
             self.replace_assignees(id, &item.assignees)?;
-            self.replace_review_requests(id, &item.review_requests)?;
-            self.replace_reviews(id, &item.reviewers)?;
+            if item.graphql_enriched {
+                self.replace_review_requests(id, &item.review_requests)?;
+                self.replace_reviews(id, &item.reviewers)?;
+            }
         }
 
         Ok(StreamItemSave { id, changed })

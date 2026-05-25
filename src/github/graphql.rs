@@ -94,6 +94,7 @@ pub fn enrich_pull_requests(
         item.review_status = Some(enrichment.review_status.as_db_value().to_owned());
         item.review_requests = enrichment.review_requests.clone();
         item.reviewers = enrichment.reviewers.clone();
+        item.graphql_enriched = true;
     }
 
     Ok(())

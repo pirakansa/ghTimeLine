@@ -261,6 +261,7 @@ fn sample_item_with_number_for_host(
             avatar_url: Some("https://avatars.githubusercontent.com/u/4?v=4".to_owned()),
             state: "approved".to_owned(),
         }],
+        graphql_enriched: true,
     }
 }
 

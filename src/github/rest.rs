@@ -113,6 +113,7 @@ fn search_item_to_upsert(
             .collect(),
         review_requests: Vec::new(),
         reviewers: Vec::new(),
+        graphql_enriched: false,
     })
 }
 

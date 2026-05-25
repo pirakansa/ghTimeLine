@@ -24,12 +24,15 @@ flow.
   status, and reviewer metadata when available.
 - Failed GraphQL enrichment must not prevent REST Search data from being stored
   or rendered.
+- Failed GraphQL enrichment must preserve previously stored merge and review
+  metadata for an existing pull request.
 
 ## Refresh Write Flow
 
 1. Fetch REST Search results for a saved query.
 2. Attempt GraphQL enrichment for discovered pull requests.
-3. Upsert stream items and query matches into SQLite.
+3. Upsert stream items and query matches into SQLite; identical items returned
+   by multiple saved queries in one refresh reuse a single metadata save.
 4. Mark query sync success or store a short sync error.
 5. Reload the current view from SQLite.
 
