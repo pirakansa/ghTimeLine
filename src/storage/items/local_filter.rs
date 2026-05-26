@@ -220,12 +220,17 @@ fn or_involves_clause(values: &[String], params: &mut Vec<Value>) -> String {
     let review_requested_clause =
         relation_in_clause("stream_item_review_requests", "login", values, params);
     let reviewed_by_clause = relation_in_clause("stream_item_reviews", "login", values, params);
+    let participant_clause =
+        relation_in_clause("stream_item_participants", "login", values, params);
+    let mentions_clause = relation_in_clause("stream_item_mentions", "login", values, params);
 
     format!(
         "(lower(i.author_login) IN ({author_placeholders})
           OR {assignee_clause}
           OR {review_requested_clause}
-          OR {reviewed_by_clause})"
+          OR {reviewed_by_clause}
+          OR {participant_clause}
+          OR {mentions_clause})"
     )
 }
 
@@ -276,12 +281,16 @@ mod tests {
             .contains("lower(i.repository_owner || '/' || i.repository_name) IN (?)"));
         assert!(compiled.clause.contains("FROM stream_item_review_requests"));
         assert!(compiled.clause.contains("FROM stream_item_reviews"));
+        assert!(compiled.clause.contains("FROM stream_item_participants"));
+        assert!(compiled.clause.contains("FROM stream_item_mentions"));
         assert_eq!(
             compiled.params,
             vec![
                 Value::Text("octo".to_owned()),
                 Value::Text("acme/api".to_owned()),
                 Value::Text("dev".to_owned()),
+                Value::Text("octo".to_owned()),
+                Value::Text("octo".to_owned()),
                 Value::Text("octo".to_owned()),
                 Value::Text("octo".to_owned()),
                 Value::Text("octo".to_owned()),

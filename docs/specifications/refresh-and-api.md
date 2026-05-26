@@ -27,9 +27,10 @@ flow.
   first (`sort=updated&order=desc`) so display preferences do not displace
   newly updated items from the fetched page.
 - REST Search results are parsed into normalized stream item data.
-- Pull requests with node IDs are enriched through GraphQL.
+- Issues and pull requests with node IDs are enriched through GraphQL.
 - GraphQL enrichment fills draft state, merge state, merged timestamp, review
-  status, and reviewer metadata when available.
+  status, reviewer metadata, and local involvement metadata such as
+  participants/commenters and parsed mentions when available.
 - Failed GraphQL enrichment must not prevent REST Search data from being stored
   or rendered.
 - Failed GraphQL enrichment must preserve previously stored merge and review

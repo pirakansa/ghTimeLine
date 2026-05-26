@@ -59,6 +59,9 @@ Supported local filter terms are:
 - `review-requested:<login>`
 - `reviewed-by:<login>`
 
+`involves:` matches against locally stored author, assignee, review-requested,
+reviewed-by, participant, commenter, and parsed `@mention` metadata.
+
 Local filter terms combine as follows:
 
 - Different filter keys use `AND`

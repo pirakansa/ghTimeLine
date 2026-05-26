@@ -2,7 +2,7 @@ use rusqlite::Connection;
 
 use super::Result;
 
-pub const SCHEMA_VERSION: i64 = 4;
+pub const SCHEMA_VERSION: i64 = 5;
 
 pub fn migrate(connection: &Connection) -> Result<()> {
     let version =
@@ -132,6 +132,19 @@ CREATE TABLE stream_item_reviews (
     PRIMARY KEY (stream_item_id, login)
 );
 
+CREATE TABLE stream_item_participants (
+    stream_item_id INTEGER NOT NULL REFERENCES stream_items(id) ON DELETE CASCADE,
+    login TEXT NOT NULL,
+    avatar_url TEXT,
+    PRIMARY KEY (stream_item_id, login)
+);
+
+CREATE TABLE stream_item_mentions (
+    stream_item_id INTEGER NOT NULL REFERENCES stream_items(id) ON DELETE CASCADE,
+    login TEXT NOT NULL,
+    PRIMARY KEY (stream_item_id, login)
+);
+
 CREATE TABLE saved_query_matches (
     saved_query_id INTEGER NOT NULL REFERENCES saved_queries(id) ON DELETE CASCADE,
     stream_item_id INTEGER NOT NULL REFERENCES stream_items(id) ON DELETE CASCADE,
@@ -197,6 +210,19 @@ CREATE TABLE IF NOT EXISTS stream_item_reviews (
     login TEXT NOT NULL,
     avatar_url TEXT,
     state TEXT NOT NULL CHECK (state IN ('approved', 'changes_requested', 'commented')),
+    PRIMARY KEY (stream_item_id, login)
+);
+
+CREATE TABLE IF NOT EXISTS stream_item_participants (
+    stream_item_id INTEGER NOT NULL REFERENCES stream_items(id) ON DELETE CASCADE,
+    login TEXT NOT NULL,
+    avatar_url TEXT,
+    PRIMARY KEY (stream_item_id, login)
+);
+
+CREATE TABLE IF NOT EXISTS stream_item_mentions (
+    stream_item_id INTEGER NOT NULL REFERENCES stream_items(id) ON DELETE CASCADE,
+    login TEXT NOT NULL,
     PRIMARY KEY (stream_item_id, login)
 );
 

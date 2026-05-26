@@ -52,6 +52,10 @@ Supported local filter terms:
 - `review-requested:<login>`
 - `reviewed-by:<login>`
 
+`involves:` is broader than the other people filters. It matches authors,
+assignees, requested reviewers, reviewers, stored participants/commenters, and
+users mentioned in the fetched body or comment text.
+
 You can combine different keys with spaces. Different keys are matched together,
 repeated values of the same key are matched as alternatives, and repeated
 `label:` terms must all be present. Use **Apply** to activate the filter and

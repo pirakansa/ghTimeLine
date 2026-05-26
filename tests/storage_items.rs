@@ -720,6 +720,11 @@ fn local_filter_queries_match_supported_metadata() {
         avatar_url: None,
         state: "approved".to_owned(),
     }];
+    second_item.participants = vec![ItemPerson {
+        login: "comment-helper".to_owned(),
+        avatar_url: None,
+    }];
+    second_item.mentions = vec!["mentioned-helper".to_owned()];
     let second_item_id = storage
         .upsert_stream_item(&second_item)
         .expect("second item")
@@ -774,6 +779,22 @@ fn local_filter_queries_match_supported_metadata() {
             SortOrder::UpdatedDesc,
         )
         .expect("involves filter");
+    let involves_participant_items = storage
+        .list_items_for_saved_query(
+            query_id,
+            None,
+            Some("involves:comment-helper"),
+            SortOrder::UpdatedDesc,
+        )
+        .expect("participant involves filter");
+    let involves_mentions_items = storage
+        .list_items_for_saved_query(
+            query_id,
+            None,
+            Some("involves:mentioned-helper"),
+            SortOrder::UpdatedDesc,
+        )
+        .expect("mention involves filter");
 
     assert_eq!(author_items[0].title, "Title");
     assert_eq!(assignee_items[0].title, "Backend item");
@@ -782,6 +803,8 @@ fn local_filter_queries_match_supported_metadata() {
     assert_eq!(requested_items[0].title, "Title");
     assert_eq!(reviewed_items[0].title, "Backend item");
     assert_eq!(involves_items[0].title, "Title");
+    assert_eq!(involves_participant_items[0].title, "Backend item");
+    assert_eq!(involves_mentions_items[0].title, "Backend item");
 }
 
 #[test]
@@ -831,6 +854,11 @@ fn sample_item(host_id: i64) -> StreamItemUpsert {
             avatar_url: Some("https://avatars.githubusercontent.com/u/4?v=4".to_owned()),
             state: "approved".to_owned(),
         }],
+        participants: vec![ItemPerson {
+            login: "commenter".to_owned(),
+            avatar_url: Some("https://avatars.githubusercontent.com/u/5?v=4".to_owned()),
+        }],
+        mentions: vec!["mentioned-user".to_owned()],
         graphql_enriched: true,
     }
 }

@@ -39,6 +39,22 @@ fn refresh_writes_rest_results_and_graphql_enrichment_to_storage() {
     let items = storage
         .list_items_for_saved_query(query_id, None, None, SortOrder::UpdatedDesc)
         .expect("items");
+    let commenter_items = storage
+        .list_items_for_saved_query(
+            query_id,
+            None,
+            Some("involves:commenter"),
+            SortOrder::UpdatedDesc,
+        )
+        .expect("commenter involves items");
+    let mentioned_items = storage
+        .list_items_for_saved_query(
+            query_id,
+            None,
+            Some("involves:release-team"),
+            SortOrder::UpdatedDesc,
+        )
+        .expect("mentioned involves items");
 
     assert_eq!(stats.processed_count, 1);
     assert_eq!(stats.changed_count, 1);
@@ -56,6 +72,8 @@ fn refresh_writes_rest_results_and_graphql_enrichment_to_storage() {
     assert_eq!(items[0].review_requests[0].login, "triage");
     assert_eq!(items[0].reviewers[0].login, "reviewer");
     assert_eq!(items[0].reviewers[0].state, "approved");
+    assert_eq!(commenter_items[0].id, items[0].id);
+    assert_eq!(mentioned_items[0].id, items[0].id);
     assert_eq!(
         items[0].updated_at_github,
         "2026-05-23T00:00:00Z".to_owned()
@@ -436,6 +454,7 @@ fn graphql_response_for_node(
                 } else {
                     serde_json::Value::Null
                 },
+                "body": "Ping @release-team before merge",
                 "reviewDecision": review_decision,
                 "reviewRequests": {
                     "totalCount": 1,
@@ -449,11 +468,26 @@ fn graphql_response_for_node(
                 "latestReviews": {
                     "nodes": [{
                         "state": "APPROVED",
+                        "body": "Approved with @review-buddy",
                         "author": {
                             "login": "reviewer",
                             "avatarUrl": "https://avatars.githubusercontent.com/u/4?v=4"
-                        },
-                        "submittedAt": "2026-05-24T00:00:00Z"
+                        }
+                    }]
+                },
+                "participants": {
+                    "nodes": [{
+                        "login": "participant",
+                        "avatarUrl": "https://avatars.githubusercontent.com/u/5?v=4"
+                    }]
+                },
+                "comments": {
+                    "nodes": [{
+                        "body": "Following up with @comment-buddy",
+                        "author": {
+                            "login": "commenter",
+                            "avatarUrl": "https://avatars.githubusercontent.com/u/6?v=4"
+                        }
                     }]
                 }
             }]
