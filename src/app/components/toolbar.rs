@@ -22,7 +22,7 @@ fn refresh_button(ui: &mut egui::Ui, event: &mut Option<StreamEvent>) {
     }
 }
 
-fn filter_controls(ui: &mut egui::Ui, state: &StreamState, event: &mut Option<StreamEvent>) {
+fn filter_controls(ui: &mut egui::Ui, state: &mut StreamState, event: &mut Option<StreamEvent>) {
     ui.separator();
     ui.label("Filter");
     if ui.selectable_label(state.filter.is_none(), "All").clicked() {
@@ -35,6 +35,25 @@ fn filter_controls(ui: &mut egui::Ui, state: &StreamState, event: &mut Option<St
         {
             *event = Some(StreamEvent::SetFilter(Some(filter)));
         }
+    }
+
+    ui.separator();
+    ui.label("Local filter");
+    let response = ui.add(
+        egui::TextEdit::singleline(&mut state.local_filter_input)
+            .hint_text("author:octo label:bug"),
+    );
+    let apply_requested =
+        response.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter));
+    if apply_requested || ui.button("Apply").clicked() {
+        let value = state.local_filter_input.trim();
+        *event = Some(StreamEvent::SetLocalFilter(
+            (!value.is_empty()).then(|| value.to_owned()),
+        ));
+    }
+    if ui.button("Clear").clicked() {
+        state.local_filter_input.clear();
+        *event = Some(StreamEvent::SetLocalFilter(None));
     }
 }
 

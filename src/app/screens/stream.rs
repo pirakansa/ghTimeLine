@@ -16,6 +16,8 @@ use crate::models::{
 pub struct StreamState {
     pub selection: Selection,
     pub filter: Option<StreamFilter>,
+    pub local_filter: Option<String>,
+    pub local_filter_input: String,
     pub(in crate::app) reset_item_list_scroll: bool,
     pub(in crate::app) pending_remote_item_ids: HashSet<i64>,
     pub(in crate::app) polling_interval_draft: u32,
@@ -30,6 +32,8 @@ impl Default for StreamState {
         Self {
             selection: Selection::Library(LibraryView::Inbox),
             filter: None,
+            local_filter: None,
+            local_filter_input: String::new(),
             reset_item_list_scroll: false,
             pending_remote_item_ids: HashSet::new(),
             polling_interval_draft: 0,
@@ -44,6 +48,7 @@ impl Default for StreamState {
 pub enum StreamEvent {
     Select(Selection),
     SetFilter(Option<StreamFilter>),
+    SetLocalFilter(Option<String>),
     AddQuery {
         name: String,
         query: String,

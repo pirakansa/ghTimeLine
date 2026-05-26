@@ -36,6 +36,25 @@ fn toolbar_buttons_emit_refresh_and_filter_events() {
 }
 
 #[test]
+fn toolbar_apply_local_filter_emits_event() {
+    let mut harness = Harness::new_ui_state(
+        |ui, state: &mut ToolbarHarness| {
+            components::toolbar::show(ui, &mut state.stream, &state.config, &mut state.event);
+        },
+        sample_toolbar_harness(),
+    );
+
+    harness.state_mut().stream.local_filter_input = "author:octo".to_owned();
+    harness.get_by_label("Apply").click();
+    harness.run();
+
+    assert!(matches!(
+        harness.state().event,
+        Some(StreamEvent::SetLocalFilter(Some(ref value))) if value == "author:octo"
+    ));
+}
+
+#[test]
 fn remote_updates_banner_emits_show_updates_event() {
     let mut harness = Harness::new_ui_state(
         |ui, state: &mut ToolbarHarness| {

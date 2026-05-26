@@ -34,6 +34,24 @@ The toolbar supports these filters:
 - **Unread**: unread items
 - **Bookmarked**: bookmarked items
 
+The toolbar also includes a temporary **Local filter** field. It narrows the
+currently visible list from the local database only, so applying it does not
+trigger a GitHub refresh.
+
+Supported local filter terms:
+
+- `author:<login>`
+- `assignee:<login>`
+- `label:<name>`
+- `repo:<owner/name>`
+- `review-requested:<login>`
+- `reviewed-by:<login>`
+
+You can combine different keys with spaces. Different keys are matched together,
+repeated values of the same key are matched as alternatives, and repeated
+`label:` terms must all be present. Use **Apply** to activate the filter and
+**Clear** to remove it.
+
 The sort selector supports:
 
 - Updated descending

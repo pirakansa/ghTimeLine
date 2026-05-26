@@ -1,25 +1,39 @@
-use rusqlite::{params, types::Value};
+use rusqlite::types::Value;
 
-use super::{item_type_from_db, STREAM_VIEW_LIMIT};
+use super::{item_type_from_db, local_filter, STREAM_VIEW_LIMIT};
 use crate::models::{LibraryView, Selection, SortOrder, StreamFilter, StreamItem};
 use crate::storage::{Result, Storage};
+
+#[derive(Clone, Copy)]
+struct ItemListOptions<'a> {
+    filter: Option<StreamFilter>,
+    local_filter_query: Option<&'a str>,
+    sort: SortOrder,
+}
 
 impl Storage {
     pub fn list_items_for_saved_query(
         &self,
         saved_query_id: i64,
         filter: Option<StreamFilter>,
+        local_filter_query: Option<&str>,
         sort: SortOrder,
     ) -> Result<Vec<StreamItem>> {
+        let mut params = vec![Value::Integer(saved_query_id)];
+        let options = ItemListOptions {
+            filter,
+            local_filter_query,
+            sort,
+        };
         let mut sql = item_select_sql(
             "JOIN saved_query_matches m ON m.stream_item_id = i.id",
-            "m.saved_query_id = ?1 AND s.is_archived = 0",
+            "m.saved_query_id = ? AND s.is_archived = 0",
             "",
-            filter,
-            sort,
-        );
+            options,
+            &mut params,
+        )?;
         sql.push_str(&format!(" LIMIT {STREAM_VIEW_LIMIT}"));
-        self.query_items(&sql, params![saved_query_id])
+        self.query_items(&sql, rusqlite::params_from_iter(params))
     }
 
     pub fn list_items_for_library(
@@ -27,12 +41,19 @@ impl Storage {
         host_id: i64,
         library: LibraryView,
         filter: Option<StreamFilter>,
+        local_filter_query: Option<&str>,
         sort: SortOrder,
     ) -> Result<Vec<StreamItem>> {
+        let mut params = vec![Value::Integer(host_id)];
+        let options = ItemListOptions {
+            filter,
+            local_filter_query,
+            sort,
+        };
         let where_clause = library_where_clause(library);
-        let mut sql = item_select_sql("", &where_clause, "", filter, sort);
+        let mut sql = item_select_sql("", &where_clause, "", options, &mut params)?;
         sql.push_str(&format!(" LIMIT {STREAM_VIEW_LIMIT}"));
-        self.query_items(&sql, params![host_id])
+        self.query_items(&sql, rusqlite::params_from_iter(params))
     }
 
     pub fn list_items_for_selection_by_ids(
@@ -40,17 +61,28 @@ impl Storage {
         host_id: i64,
         selection: &Selection,
         filter: Option<StreamFilter>,
+        local_filter_query: Option<&str>,
         sort: SortOrder,
         item_ids: &[i64],
     ) -> Result<Vec<StreamItem>> {
+        let options = ItemListOptions {
+            filter,
+            local_filter_query,
+            sort,
+        };
         match selection {
             Selection::Library(library) => {
-                self.list_items_for_library_by_ids(host_id, *library, filter, sort, item_ids)
+                self.list_items_for_library_by_ids(host_id, *library, options, item_ids)
             }
             Selection::SavedQuery(id) => {
-                self.list_items_for_saved_query_by_ids(*id, filter, sort, item_ids)
+                self.list_items_for_saved_query_by_ids(*id, options, item_ids)
             }
         }
+    }
+
+    pub fn validate_local_filter(&self, query: Option<&str>) -> Result<()> {
+        let _ = local_filter::compile(query)?;
+        Ok(())
     }
 
     fn query_items<P>(&self, sql: &str, params: P) -> Result<Vec<StreamItem>>
@@ -119,17 +151,15 @@ impl Storage {
     fn list_items_for_saved_query_by_ids(
         &self,
         saved_query_id: i64,
-        filter: Option<StreamFilter>,
-        sort: SortOrder,
+        options: ItemListOptions<'_>,
         item_ids: &[i64],
     ) -> Result<Vec<StreamItem>> {
         self.query_items_by_ids(
             "JOIN saved_query_matches m ON m.stream_item_id = i.id",
-            "m.saved_query_id = ?1 AND s.is_archived = 0",
+            "m.saved_query_id = ? AND s.is_archived = 0",
             vec![Value::Integer(saved_query_id)],
             item_ids,
-            filter,
-            sort,
+            options,
         )
     }
 
@@ -137,8 +167,7 @@ impl Storage {
         &self,
         host_id: i64,
         library: LibraryView,
-        filter: Option<StreamFilter>,
-        sort: SortOrder,
+        options: ItemListOptions<'_>,
         item_ids: &[i64],
     ) -> Result<Vec<StreamItem>> {
         let where_clause = library_where_clause(library);
@@ -147,8 +176,7 @@ impl Storage {
             &where_clause,
             vec![Value::Integer(host_id)],
             item_ids,
-            filter,
-            sort,
+            options,
         )
     }
 
@@ -158,8 +186,7 @@ impl Storage {
         base_where: &str,
         mut base_params: Vec<Value>,
         item_ids: &[i64],
-        filter: Option<StreamFilter>,
-        sort: SortOrder,
+        options: ItemListOptions<'_>,
     ) -> Result<Vec<StreamItem>> {
         if item_ids.is_empty() {
             return Ok(Vec::new());
@@ -167,7 +194,13 @@ impl Storage {
 
         let placeholders = vec!["?"; item_ids.len()].join(", ");
         let extra_where = format!(" AND i.id IN ({placeholders})");
-        let sql = item_select_sql(extra_join, base_where, &extra_where, filter, sort);
+        let sql = item_select_sql(
+            extra_join,
+            base_where,
+            &extra_where,
+            options,
+            &mut base_params,
+        )?;
         base_params.extend(item_ids.iter().copied().map(Value::Integer));
         self.query_items(&sql, rusqlite::params_from_iter(base_params))
     }
@@ -192,10 +225,10 @@ fn item_select_sql(
     extra_join: &str,
     base_where: &str,
     extra_where: &str,
-    filter: Option<StreamFilter>,
-    sort: SortOrder,
-) -> String {
-    let filter_clause = match filter {
+    options: ItemListOptions<'_>,
+    params: &mut Vec<Value>,
+) -> Result<String> {
+    let filter_clause = match options.filter {
         Some(StreamFilter::Open) => {
             " AND (i.item_type = 'issue' AND i.state = 'open'
                OR i.item_type = 'pull_request' AND i.state = 'open' AND COALESCE(i.is_merged, 0) = 0)"
@@ -204,7 +237,13 @@ fn item_select_sql(
         Some(StreamFilter::Bookmarked) => " AND s.is_bookmarked = 1",
         None => "",
     };
-    let order = match sort {
+    let local_filter_clause = local_filter::compile(options.local_filter_query)?
+        .map(|compiled| {
+            params.extend(compiled.params);
+            format!(" AND ({})", compiled.clause)
+        })
+        .unwrap_or_default();
+    let order = match options.sort {
         SortOrder::UpdatedDesc => "i.updated_at_github DESC",
         SortOrder::CreatedDesc => "i.created_at_github DESC",
         SortOrder::ReadDesc => "s.read_at IS NULL ASC, s.read_at DESC, i.updated_at_github DESC",
@@ -215,7 +254,7 @@ fn item_select_sql(
             "i.merged_at_github IS NULL ASC, i.merged_at_github DESC, i.updated_at_github DESC"
         }
     };
-    format!(
+    Ok(format!(
         "SELECT
             i.id,
             i.repository_owner,
@@ -242,8 +281,8 @@ fn item_select_sql(
          FROM stream_items i
          JOIN item_state s ON s.stream_item_id = i.id
          {extra_join}
-         WHERE {base_where}{extra_where}{filter_clause}
+         WHERE {base_where}{extra_where}{filter_clause}{local_filter_clause}
          GROUP BY i.id
          ORDER BY {order}"
-    )
+    ))
 }

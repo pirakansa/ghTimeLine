@@ -43,6 +43,26 @@ Filters:
 - `Unread`: local unread state
 - `Bookmarked`: local bookmarked state
 
+The toolbar also supports a temporary local filter query that narrows the
+currently displayed SQLite-backed list without issuing new GitHub API requests.
+Supported local filter terms are:
+
+- `author:<login>`
+- `assignee:<login>`
+- `label:<name>`
+- `repo:<owner/name>`
+- `review-requested:<login>`
+- `reviewed-by:<login>`
+
+Local filter terms combine as follows:
+
+- Different filter keys use `AND`
+- Repeated values of the same key use `OR`
+- Repeated `label:` terms use `AND`
+
+Unsupported or malformed local filter terms must be rejected with a user-visible
+error, and must not replace the previously active local filter.
+
 Sort values:
 
 - `updated_desc`

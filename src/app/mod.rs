@@ -312,6 +312,9 @@ impl eframe::App for GhStreamApp {
                     Some(screens::stream::StreamEvent::SetFilter(filter)) => {
                         self.set_filter(filter)
                     }
+                    Some(screens::stream::StreamEvent::SetLocalFilter(filter)) => {
+                        self.set_local_filter(filter)
+                    }
                     Some(screens::stream::StreamEvent::AddQuery {
                         name,
                         query,

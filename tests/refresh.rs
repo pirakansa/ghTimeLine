@@ -37,7 +37,7 @@ fn refresh_writes_rest_results_and_graphql_enrichment_to_storage() {
     let stats = sync::refresh_saved_query(&config, &storage, host_id, &saved_query)
         .expect("refresh should succeed");
     let items = storage
-        .list_items_for_saved_query(query_id, None, SortOrder::UpdatedDesc)
+        .list_items_for_saved_query(query_id, None, None, SortOrder::UpdatedDesc)
         .expect("items");
 
     assert_eq!(stats.processed_count, 1);
@@ -131,7 +131,7 @@ fn failed_refresh_preserves_existing_items_and_records_sync_error() {
         .expect("first refresh should succeed");
     let results = sync::refresh_saved_queries(&config, &storage, host_id, &[saved_query]);
     let items = storage
-        .list_items_for_saved_query(query_id, None, SortOrder::UpdatedDesc)
+        .list_items_for_saved_query(query_id, None, None, SortOrder::UpdatedDesc)
         .expect("items");
     let sync_error: Option<String> = storage
         .connection()
@@ -189,7 +189,7 @@ fn graphql_failure_preserves_existing_pull_request_enrichment() {
         .expect("REST data should still be saved when GraphQL fails");
 
     let items = storage
-        .list_items_for_saved_query(query_id, None, SortOrder::UpdatedDesc)
+        .list_items_for_saved_query(query_id, None, None, SortOrder::UpdatedDesc)
         .expect("items");
 
     assert_eq!(items[0].title, "Improve stream after comment");
@@ -302,7 +302,7 @@ fn failed_graphql_batch_does_not_block_successful_batch_enrichment() {
 
     let results = sync::refresh_saved_queries(&config, &storage, host_id, &saved_queries);
     let items = storage
-        .list_items_for_saved_query(query_id, None, SortOrder::UpdatedDesc)
+        .list_items_for_saved_query(query_id, None, None, SortOrder::UpdatedDesc)
         .expect("items");
     let last_item = items
         .iter()
