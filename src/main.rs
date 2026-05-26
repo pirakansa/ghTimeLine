@@ -1,9 +1,9 @@
 #![windows_subsystem = "windows"]
 use eframe::egui;
 
-use gh_stream_listner::app::fonts;
-use gh_stream_listner::app::GhStreamApp;
-use gh_stream_listner::APP_TITLE;
+use ghtl::app::fonts;
+use ghtl::app::GhStreamApp;
+use ghtl::APP_TITLE;
 
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {

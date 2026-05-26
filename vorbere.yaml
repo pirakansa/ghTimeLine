@@ -1,7 +1,7 @@
 version: 1
 
 vars:
-  PROJECT_NAME: "ghStreamListner"
+  PROJECT_NAME: "ghtl"
   ASSETS_DIR: "assets"
   NOTO_SANS_JP_FONT: "NotoSansCJKjp-Regular.otf"
   NOTO_SANS_JP_URL: "https://github.com/notofonts/noto-cjk/raw/refs/heads/main/Sans/OTF/Japanese"

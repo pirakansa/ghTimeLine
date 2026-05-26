@@ -1,6 +1,6 @@
 # User Guides
 
-These guides explain how to use `ghStreamListner` in day-to-day workflows.
+These guides explain how to use `ghTimeLine` in day-to-day workflows.
 
 - [Getting started](getting-started.md): start the app and complete first-run
   setup.

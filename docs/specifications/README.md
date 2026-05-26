@@ -7,7 +7,7 @@ the storage implementation.
 
 ## Product Scope
 
-`ghStreamListner` is a Rust desktop app for tracking GitHub issues and pull
+`ghTimeLine` is a Rust desktop app for tracking GitHub issues and pull
 requests through saved GitHub Search queries.
 
 Implemented v1 scope:

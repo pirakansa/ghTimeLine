@@ -1,10 +1,10 @@
-# ghStreamListner
+# ghTimeLine
 
 <p align="center">
-        <img src="assets/icon.png" alt="ghStreamListner logo" width="320">
+        <img src="assets/icon.png" alt="ghTimeLine logo" width="320">
 </p>
 
-`ghStreamListner` is a desktop tool under development for reading GitHub
+`ghTimeLine` is a desktop tool under development for reading GitHub
 activity through saved search queries, inspired by
 [Jasper](https://github.com/jasperapp/jasper).
 

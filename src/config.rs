@@ -5,7 +5,7 @@ use thiserror::Error;
 
 use crate::models::{AppConfig, HostKind};
 
-const APP_DIR_NAME: &str = "ghstreamlistner";
+const APP_DIR_NAME: &str = "ghtl";
 
 #[derive(Debug, Error)]
 pub enum ConfigError {
@@ -28,7 +28,7 @@ pub fn default_saved_queries_path() -> PathBuf {
 }
 
 pub fn default_database_path() -> PathBuf {
-    data_dir().join("ghstreamlistner.db")
+    data_dir().join("ghtl.db")
 }
 
 fn config_dir() -> PathBuf {

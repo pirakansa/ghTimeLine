@@ -1,10 +1,10 @@
-use gh_stream_listner::models::AppConfig;
-use gh_stream_listner::storage::Storage;
-use gh_stream_listner::APP_TITLE;
+use ghtl::models::AppConfig;
+use ghtl::storage::Storage;
+use ghtl::APP_TITLE;
 
 #[test]
 fn it_exposes_the_window_title() {
-    assert_eq!(APP_TITLE, "ghStreamListner");
+    assert_eq!(APP_TITLE, "ghTimeLine");
 }
 
 #[test]

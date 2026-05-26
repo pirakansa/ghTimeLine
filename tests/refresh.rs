@@ -1,6 +1,6 @@
-use gh_stream_listner::models::{AppConfig, HostConfig, HostKind, Scheme, SortOrder};
-use gh_stream_listner::storage::Storage;
-use gh_stream_listner::sync;
+use ghtl::models::{AppConfig, HostConfig, HostKind, Scheme, SortOrder};
+use ghtl::storage::Storage;
+use ghtl::sync;
 use httptest::matchers::*;
 use httptest::responders::*;
 use httptest::{Expectation, Server};
@@ -323,16 +323,16 @@ fn config_for_server(server: &Server) -> AppConfig {
             rest_api_base_path: "/".to_owned(),
             kind: HostKind::Ghes,
         },
-        auth: gh_stream_listner::models::AuthConfig {
+        auth: ghtl::models::AuthConfig {
             pat: "ghp_test".to_owned(),
         },
-        ui: gh_stream_listner::models::UiConfig {
-            theme: gh_stream_listner::models::Theme::System,
+        ui: ghtl::models::UiConfig {
+            theme: ghtl::models::Theme::System,
             accent_color: "#4F8CC9".to_owned(),
             default_sort: SortOrder::UpdatedDesc,
-            font_size: gh_stream_listner::models::FontSize::Default,
+            font_size: ghtl::models::FontSize::Default,
         },
-        refresh: gh_stream_listner::models::RefreshConfig {
+        refresh: ghtl::models::RefreshConfig {
             polling_interval_seconds: 180,
         },
     }

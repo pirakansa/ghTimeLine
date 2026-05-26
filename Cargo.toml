@@ -1,5 +1,5 @@
 [package]
-name = "gh_stream_listner"
+name = "ghtl"
 version = "0.1.0"
 edition = "2021"
 description = "GitHub Stream reader for saved search queries"
@@ -8,7 +8,7 @@ repository = ""
 readme = "README.md"
 
 [[bin]]
-name = "ghStreamListner"
+name = "ghtl"
 path = "src/main.rs"
 
 [dependencies]

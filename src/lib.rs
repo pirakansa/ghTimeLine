@@ -6,4 +6,4 @@ pub mod saved_query_io;
 pub mod storage;
 pub mod sync;
 
-pub const APP_TITLE: &str = "ghStreamListner";
+pub const APP_TITLE: &str = "ghTimeLine";

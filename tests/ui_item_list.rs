@@ -3,8 +3,8 @@ mod support;
 
 use egui_kittest::kittest::Queryable as _;
 use egui_kittest::Harness;
-use gh_stream_listner::app::components;
-use gh_stream_listner::app::screens::stream::{ItemAction, StreamEvent};
+use ghtl::app::components;
+use ghtl::app::screens::stream::{ItemAction, StreamEvent};
 
 use crate::support::{sample_archived_stream_item, sample_stream_item, ItemListHarness};
 

@@ -1,5 +1,5 @@
-use gh_stream_listner::app::screens::stream::{StreamEvent, StreamState};
-use gh_stream_listner::models::{LibraryCounts, SavedQuery};
+use ghtl::app::screens::stream::{StreamEvent, StreamState};
+use ghtl::models::{LibraryCounts, SavedQuery};
 
 pub struct LeftPaneHarness {
     pub stream: StreamState,

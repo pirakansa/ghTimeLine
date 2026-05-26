@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide explains how to start `ghStreamListner` and complete first-run setup.
+This guide explains how to start `ghTimeLine` and complete first-run setup.
 
 ## Start The App
 

@@ -310,7 +310,7 @@ fn app_with_one_item() -> (GhStreamApp, i64) {
         .expect("library counts");
     let mut app = GhStreamApp {
         config_path: temp_config_path(),
-        database_path: std::env::temp_dir().join("ghstreamlistner-test-unused.db"),
+        database_path: std::env::temp_dir().join("ghtl-test-unused.db"),
         mode: AppMode::Main(Box::new(Runtime {
             config,
             storage,
@@ -422,7 +422,7 @@ fn temp_config_path() -> PathBuf {
         .expect("system time should be after epoch")
         .as_nanos();
     std::env::temp_dir()
-        .join("ghstreamlistner-tests")
+        .join("ghtl-tests")
         .join(format!("config-{}-{nanos}.yml", std::process::id()))
 }
 
@@ -432,7 +432,7 @@ fn temp_saved_queries_path(label: &str) -> PathBuf {
         .expect("system time should be after epoch")
         .as_nanos();
     std::env::temp_dir()
-        .join("ghstreamlistner-tests")
+        .join("ghtl-tests")
         .join(format!("{label}-{}-{nanos}.yml", std::process::id()))
 }
 

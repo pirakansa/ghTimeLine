@@ -1,9 +1,9 @@
-use gh_stream_listner::models::{
+use ghtl::models::{
     AppConfig, HostKind, ItemPerson, ItemReview, ItemType, LibraryView, SortOrder, StreamFilter,
 };
-use gh_stream_listner::saved_query_io::ImportedSavedQuery;
-use gh_stream_listner::storage::items::StreamItemUpsert;
-use gh_stream_listner::storage::Storage;
+use ghtl::saved_query_io::ImportedSavedQuery;
+use ghtl::storage::items::StreamItemUpsert;
+use ghtl::storage::Storage;
 
 #[test]
 fn item_state_survives_metadata_upsert() {

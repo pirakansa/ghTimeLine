@@ -3,8 +3,8 @@ mod support;
 
 use egui_kittest::kittest::Queryable as _;
 use egui_kittest::Harness;
-use gh_stream_listner::app::components;
-use gh_stream_listner::app::screens::stream::StreamEvent;
+use ghtl::app::components;
+use ghtl::app::screens::stream::StreamEvent;
 
 use crate::support::{sample_toolbar_harness, ToolbarHarness};
 
@@ -30,7 +30,7 @@ fn toolbar_buttons_emit_refresh_and_filter_events() {
     assert!(matches!(
         harness.state().event,
         Some(StreamEvent::SetFilter(Some(
-            gh_stream_listner::models::StreamFilter::Unread
+            ghtl::models::StreamFilter::Unread
         )))
     ));
 }

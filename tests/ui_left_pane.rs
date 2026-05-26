@@ -3,12 +3,12 @@ mod support;
 
 use egui_kittest::kittest::Queryable as _;
 use egui_kittest::Harness;
-use gh_stream_listner::app::components;
-use gh_stream_listner::app::screens::{
+use ghtl::app::components;
+use ghtl::app::screens::{
     saved_query_manager,
     stream::{StreamEvent, StreamState},
 };
-use gh_stream_listner::models::{LibraryCounts, SavedQuery, Selection};
+use ghtl::models::{LibraryCounts, SavedQuery, Selection};
 
 use crate::support::{sample_saved_query, LeftPaneHarness, StreamHarness};
 
