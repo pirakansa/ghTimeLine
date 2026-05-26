@@ -75,14 +75,18 @@ impl Storage {
                 is_merged: row.get::<_, Option<i64>>(11)?.map(|value| value == 1),
                 review_status: row.get(12)?,
                 comment_count: row.get(13)?,
-                updated_at_github: row.get(14)?,
+                created_at_github: row.get(14)?,
+                updated_at_github: row.get(15)?,
+                closed_at_github: row.get(16)?,
+                merged_at_github: row.get(17)?,
+                read_at: row.get(18)?,
                 labels: Vec::new(),
                 assignees: Vec::new(),
                 review_requests: Vec::new(),
                 reviewers: Vec::new(),
-                is_unread: row.get::<_, i64>(15)? == 1,
-                is_bookmarked: row.get::<_, i64>(16)? == 1,
-                is_archived: row.get::<_, i64>(17)? == 1,
+                is_unread: row.get::<_, i64>(19)? == 1,
+                is_bookmarked: row.get::<_, i64>(20)? == 1,
+                is_archived: row.get::<_, i64>(21)? == 1,
             })
         })?;
         let mut items = rows
@@ -202,11 +206,14 @@ fn item_select_sql(
     };
     let order = match sort {
         SortOrder::UpdatedDesc => "i.updated_at_github DESC",
-        SortOrder::UpdatedAsc => "i.updated_at_github ASC",
         SortOrder::CreatedDesc => "i.created_at_github DESC",
-        SortOrder::CreatedAsc => "i.created_at_github ASC",
-        SortOrder::CommentsDesc => "i.comment_count DESC, i.updated_at_github DESC",
-        SortOrder::CommentsAsc => "i.comment_count ASC, i.updated_at_github DESC",
+        SortOrder::ReadDesc => "s.read_at IS NULL ASC, s.read_at DESC, i.updated_at_github DESC",
+        SortOrder::ClosedDesc => {
+            "i.closed_at_github IS NULL ASC, i.closed_at_github DESC, i.updated_at_github DESC"
+        }
+        SortOrder::MergedDesc => {
+            "i.merged_at_github IS NULL ASC, i.merged_at_github DESC, i.updated_at_github DESC"
+        }
     };
     format!(
         "SELECT
@@ -224,7 +231,11 @@ fn item_select_sql(
             i.is_merged,
             i.review_status,
             i.comment_count,
+            i.created_at_github,
             i.updated_at_github,
+            i.closed_at_github,
+            i.merged_at_github,
+            s.read_at,
             s.is_unread,
             s.is_bookmarked,
             s.is_archived

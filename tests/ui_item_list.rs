@@ -32,10 +32,10 @@ fn item_list_action_buttons_emit_item_events() {
 
     // Hover over the item card to reveal the action overlay
     harness.get_by_label("Improve stream").hover();
-    harness.run();
+    harness.run_steps(10);
 
     harness.get_by_label("Mark read").click();
-    harness.run();
+    harness.run_steps(10);
     assert!(matches!(
         harness.state().event,
         Some(StreamEvent::ItemAction(ItemAction::MarkRead(42)))
@@ -43,7 +43,7 @@ fn item_list_action_buttons_emit_item_events() {
 
     harness.state_mut().event = None;
     harness.get_by_label("Bookmark").click();
-    harness.run();
+    harness.run_steps(10);
     assert!(matches!(
         harness.state().event,
         Some(StreamEvent::ItemAction(ItemAction::Bookmark(42, true)))
@@ -51,7 +51,7 @@ fn item_list_action_buttons_emit_item_events() {
 
     harness.state_mut().event = None;
     harness.get_by_label("Archive").click();
-    harness.run();
+    harness.run_steps(10);
     assert!(matches!(
         harness.state().event,
         Some(StreamEvent::ItemAction(ItemAction::Archive(42, true)))
@@ -79,10 +79,10 @@ fn item_list_action_buttons_emit_item_events() {
 
     // Hover over the item card to reveal the action overlay
     harness.get_by_label("Improve stream").hover();
-    harness.run();
+    harness.run_steps(10);
 
     harness.get_by_label("Unarchive").click();
-    harness.run();
+    harness.run_steps(10);
     assert!(matches!(
         harness.state().event,
         Some(StreamEvent::ItemAction(ItemAction::Archive(42, false)))

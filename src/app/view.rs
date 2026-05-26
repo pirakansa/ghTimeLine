@@ -1,6 +1,8 @@
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 
+use chrono::{DateTime, FixedOffset};
+
 use crate::app::{AppMode, GhStreamApp, Runtime};
 use crate::models::{LibraryCounts, SavedQuery, Selection, SortOrder, StreamFilter, StreamItem};
 use crate::storage::Storage;
@@ -194,9 +196,9 @@ fn current_view_membership_changed(
         && matches!(
             sort,
             SortOrder::UpdatedDesc
-                | SortOrder::UpdatedAsc
-                | SortOrder::CommentsDesc
-                | SortOrder::CommentsAsc
+                | SortOrder::ReadDesc
+                | SortOrder::ClosedDesc
+                | SortOrder::MergedDesc
         )
     {
         return true;
@@ -232,9 +234,7 @@ fn patch_current_items(
         }
     }
 
-    if !matches!(sort, SortOrder::CreatedDesc | SortOrder::CreatedAsc) {
-        items.sort_unstable_by(|left, right| compare_items(left, right, sort));
-    }
+    items.sort_unstable_by(|left, right| compare_items(left, right, sort));
     if items.len() > STREAM_VIEW_LIMIT {
         items.truncate(STREAM_VIEW_LIMIT);
     }
@@ -267,24 +267,67 @@ fn patch_local_item_state(
 
 fn compare_items(left: &StreamItem, right: &StreamItem, sort: SortOrder) -> Ordering {
     match sort {
-        SortOrder::UpdatedDesc => right
-            .updated_at_github
-            .cmp(&left.updated_at_github)
-            .then_with(|| right.id.cmp(&left.id)),
-        SortOrder::UpdatedAsc => left
-            .updated_at_github
-            .cmp(&right.updated_at_github)
-            .then_with(|| left.id.cmp(&right.id)),
-        SortOrder::CreatedDesc | SortOrder::CreatedAsc => Ordering::Equal,
-        SortOrder::CommentsDesc => right
-            .comment_count
-            .cmp(&left.comment_count)
-            .then_with(|| right.updated_at_github.cmp(&left.updated_at_github))
-            .then_with(|| right.id.cmp(&left.id)),
-        SortOrder::CommentsAsc => left
-            .comment_count
-            .cmp(&right.comment_count)
-            .then_with(|| right.updated_at_github.cmp(&left.updated_at_github))
-            .then_with(|| left.id.cmp(&right.id)),
+        SortOrder::UpdatedDesc => compare_timestamp_desc(
+            &left.updated_at_github,
+            &right.updated_at_github,
+            left.id,
+            right.id,
+        ),
+        SortOrder::CreatedDesc => compare_timestamp_desc(
+            &left.created_at_github,
+            &right.created_at_github,
+            left.id,
+            right.id,
+        ),
+        SortOrder::ReadDesc => compare_optional_timestamp_desc(
+            left.read_at.as_deref(),
+            right.read_at.as_deref(),
+            left,
+            right,
+        ),
+        SortOrder::ClosedDesc => compare_optional_timestamp_desc(
+            left.closed_at_github.as_deref(),
+            right.closed_at_github.as_deref(),
+            left,
+            right,
+        ),
+        SortOrder::MergedDesc => compare_optional_timestamp_desc(
+            left.merged_at_github.as_deref(),
+            right.merged_at_github.as_deref(),
+            left,
+            right,
+        ),
     }
+}
+
+fn compare_optional_timestamp_desc(
+    left: Option<&str>,
+    right: Option<&str>,
+    left_item: &StreamItem,
+    right_item: &StreamItem,
+) -> Ordering {
+    match (left, right) {
+        (Some(left), Some(right)) => {
+            compare_timestamp_desc(left, right, left_item.id, right_item.id)
+        }
+        (Some(_), None) => Ordering::Less,
+        (None, Some(_)) => Ordering::Greater,
+        (None, None) => compare_timestamp_desc(
+            &left_item.updated_at_github,
+            &right_item.updated_at_github,
+            left_item.id,
+            right_item.id,
+        ),
+    }
+}
+
+fn compare_timestamp_desc(left: &str, right: &str, left_id: i64, right_id: i64) -> Ordering {
+    parse_timestamp(right)
+        .cmp(&parse_timestamp(left))
+        .then_with(|| right.cmp(left))
+        .then_with(|| right_id.cmp(&left_id))
+}
+
+fn parse_timestamp(value: &str) -> Option<DateTime<FixedOffset>> {
+    DateTime::parse_from_rfc3339(value).ok()
 }

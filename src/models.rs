@@ -64,43 +64,41 @@ impl Theme {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SortOrder {
+    #[serde(alias = "updated_asc", alias = "comments_desc", alias = "comments_asc")]
     UpdatedDesc,
-    UpdatedAsc,
+    #[serde(alias = "created_asc")]
     CreatedDesc,
-    CreatedAsc,
-    CommentsDesc,
-    CommentsAsc,
+    ReadDesc,
+    ClosedDesc,
+    MergedDesc,
 }
 
 impl SortOrder {
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 5] = [
         Self::UpdatedDesc,
-        Self::UpdatedAsc,
         Self::CreatedDesc,
-        Self::CreatedAsc,
-        Self::CommentsDesc,
-        Self::CommentsAsc,
+        Self::ReadDesc,
+        Self::ClosedDesc,
+        Self::MergedDesc,
     ];
 
     pub fn as_db_value(self) -> &'static str {
         match self {
             Self::UpdatedDesc => "updated_desc",
-            Self::UpdatedAsc => "updated_asc",
             Self::CreatedDesc => "created_desc",
-            Self::CreatedAsc => "created_asc",
-            Self::CommentsDesc => "comments_desc",
-            Self::CommentsAsc => "comments_asc",
+            Self::ReadDesc => "read_desc",
+            Self::ClosedDesc => "closed_desc",
+            Self::MergedDesc => "merged_desc",
         }
     }
 
     pub fn label(self) -> &'static str {
         match self {
-            Self::UpdatedDesc => "Updated desc",
-            Self::UpdatedAsc => "Updated asc",
-            Self::CreatedDesc => "Created desc",
-            Self::CreatedAsc => "Created asc",
-            Self::CommentsDesc => "Comments desc",
-            Self::CommentsAsc => "Comments asc",
+            Self::UpdatedDesc => "Updated at",
+            Self::CreatedDesc => "Created at",
+            Self::ReadDesc => "Read at",
+            Self::ClosedDesc => "Closed at",
+            Self::MergedDesc => "Merged at",
         }
     }
 }
@@ -117,11 +115,14 @@ impl FromStr for SortOrder {
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
             "updated_desc" => Ok(Self::UpdatedDesc),
-            "updated_asc" => Ok(Self::UpdatedAsc),
+            "updated_asc" => Ok(Self::UpdatedDesc),
             "created_desc" => Ok(Self::CreatedDesc),
-            "created_asc" => Ok(Self::CreatedAsc),
-            "comments_desc" => Ok(Self::CommentsDesc),
-            "comments_asc" => Ok(Self::CommentsAsc),
+            "created_asc" => Ok(Self::CreatedDesc),
+            "read_desc" => Ok(Self::ReadDesc),
+            "closed_desc" => Ok(Self::ClosedDesc),
+            "merged_desc" => Ok(Self::MergedDesc),
+            "comments_desc" => Ok(Self::UpdatedDesc),
+            "comments_asc" => Ok(Self::UpdatedDesc),
             _ => Err(()),
         }
     }
@@ -365,7 +366,11 @@ pub struct StreamItem {
     pub is_merged: Option<bool>,
     pub review_status: Option<String>,
     pub comment_count: i64,
+    pub created_at_github: String,
     pub updated_at_github: String,
+    pub closed_at_github: Option<String>,
+    pub merged_at_github: Option<String>,
+    pub read_at: Option<String>,
     pub labels: Vec<String>,
     pub assignees: Vec<ItemPerson>,
     pub review_requests: Vec<ItemPerson>,

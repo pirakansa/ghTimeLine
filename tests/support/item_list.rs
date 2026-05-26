@@ -24,7 +24,11 @@ pub fn sample_stream_item() -> StreamItem {
         is_merged: Some(false),
         review_status: Some("review_required".to_owned()),
         comment_count: 5,
+        created_at_github: "2026-05-22T00:00:00Z".to_owned(),
         updated_at_github: "2026-05-23T00:00:00Z".to_owned(),
+        closed_at_github: None,
+        merged_at_github: None,
+        read_at: None,
         labels: vec!["enhancement".to_owned()],
         assignees: vec![ItemPerson {
             login: "dev".to_owned(),
