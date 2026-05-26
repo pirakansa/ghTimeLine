@@ -208,14 +208,7 @@ fn tokenize(query: &str) -> Result<Vec<String>> {
 }
 
 fn or_equals_clause(column: &str, values: &[String], params: &mut Vec<Value>) -> String {
-    let placeholders = values
-        .iter()
-        .map(|value| {
-            params.push(Value::Text(value.clone()));
-            "?".to_owned()
-        })
-        .collect::<Vec<_>>()
-        .join(", ");
+    let placeholders = push_text_placeholders(values, params);
     format!("{column} IN ({placeholders})")
 }
 
@@ -262,14 +255,7 @@ fn or_relation_clause(
     values: &[String],
     params: &mut Vec<Value>,
 ) -> String {
-    let placeholders = values
-        .iter()
-        .map(|value| {
-            params.push(Value::Text(value.clone()));
-            "?".to_owned()
-        })
-        .collect::<Vec<_>>()
-        .join(", ");
+    let placeholders = push_text_placeholders(values, params);
     format!(
         "EXISTS (
             SELECT 1
@@ -298,22 +284,15 @@ fn exists_relation_clause(
 }
 
 fn or_involves_clause(values: &[String], params: &mut Vec<Value>) -> String {
-    let author_placeholders = values
-        .iter()
-        .map(|value| {
-            params.push(Value::Text(value.clone()));
-            "?".to_owned()
-        })
-        .collect::<Vec<_>>()
-        .join(", ");
+    let author_placeholders = push_text_placeholders(values, params);
 
-    let assignee_clause = relation_in_clause("stream_item_assignees", "login", values, params);
+    let assignee_clause = or_relation_clause("stream_item_assignees", "login", values, params);
     let review_requested_clause =
-        relation_in_clause("stream_item_review_requests", "login", values, params);
-    let reviewed_by_clause = relation_in_clause("stream_item_reviews", "login", values, params);
+        or_relation_clause("stream_item_review_requests", "login", values, params);
+    let reviewed_by_clause = or_relation_clause("stream_item_reviews", "login", values, params);
     let participant_clause =
-        relation_in_clause("stream_item_participants", "login", values, params);
-    let mentions_clause = relation_in_clause("stream_item_mentions", "login", values, params);
+        or_relation_clause("stream_item_participants", "login", values, params);
+    let mentions_clause = or_relation_clause("stream_item_mentions", "login", values, params);
 
     format!(
         "(lower(i.author_login) IN ({author_placeholders})
@@ -325,28 +304,15 @@ fn or_involves_clause(values: &[String], params: &mut Vec<Value>) -> String {
     )
 }
 
-fn relation_in_clause(
-    table: &str,
-    column: &str,
-    values: &[String],
-    params: &mut Vec<Value>,
-) -> String {
-    let placeholders = values
+fn push_text_placeholders(values: &[String], params: &mut Vec<Value>) -> String {
+    values
         .iter()
         .map(|value| {
             params.push(Value::Text(value.clone()));
             "?".to_owned()
         })
         .collect::<Vec<_>>()
-        .join(", ");
-    format!(
-        "EXISTS (
-            SELECT 1
-            FROM {table}
-            WHERE {table}.stream_item_id = i.id
-              AND lower({table}.{column}) IN ({placeholders})
-        )"
-    )
+        .join(", ")
 }
 
 #[cfg(test)]
@@ -428,6 +394,23 @@ mod tests {
         assert_eq!(
             compiled.params,
             vec![Value::Text("pull_request".to_owned())]
+        );
+    }
+
+    #[test]
+    fn compiles_multiple_involves_values_for_each_supported_relationship() {
+        let compiled = compile(Some("involves:octo involves:dev"))
+            .expect("involves terms should compile")
+            .expect("compiled filter");
+
+        assert_eq!(compiled.clause.matches("IN (?, ?)").count(), 6);
+        assert_eq!(
+            compiled.params,
+            ["octo", "dev"]
+                .repeat(6)
+                .into_iter()
+                .map(|value| Value::Text(value.to_owned()))
+                .collect::<Vec<_>>()
         );
     }
 
