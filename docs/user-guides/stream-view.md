@@ -43,6 +43,12 @@ default sort in the YAML configuration. Sorting changes the stored item list
 display; saved query refreshes always retrieve recently updated GitHub items
 first.
 
+When either manual refresh or automatic polling finds remote changes that
+affect the currently visible list, the app keeps your current reading position
+and displays an update banner above the list. Select **Show updates** to load
+the new ordering and contents. Actions you make directly on an item, such as
+marking it read or archiving it, remain immediately visible.
+
 ## Item Actions
 
 Each list item shows the repository, item type, number, title, update time,

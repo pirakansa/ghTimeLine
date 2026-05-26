@@ -338,6 +338,9 @@ impl eframe::App for GhStreamApp {
                         self.import_queries(&path)
                     }
                     Some(screens::stream::StreamEvent::RefreshNow) => self.refresh_now(ctx.clone()),
+                    Some(screens::stream::StreamEvent::ShowRemoteUpdates) => {
+                        self.reload_current_view()
+                    }
                     Some(screens::stream::StreamEvent::SetDefaultSort(sort)) => {
                         self.update_default_sort(sort)
                     }

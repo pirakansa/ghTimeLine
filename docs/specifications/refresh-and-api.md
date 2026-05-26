@@ -7,6 +7,8 @@ flow.
 
 - Refreshes the selected saved query when a saved query is selected.
 - Refreshes all enabled saved queries when a library entry is selected.
+- Persists remote results immediately, but does not automatically redraw the
+  current item list when those results change its displayed contents.
 
 ## Automatic Polling
 
@@ -14,6 +16,8 @@ flow.
 - Defaults to a 180 second interval.
 - Uses the interval stored in the YAML configuration.
 - Persists interval changes to the YAML configuration.
+- Persists remote results immediately, but does not automatically redraw the
+  current item list when those results change its displayed contents.
 
 ## API Strategy
 
@@ -43,7 +47,11 @@ flow.
 3. Upsert stream items and query matches into SQLite; identical items returned
    by multiple saved queries in one refresh reuse a single metadata save.
 4. Mark query sync success or store a short sync error.
-5. Reload the current view from SQLite.
+5. Update refresh status and reload sidebar counts when stored items changed or
+   a query refresh failed.
+6. If the refresh changes the displayed current view, retain the visible item
+   list snapshot and show an update banner until the user selects **Show
+   updates** or otherwise reloads the view.
 
 The app must not assume polling can infer every GitHub state transition. Cached
 matches may remain when an item stops appearing in a later search result.

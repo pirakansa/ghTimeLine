@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use eframe::egui;
 
 use super::saved_query_manager;
@@ -15,6 +17,7 @@ pub struct StreamState {
     pub selection: Selection,
     pub filter: Option<StreamFilter>,
     pub(in crate::app) reset_item_list_scroll: bool,
+    pub(in crate::app) pending_remote_item_ids: HashSet<i64>,
     pub(in crate::app) polling_interval_draft: u32,
     pub(in crate::app) saved_query_manager: SavedQueryManagerState,
     pub(in crate::app) status_log: StatusLogState,
@@ -28,6 +31,7 @@ impl Default for StreamState {
             selection: Selection::Library(LibraryView::Inbox),
             filter: None,
             reset_item_list_scroll: false,
+            pending_remote_item_ids: HashSet::new(),
             polling_interval_draft: 0,
             saved_query_manager: SavedQueryManagerState::default(),
             status_log: StatusLogState::default(),
@@ -58,6 +62,7 @@ pub enum StreamEvent {
     ExportQueries(String),
     ImportQueries(String),
     RefreshNow,
+    ShowRemoteUpdates,
     SetDefaultSort(SortOrder),
     SetPollingInterval(u32),
     SetTheme(Theme),
@@ -105,6 +110,11 @@ pub(in crate::app) fn show(
     egui::CentralPanel::default().show(ctx, |ui| {
         components::toolbar::show(ui, state, config, &mut event);
         ui.separator();
+        components::remote_updates_banner::show(
+            ui,
+            state.pending_remote_item_ids.len(),
+            &mut event,
+        );
         components::item_list::show(
             ui,
             items,

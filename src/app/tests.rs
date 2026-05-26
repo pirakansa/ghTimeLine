@@ -178,6 +178,95 @@ fn changed_item_that_enters_current_view_triggers_reload() {
 }
 
 #[test]
+fn remote_refresh_change_is_deferred_until_updates_are_shown() {
+    let (mut app, item_id) = app_with_one_item();
+    let Selection::SavedQuery(query_id) = app.stream.selection else {
+        panic!("app should select saved query");
+    };
+    let inserted_item_id = insert_item_into_query(
+        &mut app,
+        query_id,
+        sample_item_with_number(100, "Fresh item", "2026-05-24T00:00:00+00:00"),
+    );
+    let (tx, rx) = std::sync::mpsc::channel();
+    tx.send(refresh::RefreshOutcome {
+        label: "Manual refresh".to_owned(),
+        processed_count: 1,
+        changed_count: 1,
+        failed_count: 0,
+        changed_item_ids: vec![inserted_item_id],
+    })
+    .expect("refresh result");
+    app.refresh_rx = Some(rx);
+
+    app.poll_refresh_result();
+
+    let AppMode::Main(runtime) = &app.mode else {
+        panic!("app should be in main mode");
+    };
+    assert_eq!(runtime.items.len(), 1);
+    assert_eq!(runtime.items[0].id, item_id);
+    assert!(app
+        .stream
+        .pending_remote_item_ids
+        .contains(&inserted_item_id));
+
+    app.reload_current_view();
+
+    let AppMode::Main(runtime) = &app.mode else {
+        panic!("app should be in main mode");
+    };
+    assert_eq!(runtime.items.len(), 2);
+    assert_eq!(runtime.items[0].title, "Fresh item");
+    assert!(app.stream.pending_remote_item_ids.is_empty());
+}
+
+#[test]
+fn remote_refresh_change_outside_current_view_does_not_show_pending_update() {
+    let (mut app, item_id) = app_with_one_item();
+    let other_query_id = add_query_to_app(&mut app, "Backend");
+    let other_item_id = insert_item_into_query(
+        &mut app,
+        other_query_id,
+        sample_item_with_number(99, "Other item", "2026-05-24T00:00:00+00:00"),
+    );
+
+    app.defer_current_view_updates(&[other_item_id]);
+
+    let AppMode::Main(runtime) = &app.mode else {
+        panic!("app should be in main mode");
+    };
+    assert_eq!(runtime.items.len(), 1);
+    assert_eq!(runtime.items[0].id, item_id);
+    assert!(app.stream.pending_remote_item_ids.is_empty());
+}
+
+#[test]
+fn local_action_does_not_apply_pending_remote_items() {
+    let (mut app, item_id) = app_with_one_item();
+    let Selection::SavedQuery(query_id) = app.stream.selection else {
+        panic!("app should select saved query");
+    };
+    let inserted_item_id = insert_item_into_query(
+        &mut app,
+        query_id,
+        sample_item_with_number(100, "Fresh item", "2026-05-24T00:00:00+00:00"),
+    );
+    app.defer_current_view_updates(&[inserted_item_id]);
+
+    app.item_action(screens::stream::ItemAction::Archive(item_id, true));
+
+    let AppMode::Main(runtime) = &app.mode else {
+        panic!("app should be in main mode");
+    };
+    assert!(runtime.items.is_empty());
+    assert!(app
+        .stream
+        .pending_remote_item_ids
+        .contains(&inserted_item_id));
+}
+
+#[test]
 fn polling_interval_change_updates_runtime_and_yaml_config() {
     let (mut app, _) = app_with_one_item();
     app.update_polling_interval(90);
