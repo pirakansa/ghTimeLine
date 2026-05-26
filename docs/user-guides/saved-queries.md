@@ -26,8 +26,9 @@ Select a saved query in the saved query management screen and use **Delete**.
 
 ## Export And Import Queries
 
-Use the **Import / export** section in the saved query management screen to save
-or restore saved query definitions as YAML.
+Use **Import / export** in the saved query management screen toolbar to open a
+dedicated transfer screen for saving or restoring saved query definitions as
+YAML.
 
 - The default file path is `saved-queries.yml` under the app config directory.
 - Export writes the current host and saved query definitions only.

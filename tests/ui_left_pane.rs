@@ -226,6 +226,36 @@ fn saved_query_manager_new_button_is_next_to_queries_heading() {
 }
 
 #[test]
+fn saved_query_manager_toolbar_opens_transfer_screen() {
+    let saved_queries = vec![sample_saved_query()];
+    let mut stream = StreamState::default();
+    stream.selection = Selection::SavedQuery(7);
+    saved_query_manager::open(&mut stream, &saved_queries);
+
+    let mut harness = Harness::new_state(
+        |ctx, state: &mut StreamHarness| {
+            saved_query_manager::show(
+                ctx,
+                &mut state.stream,
+                &state.saved_queries,
+                &mut state.event,
+            );
+        },
+        StreamHarness {
+            stream,
+            saved_queries,
+            event: None,
+        },
+    );
+
+    harness.get_by_label("Import / export").click();
+    harness.run();
+
+    harness.get_by_label("YAML file");
+    assert!(harness.state().event.is_none());
+}
+
+#[test]
 fn saved_query_manager_move_down_button_emits_reorder_event() {
     let saved_queries = vec![
         sample_saved_query(),
@@ -268,7 +298,7 @@ fn saved_query_manager_move_down_button_emits_reorder_event() {
 }
 
 #[test]
-fn saved_query_manager_import_export_buttons_emit_events_with_path() {
+fn saved_query_transfer_buttons_emit_events_with_path() {
     let saved_queries = vec![sample_saved_query()];
     let mut stream = StreamState::default();
     stream.selection = Selection::SavedQuery(7);
@@ -289,6 +319,9 @@ fn saved_query_manager_import_export_buttons_emit_events_with_path() {
             event: None,
         },
     );
+
+    harness.get_by_label("Import / export").click();
+    harness.run();
 
     harness.get_by_label("YAML file");
     harness.get_by_label("Export").click();

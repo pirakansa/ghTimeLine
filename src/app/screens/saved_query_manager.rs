@@ -1,5 +1,6 @@
 use eframe::egui;
 
+use super::saved_query_transfer;
 use crate::app::components::selectable_row;
 use crate::app::screens::stream::{StreamEvent, StreamState};
 use crate::config;
@@ -7,17 +8,19 @@ use crate::models::{SavedQuery, Selection};
 
 pub struct SavedQueryManagerState {
     pub(in crate::app) open: bool,
+    pub(in crate::app::screens) transfer_open: bool,
     edit_query_id: Option<i64>,
     edit_query_name: String,
     edit_query_text: String,
     edit_query_enabled: bool,
-    transfer_path: String,
+    pub(in crate::app::screens) transfer_path: String,
 }
 
 impl Default for SavedQueryManagerState {
     fn default() -> Self {
         Self {
             open: false,
+            transfer_open: false,
             edit_query_id: None,
             edit_query_name: String::new(),
             edit_query_text: String::new(),
@@ -33,13 +36,24 @@ pub fn show(
     saved_queries: &[SavedQuery],
     event: &mut Option<StreamEvent>,
 ) {
+    if state.saved_query_manager.transfer_open {
+        saved_query_transfer::show(ctx, &mut state.saved_query_manager, event);
+        return;
+    }
+
     egui::TopBottomPanel::top("saved-query-manager-toolbar").show(ctx, |ui| {
         ui.horizontal(|ui| {
             ui.heading("Saved queries");
             ui.separator();
             if ui.button("Back").clicked() {
                 state.saved_query_manager.open = false;
+                state.saved_query_manager.transfer_open = false;
             }
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.button("Import / export").clicked() {
+                    state.saved_query_manager.transfer_open = true;
+                }
+            });
         });
     });
 
@@ -58,6 +72,7 @@ pub fn show(
 
 pub fn open(state: &mut StreamState, saved_queries: &[SavedQuery]) {
     state.saved_query_manager.open = true;
+    state.saved_query_manager.transfer_open = false;
     if let Selection::SavedQuery(id) = state.selection {
         if let Some(query) = saved_queries.iter().find(|query| query.id == id) {
             load_query_draft(&mut state.saved_query_manager, query);
@@ -204,20 +219,6 @@ fn saved_query_form(
                     });
                     clear_query_draft(state);
                 }
-            }
-        });
-
-        ui.separator();
-        ui.heading("Import / export");
-        ui.label("YAML file");
-        ui.text_edit_singleline(&mut state.transfer_path);
-        ui.label("Import replaces this host's saved queries and clears cached matches until the next refresh.");
-        ui.horizontal(|ui| {
-            if ui.button("Export").clicked() {
-                *event = Some(StreamEvent::ExportQueries(state.transfer_path.clone()));
-            }
-            if ui.button("Import").clicked() {
-                *event = Some(StreamEvent::ImportQueries(state.transfer_path.clone()));
             }
         });
     });
