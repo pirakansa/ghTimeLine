@@ -54,6 +54,7 @@ Supported local filter terms are:
 - `author:<login>`
 - `assignee:<login>`
 - `involves:<login>`
+- `is:issue` or `is:pr`
 - `label:<name>`
 - `repo:<owner/name>`
 - `review-requested:<login>`

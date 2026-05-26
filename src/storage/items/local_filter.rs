@@ -7,6 +7,7 @@ struct ParsedLocalFilter {
     authors: Vec<String>,
     assignees: Vec<String>,
     involves: Vec<String>,
+    item_types: Vec<String>,
     labels: Vec<String>,
     repos: Vec<String>,
     review_requested: Vec<String>,
@@ -28,6 +29,13 @@ pub(super) fn compile(query: Option<&str>) -> Result<Option<CompiledLocalFilter>
     let mut clauses = Vec::new();
     let mut params = Vec::new();
 
+    if !parsed.item_types.is_empty() {
+        clauses.push(or_equals_clause(
+            "i.item_type",
+            &parsed.item_types,
+            &mut params,
+        ));
+    }
     if !parsed.authors.is_empty() {
         clauses.push(or_equals_clause(
             "lower(i.author_login)",
@@ -108,6 +116,18 @@ fn parse(query: &str) -> Result<ParsedLocalFilter> {
             "author" => parsed.authors.push(value),
             "assignee" => parsed.assignees.push(value),
             "involves" => parsed.involves.push(value),
+            "is" => {
+                let db_value = match value.as_str() {
+                    "issue" => "issue".to_owned(),
+                    "pr" => "pull_request".to_owned(),
+                    _ => {
+                        return Err(StorageError::InvalidFilter(format!(
+                            "Unsupported value for 'is' filter: {value} (expected 'issue' or 'pr')"
+                        )));
+                    }
+                };
+                parsed.item_types.push(db_value);
+            }
             "label" => parsed.labels.push(value),
             "repo" => parsed.repos.push(value),
             "review-requested" => parsed.review_requested.push(value),
@@ -267,7 +287,7 @@ mod tests {
     #[test]
     fn compiles_supported_local_filter_subset() {
         let compiled = compile(Some(
-            r#"author:octo assignee:dev involves:octo label:bug label:"needs triage" repo:acme/api review-requested:triage reviewed-by:reviewer"#,
+            r#"author:octo assignee:dev involves:octo label:bug label:"needs triage" repo:acme/api review-requested:triage reviewed-by:reviewer is:issue"#,
         ))
         .expect("local filter should compile")
         .expect("compiled filter");
@@ -283,9 +303,11 @@ mod tests {
         assert!(compiled.clause.contains("FROM stream_item_reviews"));
         assert!(compiled.clause.contains("FROM stream_item_participants"));
         assert!(compiled.clause.contains("FROM stream_item_mentions"));
+        assert!(compiled.clause.contains("i.item_type IN (?)"));
         assert_eq!(
             compiled.params,
             vec![
+                Value::Text("issue".to_owned()),
                 Value::Text("octo".to_owned()),
                 Value::Text("acme/api".to_owned()),
                 Value::Text("dev".to_owned()),
@@ -301,6 +323,27 @@ mod tests {
                 Value::Text("needs triage".to_owned()),
             ]
         );
+    }
+
+    #[test]
+    fn compiles_is_pr_to_pull_request_type() {
+        let compiled = compile(Some("is:pr"))
+            .expect("is:pr should compile")
+            .expect("compiled filter");
+
+        assert!(compiled.clause.contains("i.item_type IN (?)"));
+        assert_eq!(
+            compiled.params,
+            vec![Value::Text("pull_request".to_owned())]
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_is_value() {
+        let error = compile(Some("is:open"))
+            .expect_err("invalid is value should fail")
+            .to_string();
+        assert!(error.contains("Unsupported value for 'is' filter"));
     }
 
     #[test]

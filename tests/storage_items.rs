@@ -808,6 +808,48 @@ fn local_filter_queries_match_supported_metadata() {
 }
 
 #[test]
+fn local_filter_is_type_matches_pull_requests() {
+    let storage = Storage::in_memory().expect("storage");
+    let config = AppConfig::default_with_pat("token".to_owned());
+    let host_id = storage.ensure_host(&config.host).expect("host");
+    let query_id = storage
+        .add_saved_query(host_id, "Inbox", "is:open")
+        .expect("query");
+
+    let pr_item_id = storage
+        .upsert_stream_item(&sample_item(host_id))
+        .expect("pr item")
+        .id;
+    storage
+        .record_saved_query_match(query_id, pr_item_id, Some(0))
+        .expect("pr match");
+
+    let mut issue_item = sample_item(host_id);
+    issue_item.number = 99;
+    issue_item.item_type = ItemType::Issue;
+    issue_item.title = "Issue item".to_owned();
+    let issue_item_id = storage
+        .upsert_stream_item(&issue_item)
+        .expect("issue item")
+        .id;
+    storage
+        .record_saved_query_match(query_id, issue_item_id, Some(1))
+        .expect("issue match");
+
+    let pr_items = storage
+        .list_items_for_saved_query(query_id, None, Some("is:pr"), SortOrder::UpdatedDesc)
+        .expect("is:pr filter");
+    let issue_items = storage
+        .list_items_for_saved_query(query_id, None, Some("is:issue"), SortOrder::UpdatedDesc)
+        .expect("is:issue filter");
+
+    assert_eq!(pr_items.len(), 1);
+    assert_eq!(pr_items[0].title, "Title");
+    assert_eq!(issue_items.len(), 1);
+    assert_eq!(issue_items[0].title, "Issue item");
+}
+
+#[test]
 fn local_filter_rejects_unsupported_terms() {
     let storage = Storage::in_memory().expect("storage");
     let error = storage
