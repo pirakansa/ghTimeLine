@@ -31,7 +31,16 @@ fn library_section(
     for library in LibraryView::ALL {
         let count = library_counts.unread_count(library);
         let selected = state.selection == Selection::Library(library);
-        if selectable_row::show(ui, selected, library.label(), Some(count)).clicked() {
+        let response = selectable_row::show(ui, selected, library.label(), Some(count));
+        if count > 0 {
+            response.context_menu(|ui| {
+                if ui.button("Mark all as read").clicked() {
+                    *event = Some(StreamEvent::MarkLibraryRead(library));
+                    ui.close();
+                }
+            });
+        }
+        if response.clicked() {
             *event = Some(StreamEvent::Select(Selection::Library(library)));
         }
     }

@@ -328,6 +328,9 @@ impl eframe::App for GhStreamApp {
                     Some(screens::stream::StreamEvent::MoveQueryDown(id)) => {
                         self.move_query_down(id)
                     }
+                    Some(screens::stream::StreamEvent::MarkLibraryRead(library)) => {
+                        self.mark_library_read(library)
+                    }
                     Some(screens::stream::StreamEvent::MarkSavedQueryRead(id)) => {
                         self.mark_saved_query_read(id)
                     }

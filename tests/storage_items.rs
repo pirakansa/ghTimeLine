@@ -326,6 +326,111 @@ fn mark_saved_query_read_marks_only_unarchived_matching_items_read() {
 }
 
 #[test]
+fn mark_library_read_respects_each_library_scope_and_enabled_queries() {
+    let storage = Storage::in_memory().expect("storage");
+    let config = AppConfig::default_with_pat("token".to_owned());
+    let host_id = storage.ensure_host(&config.host).expect("host");
+    let query_id = storage
+        .add_saved_query(host_id, "Inbox", "is:open")
+        .expect("query");
+    let disabled_query_id = storage
+        .add_saved_query(host_id, "Disabled", "is:issue")
+        .expect("disabled query");
+    storage
+        .set_saved_query_enabled(disabled_query_id, false)
+        .expect("disable query");
+
+    let inbox_item_id = storage
+        .upsert_stream_item(&sample_item(host_id))
+        .expect("inbox item")
+        .id;
+    storage
+        .record_saved_query_match(query_id, inbox_item_id, None)
+        .expect("inbox match");
+
+    let mut bookmarked_item = sample_item(host_id);
+    bookmarked_item.number = 43;
+    let bookmarked_item_id = storage
+        .upsert_stream_item(&bookmarked_item)
+        .expect("bookmarked item")
+        .id;
+    storage
+        .record_saved_query_match(query_id, bookmarked_item_id, None)
+        .expect("bookmarked match");
+    storage
+        .set_bookmarked(bookmarked_item_id, true)
+        .expect("bookmark");
+
+    let mut archived_item = sample_item(host_id);
+    archived_item.number = 44;
+    let archived_item_id = storage
+        .upsert_stream_item(&archived_item)
+        .expect("archived item")
+        .id;
+    storage
+        .record_saved_query_match(query_id, archived_item_id, None)
+        .expect("archived match");
+    storage
+        .set_archived(archived_item_id, true)
+        .expect("archive");
+
+    let mut disabled_item = sample_item(host_id);
+    disabled_item.number = 45;
+    let disabled_item_id = storage
+        .upsert_stream_item(&disabled_item)
+        .expect("disabled item")
+        .id;
+    storage
+        .record_saved_query_match(disabled_query_id, disabled_item_id, None)
+        .expect("disabled match");
+
+    assert_eq!(
+        storage
+            .list_unread_item_ids_for_library(host_id, LibraryView::Bookmark)
+            .expect("bookmark ids"),
+        vec![bookmarked_item_id]
+    );
+    assert_eq!(
+        storage
+            .mark_library_read(host_id, LibraryView::Bookmark)
+            .expect("mark bookmark read"),
+        1
+    );
+    let counts = storage
+        .list_library_counts(host_id)
+        .expect("bookmark counts");
+    assert_eq!(counts.inbox_unread_count, 1);
+    assert_eq!(counts.bookmark_unread_count, 0);
+    assert_eq!(counts.archived_unread_count, 1);
+
+    storage
+        .set_read_state(bookmarked_item_id, true)
+        .expect("restore bookmarked unread");
+    assert_eq!(
+        storage
+            .mark_library_read(host_id, LibraryView::Inbox)
+            .expect("mark inbox read"),
+        2
+    );
+    let counts = storage.list_library_counts(host_id).expect("inbox counts");
+    assert_eq!(counts.inbox_unread_count, 0);
+    assert_eq!(counts.archived_unread_count, 1);
+
+    assert_eq!(
+        storage
+            .mark_library_read(host_id, LibraryView::Archived)
+            .expect("mark archived read"),
+        1
+    );
+    assert!(
+        storage
+            .list_items_for_saved_query(disabled_query_id, None, SortOrder::UpdatedDesc)
+            .expect("disabled items")[0]
+            .is_unread
+    );
+}
+
+#[test]
 fn saved_query_updates_are_persisted() {
     let storage = Storage::in_memory().expect("storage");
     let config = AppConfig::default_with_pat("token".to_owned());

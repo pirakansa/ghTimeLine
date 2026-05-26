@@ -58,6 +58,7 @@ pub enum StreamEvent {
     DeleteQuery(i64),
     MoveQueryUp(i64),
     MoveQueryDown(i64),
+    MarkLibraryRead(LibraryView),
     MarkSavedQueryRead(i64),
     ExportQueries(String),
     ImportQueries(String),
