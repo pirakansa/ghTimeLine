@@ -140,19 +140,17 @@ fn toolbar_sort_controls_selected_saved_query_view() {
     let Selection::SavedQuery(query_id) = app.stream.selection else {
         panic!("app should select saved query");
     };
-    insert_item_into_query(
-        &mut app,
-        query_id,
-        sample_item_with_number(100, "Fresh item", "2026-05-24T00:00:00+00:00"),
-    );
+    let mut fresh_item = sample_item_with_number(100, "Fresh item", "2026-05-24T00:00:00+00:00");
+    fresh_item.created_at_github = "2026-05-24T00:00:00+00:00".to_owned();
+    insert_item_into_query(&mut app, query_id, fresh_item);
 
-    app.update_default_sort(SortOrder::UpdatedAsc);
+    app.update_default_sort(SortOrder::CreatedDesc);
 
     let AppMode::Main(runtime) = &app.mode else {
         panic!("app should be in main mode");
     };
-    assert_eq!(runtime.items[0].title, "Title");
-    assert_eq!(runtime.items[1].title, "Fresh item");
+    assert_eq!(runtime.items[0].title, "Fresh item");
+    assert_eq!(runtime.items[1].title, "Title");
 }
 
 #[test]

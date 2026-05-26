@@ -1,3 +1,6 @@
+use std::thread::sleep;
+use std::time::Duration;
+
 use ghtl::models::{
     AppConfig, HostKind, ItemPerson, ItemReview, ItemType, LibraryView, SortOrder, StreamFilter,
 };
@@ -249,6 +252,79 @@ fn library_unread_counts_cover_inbox_bookmark_and_archived() {
     assert_eq!(library_counts.inbox_unread_count, 2);
     assert_eq!(library_counts.bookmark_unread_count, 1);
     assert_eq!(library_counts.archived_unread_count, 1);
+}
+
+#[test]
+fn timestamp_based_sorts_use_requested_fields() {
+    let storage = Storage::in_memory().expect("storage");
+    let config = AppConfig::default_with_pat("token".to_owned());
+    let host_id = storage.ensure_host(&config.host).expect("host");
+    let query_id = storage
+        .add_saved_query(host_id, "Inbox", "is:open")
+        .expect("query");
+
+    let item_a = storage
+        .upsert_stream_item(&sample_item(host_id))
+        .expect("item a");
+    storage
+        .record_saved_query_match(query_id, item_a.id, Some(0))
+        .expect("match a");
+
+    let mut item_b = sample_item(host_id);
+    item_b.number = 43;
+    item_b.title = "Closed".to_owned();
+    item_b.created_at_github = "2026-05-24T00:00:00+00:00".to_owned();
+    item_b.updated_at_github = "2026-05-25T00:00:00+00:00".to_owned();
+    item_b.closed_at_github = Some("2026-05-26T00:00:00+00:00".to_owned());
+    let item_b = storage.upsert_stream_item(&item_b).expect("item b");
+    storage
+        .record_saved_query_match(query_id, item_b.id, Some(1))
+        .expect("match b");
+
+    let mut item_c = sample_item(host_id);
+    item_c.number = 44;
+    item_c.title = "Merged".to_owned();
+    item_c.created_at_github = "2026-05-26T00:00:00+00:00".to_owned();
+    item_c.updated_at_github = "2026-05-27T00:00:00+00:00".to_owned();
+    item_c.merged_at_github = Some("2026-05-28T00:00:00+00:00".to_owned());
+    let item_c = storage.upsert_stream_item(&item_c).expect("item c");
+    storage
+        .record_saved_query_match(query_id, item_c.id, Some(2))
+        .expect("match c");
+
+    storage.set_read_state(item_b.id, false).expect("read b");
+    sleep(Duration::from_millis(5));
+    storage.set_read_state(item_c.id, false).expect("read c");
+
+    let created_items = storage
+        .list_items_for_saved_query(query_id, None, SortOrder::CreatedDesc)
+        .expect("created items");
+    let read_items = storage
+        .list_items_for_saved_query(query_id, None, SortOrder::ReadDesc)
+        .expect("read items");
+    let closed_items = storage
+        .list_items_for_saved_query(query_id, None, SortOrder::ClosedDesc)
+        .expect("closed items");
+    let merged_items = storage
+        .list_items_for_saved_query(query_id, None, SortOrder::MergedDesc)
+        .expect("merged items");
+
+    assert_eq!(
+        created_items
+            .iter()
+            .map(|item| item.title.as_str())
+            .collect::<Vec<_>>(),
+        vec!["Merged", "Closed", "Title"]
+    );
+    assert_eq!(
+        read_items
+            .iter()
+            .map(|item| item.title.as_str())
+            .collect::<Vec<_>>(),
+        vec!["Merged", "Closed", "Title"]
+    );
+    assert_eq!(closed_items[0].title, "Closed");
+    assert_eq!(merged_items[0].title, "Merged");
 }
 
 #[test]
