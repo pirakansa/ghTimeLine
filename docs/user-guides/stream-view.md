@@ -20,6 +20,11 @@ The library section contains:
 Each saved query entry shows its unread count. Archived unread items are not
 included in saved query unread counts.
 
+Right-click a Library entry or saved query with unread items and select
+**Mark all as read** to clear its unread count. For Library entries, this
+applies across enabled saved queries: **Inbox** and **Bookmark** affect
+non-archived items, while **Archived** affects archived items.
+
 ## Filtering And Sorting
 
 The toolbar supports these filters:

@@ -79,6 +79,11 @@ unread, bookmark, or archive state.
 Archived unread items retain unread state and appear as unread in the Archived
 library view. Archived unread items are excluded from saved query unread badges.
 
+Library entries and saved queries with unread items provide **Mark all as read**
+from their context menus. For Library entries, the action marks unread items
+across enabled saved queries within the selected library scope. **Inbox** and
+**Bookmark** exclude archived items; **Archived** marks archived unread items.
+
 ## Item Opening
 
 The app opens item details in the system default web browser using the stored

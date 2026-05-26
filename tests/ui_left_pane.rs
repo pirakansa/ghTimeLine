@@ -8,7 +8,7 @@ use ghtl::app::screens::{
     saved_query_manager,
     stream::{StreamEvent, StreamState},
 };
-use ghtl::models::{LibraryCounts, SavedQuery, Selection};
+use ghtl::models::{LibraryCounts, LibraryView, SavedQuery, Selection};
 
 use crate::support::{sample_saved_query, LeftPaneHarness, StreamHarness};
 
@@ -107,6 +107,41 @@ fn saved_query_context_menu_marks_query_read() {
     assert!(matches!(
         harness.state().event,
         Some(StreamEvent::MarkSavedQueryRead(7))
+    ));
+}
+
+#[test]
+fn library_context_menu_marks_library_read() {
+    let mut harness = Harness::new_state(
+        |ctx, state: &mut LeftPaneHarness| {
+            components::left_pane::show(
+                ctx,
+                &mut state.stream,
+                &state.library_counts,
+                &state.saved_queries,
+                &mut state.event,
+            );
+        },
+        LeftPaneHarness {
+            stream: StreamState::default(),
+            library_counts: LibraryCounts {
+                inbox_unread_count: 5,
+                bookmark_unread_count: 2,
+                archived_unread_count: 1,
+            },
+            saved_queries: vec![sample_saved_query()],
+            event: None,
+        },
+    );
+
+    harness.get_by_label("Archived").click_secondary();
+    harness.run();
+    harness.get_by_label("Mark all as read").click();
+    harness.run();
+
+    assert!(matches!(
+        harness.state().event,
+        Some(StreamEvent::MarkLibraryRead(LibraryView::Archived))
     ));
 }
 

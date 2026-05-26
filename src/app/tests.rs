@@ -87,6 +87,25 @@ fn mark_saved_query_read_updates_counts_and_current_view() {
 }
 
 #[test]
+fn mark_library_read_updates_counts_and_current_view() {
+    let (mut app, _) = app_with_one_item();
+
+    app.select(Selection::Library(LibraryView::Inbox));
+    app.set_filter(Some(StreamFilter::Unread));
+    assert_items_len(&app, 1);
+
+    app.mark_library_read(LibraryView::Inbox);
+
+    let AppMode::Main(runtime) = &app.mode else {
+        panic!("app should be in main mode");
+    };
+    assert_eq!(runtime.library_counts.inbox_unread_count, 0);
+    assert_eq!(runtime.saved_queries[0].unread_count, 0);
+    assert!(runtime.items.is_empty());
+    assert_eq!(app.status, "Marked 1 items as read.");
+}
+
+#[test]
 fn changing_saved_query_requests_item_list_scroll_reset() {
     let (mut app, _) = app_with_one_item();
     let current_selection = app.stream.selection.clone();

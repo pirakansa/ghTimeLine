@@ -1,6 +1,7 @@
 use rusqlite::{params, OptionalExtension};
 
 use super::now_rfc3339;
+use crate::models::LibraryView;
 use crate::storage::{Result, Storage};
 
 impl Storage {
@@ -50,6 +51,32 @@ impl Storage {
             .map_err(Into::into)
     }
 
+    pub fn list_unread_item_ids_for_library(
+        &self,
+        host_id: i64,
+        library: LibraryView,
+    ) -> Result<Vec<i64>> {
+        let sql = format!(
+            "SELECT DISTINCT s.stream_item_id
+             FROM item_state s
+             JOIN stream_items i ON i.id = s.stream_item_id
+             WHERE i.host_id = ?1
+               AND s.is_unread = 1
+               AND {}
+               AND EXISTS (
+                   SELECT 1
+                   FROM saved_query_matches m
+                   JOIN saved_queries q ON q.id = m.saved_query_id
+                   WHERE m.stream_item_id = i.id AND q.enabled = 1
+               )",
+            library_state_clause(library)
+        );
+        let mut statement = self.connection().prepare(&sql)?;
+        let rows = statement.query_map([host_id], |row| row.get::<_, i64>(0))?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(Into::into)
+    }
+
     pub fn set_read_state(&self, stream_item_id: i64, unread: bool) -> Result<()> {
         let now = now_rfc3339();
         let read_at = if unread { None } else { Some(now.as_str()) };
@@ -80,6 +107,30 @@ impl Storage {
         Ok(updated)
     }
 
+    pub fn mark_library_read(&self, host_id: i64, library: LibraryView) -> Result<usize> {
+        let now = now_rfc3339();
+        let sql = format!(
+            "UPDATE item_state
+             SET is_unread = 0, read_at = ?1, unread_at = NULL, updated_at = ?1
+             WHERE is_unread = 1
+               AND {}
+               AND stream_item_id IN (
+                   SELECT i.id
+                   FROM stream_items i
+                   WHERE i.host_id = ?2
+                     AND EXISTS (
+                         SELECT 1
+                         FROM saved_query_matches m
+                         JOIN saved_queries q ON q.id = m.saved_query_id
+                         WHERE m.stream_item_id = i.id AND q.enabled = 1
+                     )
+               )",
+            library_state_clause(library)
+        );
+        let updated = self.connection().execute(&sql, params![now, host_id])?;
+        Ok(updated)
+    }
+
     pub fn set_bookmarked(&self, stream_item_id: i64, bookmarked: bool) -> Result<()> {
         let now = now_rfc3339();
         let bookmarked_at = if bookmarked { Some(now.as_str()) } else { None };
@@ -102,5 +153,13 @@ impl Storage {
             params![i64::from(archived), archived_at, now, stream_item_id],
         )?;
         Ok(())
+    }
+}
+
+fn library_state_clause(library: LibraryView) -> &'static str {
+    match library {
+        LibraryView::Inbox => "is_archived = 0",
+        LibraryView::Bookmark => "is_bookmarked = 1 AND is_archived = 0",
+        LibraryView::Archived => "is_archived = 1",
     }
 }
