@@ -11,9 +11,9 @@ A saved query has:
 - Last sync error message
 
 The UI supports creating, editing, deleting, enabling, disabling, listing, and
-selecting saved queries through a full-window saved query management screen. The
-management screen also supports exporting and importing saved query definitions
-as YAML.
+selecting saved queries through a full-window saved query management screen.
+That screen provides access to a separate full-window import/export screen for
+exporting and importing saved query definitions as YAML.
 Query names and query strings must not be empty when created or updated.
 
 Saved query YAML import/export includes:
