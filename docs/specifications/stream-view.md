@@ -20,6 +20,10 @@ Library entries:
 Saved query views show items matched to that query and exclude archived items by
 default.
 
+Filter stream views are local child views under a saved query. They reuse the
+parent saved query's cached matches and apply an additional SQLite-backed local
+filter without performing a new GitHub search.
+
 When the same issue or pull request matches multiple saved queries, aggregated
 library views display it as a single item.
 
@@ -49,6 +53,7 @@ Supported local filter terms are:
 
 - `author:<login>`
 - `assignee:<login>`
+- `involves:<login>`
 - `label:<name>`
 - `repo:<owner/name>`
 - `review-requested:<login>`
@@ -103,6 +108,9 @@ Library entries and saved queries with unread items provide **Mark all as read**
 from their context menus. For Library entries, the action marks unread items
 across enabled saved queries within the selected library scope. **Inbox** and
 **Bookmark** exclude archived items; **Archived** marks archived unread items.
+
+Filter streams also provide **Mark all as read** for unread, non-archived items
+visible within that filter stream.
 
 ## Item Opening
 

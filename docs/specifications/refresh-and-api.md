@@ -6,6 +6,7 @@ flow.
 ## Manual Refresh
 
 - Refreshes the selected saved query when a saved query is selected.
+- Refreshes the parent saved query when a filter stream is selected.
 - Refreshes all enabled saved queries when a library entry is selected.
 - Persists remote results immediately, but does not automatically redraw the
   current item list when those results change its displayed contents.

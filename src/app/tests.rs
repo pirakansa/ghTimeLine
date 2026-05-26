@@ -122,6 +122,51 @@ fn invalid_local_filter_keeps_previous_active_filter() {
 }
 
 #[test]
+fn filter_stream_selection_applies_persistent_local_filter() {
+    let (mut app, _) = app_with_one_item();
+    let Selection::SavedQuery(query_id) = app.stream.selection else {
+        panic!("app should select saved query");
+    };
+
+    let mut other_item = sample_item_with_number(100, "Backend item", "2026-05-24T00:00:00+00:00");
+    other_item.assignees = vec![ItemPerson {
+        login: "ops".to_owned(),
+        avatar_url: None,
+    }];
+    insert_item_into_query(&mut app, query_id, other_item);
+
+    app.add_filter_stream(query_id, "Assigned to dev", "assignee:dev", true);
+
+    assert_items_len(&app, 1);
+    assert_current_titles(&app, &["Title"]);
+    assert!(matches!(app.stream.selection, Selection::FilterStream(_)));
+}
+
+#[test]
+fn mark_filter_stream_read_updates_counts_and_current_view() {
+    let (mut app, _) = app_with_one_item();
+    let Selection::SavedQuery(query_id) = app.stream.selection else {
+        panic!("app should select saved query");
+    };
+
+    app.add_filter_stream(query_id, "Assigned to dev", "assignee:dev", true);
+    let Selection::FilterStream(filter_stream_id) = app.stream.selection else {
+        panic!("filter stream should be selected");
+    };
+    app.set_filter(Some(StreamFilter::Unread));
+    assert_items_len(&app, 1);
+
+    app.mark_filter_stream_read(filter_stream_id);
+
+    let AppMode::Main(runtime) = &app.mode else {
+        panic!("app should be in main mode");
+    };
+    assert_eq!(runtime.saved_queries[0].filter_streams[0].unread_count, 0);
+    assert!(runtime.items.is_empty());
+    assert_eq!(app.status, "Marked 1 items as read.");
+}
+
+#[test]
 fn mark_saved_query_read_updates_counts_and_current_view() {
     let (mut app, _) = app_with_one_item();
     let Selection::SavedQuery(query_id) = app.stream.selection else {

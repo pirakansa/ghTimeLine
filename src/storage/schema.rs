@@ -2,7 +2,7 @@ use rusqlite::Connection;
 
 use super::Result;
 
-pub const SCHEMA_VERSION: i64 = 3;
+pub const SCHEMA_VERSION: i64 = 4;
 
 pub fn migrate(connection: &Connection) -> Result<()> {
     let version =
@@ -141,6 +141,18 @@ CREATE TABLE saved_query_matches (
     PRIMARY KEY (saved_query_id, stream_item_id)
 );
 
+CREATE TABLE filter_streams (
+    id INTEGER PRIMARY KEY,
+    saved_query_id INTEGER NOT NULL REFERENCES saved_queries(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    filter_query TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+    position INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE (saved_query_id, name)
+);
+
 CREATE TABLE item_state (
     stream_item_id INTEGER PRIMARY KEY REFERENCES stream_items(id) ON DELETE CASCADE,
     is_unread INTEGER NOT NULL DEFAULT 1 CHECK (is_unread IN (0, 1)),
@@ -165,6 +177,9 @@ CREATE INDEX idx_stream_items_host_repo_number
 CREATE INDEX idx_saved_query_matches_item
     ON saved_query_matches(stream_item_id);
 
+CREATE INDEX idx_filter_streams_parent_position
+    ON filter_streams(saved_query_id, enabled, position, name);
+
 CREATE INDEX idx_item_state_flags
     ON item_state(is_archived, is_unread, is_bookmarked);
 "#;
@@ -184,4 +199,19 @@ CREATE TABLE IF NOT EXISTS stream_item_reviews (
     state TEXT NOT NULL CHECK (state IN ('approved', 'changes_requested', 'commented')),
     PRIMARY KEY (stream_item_id, login)
 );
+
+CREATE TABLE IF NOT EXISTS filter_streams (
+    id INTEGER PRIMARY KEY,
+    saved_query_id INTEGER NOT NULL REFERENCES saved_queries(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    filter_query TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+    position INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE (saved_query_id, name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_filter_streams_parent_position
+    ON filter_streams(saved_query_id, enabled, position, name);
 "#;

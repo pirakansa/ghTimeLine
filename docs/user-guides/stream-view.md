@@ -17,6 +17,10 @@ The library section contains:
 - **Bookmark**: bookmarked, non-archived items across enabled saved queries
 - **Archived**: archived items across enabled saved queries
 
+Saved queries can also contain **filter streams**. A filter stream reuses the
+parent saved query's locally cached items and adds another local filter layer,
+so opening it does not create extra GitHub traffic by itself.
+
 Each saved query entry shows its unread count. Archived unread items are not
 included in saved query unread counts.
 
@@ -42,6 +46,7 @@ Supported local filter terms:
 
 - `author:<login>`
 - `assignee:<login>`
+- `involves:<login>`
 - `label:<name>`
 - `repo:<owner/name>`
 - `review-requested:<login>`
@@ -51,6 +56,9 @@ You can combine different keys with spaces. Different keys are matched together,
 repeated values of the same key are matched as alternatives, and repeated
 `label:` terms must all be present. Use **Apply** to activate the filter and
 **Clear** to remove it.
+
+Filter streams use the same local filter syntax, but they persist under a saved
+query in the left pane and saved query manager.
 
 The sort selector supports:
 

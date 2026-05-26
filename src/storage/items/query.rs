@@ -77,12 +77,117 @@ impl Storage {
             Selection::SavedQuery(id) => {
                 self.list_items_for_saved_query_by_ids(*id, options, item_ids)
             }
+            Selection::FilterStream(id) => {
+                self.list_items_for_filter_stream_by_ids(*id, options, item_ids)
+            }
         }
     }
 
     pub fn validate_local_filter(&self, query: Option<&str>) -> Result<()> {
         let _ = local_filter::compile(query)?;
         Ok(())
+    }
+
+    pub fn list_items_for_filter_stream(
+        &self,
+        filter_stream_id: i64,
+        filter: Option<StreamFilter>,
+        local_filter_query: Option<&str>,
+        sort: SortOrder,
+    ) -> Result<Vec<StreamItem>> {
+        let Some(filter_stream) = self.get_filter_stream(filter_stream_id)? else {
+            return Ok(Vec::new());
+        };
+
+        self.list_items_for_saved_query(
+            filter_stream.saved_query_id,
+            filter,
+            combine_local_filters(
+                Some(filter_stream.filter_query.as_str()),
+                local_filter_query,
+            )
+            .as_deref(),
+            sort,
+        )
+    }
+
+    pub fn count_items_for_saved_query(
+        &self,
+        saved_query_id: i64,
+        filter: Option<StreamFilter>,
+        local_filter_query: Option<&str>,
+        extra_local_filter_query: Option<&str>,
+    ) -> Result<i64> {
+        let mut params = vec![Value::Integer(saved_query_id)];
+        let combined_local_filter =
+            combine_local_filters(local_filter_query, extra_local_filter_query);
+        let options = ItemListOptions {
+            filter,
+            local_filter_query: combined_local_filter.as_deref(),
+            sort: SortOrder::UpdatedDesc,
+        };
+        let sql = item_count_sql(
+            "JOIN saved_query_matches m ON m.stream_item_id = i.id",
+            "m.saved_query_id = ? AND s.is_archived = 0",
+            options,
+            &mut params,
+        )?;
+        self.connection()
+            .query_row(&sql, rusqlite::params_from_iter(params), |row| {
+                row.get::<_, i64>(0)
+            })
+            .map_err(Into::into)
+    }
+
+    pub fn list_item_ids_for_saved_query(
+        &self,
+        saved_query_id: i64,
+        filter: Option<StreamFilter>,
+        local_filter_query: Option<&str>,
+    ) -> Result<Vec<i64>> {
+        let mut params = vec![Value::Integer(saved_query_id)];
+        let sql = item_ids_sql(
+            "JOIN saved_query_matches m ON m.stream_item_id = i.id",
+            "m.saved_query_id = ? AND s.is_archived = 0",
+            ItemListOptions {
+                filter,
+                local_filter_query,
+                sort: SortOrder::UpdatedDesc,
+            },
+            &mut params,
+        )?;
+        self.query_item_ids(&sql, params)
+    }
+
+    pub fn count_items_for_filter_stream(
+        &self,
+        filter_stream_id: i64,
+        filter: Option<StreamFilter>,
+    ) -> Result<i64> {
+        let Some(filter_stream) = self.get_filter_stream(filter_stream_id)? else {
+            return Ok(0);
+        };
+        self.count_items_for_saved_query(
+            filter_stream.saved_query_id,
+            filter,
+            Some(&filter_stream.filter_query),
+            None,
+        )
+    }
+
+    pub fn list_item_ids_for_filter_stream(
+        &self,
+        filter_stream_id: i64,
+        filter: Option<StreamFilter>,
+    ) -> Result<Vec<i64>> {
+        let Some(filter_stream) = self.get_filter_stream(filter_stream_id)? else {
+            return Ok(Vec::new());
+        };
+        self.list_item_ids_for_saved_query(
+            filter_stream.saved_query_id,
+            filter,
+            Some(&filter_stream.filter_query),
+        )
     }
 
     fn query_items<P>(&self, sql: &str, params: P) -> Result<Vec<StreamItem>>
@@ -129,6 +234,15 @@ impl Storage {
         self.hydrate_item_relations(&mut items)?;
 
         Ok(items)
+    }
+
+    fn query_item_ids(&self, sql: &str, params: Vec<Value>) -> Result<Vec<i64>> {
+        let mut statement = self.connection().prepare(sql)?;
+        let rows = statement.query_map(rusqlite::params_from_iter(params), |row| {
+            row.get::<_, i64>(0)
+        })?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(Into::into)
     }
 
     fn hydrate_item_relations(&self, items: &mut [StreamItem]) -> Result<()> {
@@ -180,6 +294,30 @@ impl Storage {
         )
     }
 
+    fn list_items_for_filter_stream_by_ids(
+        &self,
+        filter_stream_id: i64,
+        options: ItemListOptions<'_>,
+        item_ids: &[i64],
+    ) -> Result<Vec<StreamItem>> {
+        let Some(filter_stream) = self.get_filter_stream(filter_stream_id)? else {
+            return Ok(Vec::new());
+        };
+        let combined_local_filter = combine_local_filters(
+            Some(filter_stream.filter_query.as_str()),
+            options.local_filter_query,
+        );
+        self.list_items_for_saved_query_by_ids(
+            filter_stream.saved_query_id,
+            ItemListOptions {
+                filter: options.filter,
+                local_filter_query: combined_local_filter.as_deref(),
+                sort: options.sort,
+            },
+            item_ids,
+        )
+    }
+
     fn query_items_by_ids(
         &self,
         extra_join: &str,
@@ -228,21 +366,7 @@ fn item_select_sql(
     options: ItemListOptions<'_>,
     params: &mut Vec<Value>,
 ) -> Result<String> {
-    let filter_clause = match options.filter {
-        Some(StreamFilter::Open) => {
-            " AND (i.item_type = 'issue' AND i.state = 'open'
-               OR i.item_type = 'pull_request' AND i.state = 'open' AND COALESCE(i.is_merged, 0) = 0)"
-        }
-        Some(StreamFilter::Unread) => " AND s.is_unread = 1",
-        Some(StreamFilter::Bookmarked) => " AND s.is_bookmarked = 1",
-        None => "",
-    };
-    let local_filter_clause = local_filter::compile(options.local_filter_query)?
-        .map(|compiled| {
-            params.extend(compiled.params);
-            format!(" AND ({})", compiled.clause)
-        })
-        .unwrap_or_default();
+    let where_sql = item_where_sql(base_where, extra_where, options, params)?;
     let order = match options.sort {
         SortOrder::UpdatedDesc => "i.updated_at_github DESC",
         SortOrder::CreatedDesc => "i.created_at_github DESC",
@@ -281,8 +405,78 @@ fn item_select_sql(
          FROM stream_items i
          JOIN item_state s ON s.stream_item_id = i.id
          {extra_join}
-         WHERE {base_where}{extra_where}{filter_clause}{local_filter_clause}
+         WHERE {where_sql}
          GROUP BY i.id
          ORDER BY {order}"
     ))
+}
+
+fn item_count_sql(
+    extra_join: &str,
+    base_where: &str,
+    options: ItemListOptions<'_>,
+    params: &mut Vec<Value>,
+) -> Result<String> {
+    let where_sql = item_where_sql(base_where, "", options, params)?;
+    Ok(format!(
+        "SELECT COUNT(DISTINCT i.id)
+         FROM stream_items i
+         JOIN item_state s ON s.stream_item_id = i.id
+         {extra_join}
+         WHERE {where_sql}"
+    ))
+}
+
+fn item_ids_sql(
+    extra_join: &str,
+    base_where: &str,
+    options: ItemListOptions<'_>,
+    params: &mut Vec<Value>,
+) -> Result<String> {
+    let where_sql = item_where_sql(base_where, "", options, params)?;
+    Ok(format!(
+        "SELECT DISTINCT i.id
+         FROM stream_items i
+         JOIN item_state s ON s.stream_item_id = i.id
+         {extra_join}
+         WHERE {where_sql}
+         ORDER BY i.id ASC"
+    ))
+}
+
+fn item_where_sql(
+    base_where: &str,
+    extra_where: &str,
+    options: ItemListOptions<'_>,
+    params: &mut Vec<Value>,
+) -> Result<String> {
+    let filter_clause = match options.filter {
+        Some(StreamFilter::Open) => {
+            " AND (i.item_type = 'issue' AND i.state = 'open'
+               OR i.item_type = 'pull_request' AND i.state = 'open' AND COALESCE(i.is_merged, 0) = 0)"
+        }
+        Some(StreamFilter::Unread) => " AND s.is_unread = 1",
+        Some(StreamFilter::Bookmarked) => " AND s.is_bookmarked = 1",
+        None => "",
+    };
+    let local_filter_clause = local_filter::compile(options.local_filter_query)?
+        .map(|compiled| {
+            params.extend(compiled.params);
+            format!(" AND ({})", compiled.clause)
+        })
+        .unwrap_or_default();
+    Ok(format!(
+        "{base_where}{extra_where}{filter_clause}{local_filter_clause}"
+    ))
+}
+
+fn combine_local_filters(primary: Option<&str>, secondary: Option<&str>) -> Option<String> {
+    let primary = primary.map(str::trim).filter(|value| !value.is_empty());
+    let secondary = secondary.map(str::trim).filter(|value| !value.is_empty());
+    match (primary, secondary) {
+        (Some(primary), Some(secondary)) => Some(format!("{primary} {secondary}")),
+        (Some(primary), None) => Some(primary.to_owned()),
+        (None, Some(secondary)) => Some(secondary.to_owned()),
+        (None, None) => None,
+    }
 }

@@ -6,6 +6,7 @@ use crate::storage::{Result, StorageError};
 struct ParsedLocalFilter {
     authors: Vec<String>,
     assignees: Vec<String>,
+    involves: Vec<String>,
     labels: Vec<String>,
     repos: Vec<String>,
     review_requested: Vec<String>,
@@ -48,6 +49,9 @@ pub(super) fn compile(query: Option<&str>) -> Result<Option<CompiledLocalFilter>
             &parsed.assignees,
             &mut params,
         ));
+    }
+    if !parsed.involves.is_empty() {
+        clauses.push(or_involves_clause(&parsed.involves, &mut params));
     }
     if !parsed.review_requested.is_empty() {
         clauses.push(or_relation_clause(
@@ -103,6 +107,7 @@ fn parse(query: &str) -> Result<ParsedLocalFilter> {
         match key.as_str() {
             "author" => parsed.authors.push(value),
             "assignee" => parsed.assignees.push(value),
+            "involves" => parsed.involves.push(value),
             "label" => parsed.labels.push(value),
             "repo" => parsed.repos.push(value),
             "review-requested" => parsed.review_requested.push(value),
@@ -201,6 +206,53 @@ fn exists_relation_clause(
     )
 }
 
+fn or_involves_clause(values: &[String], params: &mut Vec<Value>) -> String {
+    let author_placeholders = values
+        .iter()
+        .map(|value| {
+            params.push(Value::Text(value.clone()));
+            "?".to_owned()
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let assignee_clause = relation_in_clause("stream_item_assignees", "login", values, params);
+    let review_requested_clause =
+        relation_in_clause("stream_item_review_requests", "login", values, params);
+    let reviewed_by_clause = relation_in_clause("stream_item_reviews", "login", values, params);
+
+    format!(
+        "(lower(i.author_login) IN ({author_placeholders})
+          OR {assignee_clause}
+          OR {review_requested_clause}
+          OR {reviewed_by_clause})"
+    )
+}
+
+fn relation_in_clause(
+    table: &str,
+    column: &str,
+    values: &[String],
+    params: &mut Vec<Value>,
+) -> String {
+    let placeholders = values
+        .iter()
+        .map(|value| {
+            params.push(Value::Text(value.clone()));
+            "?".to_owned()
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "EXISTS (
+            SELECT 1
+            FROM {table}
+            WHERE {table}.stream_item_id = i.id
+              AND lower({table}.{column}) IN ({placeholders})
+        )"
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use rusqlite::types::Value;
@@ -210,13 +262,14 @@ mod tests {
     #[test]
     fn compiles_supported_local_filter_subset() {
         let compiled = compile(Some(
-            r#"author:octo assignee:dev label:bug label:"needs triage" repo:acme/api review-requested:triage reviewed-by:reviewer"#,
+            r#"author:octo assignee:dev involves:octo label:bug label:"needs triage" repo:acme/api review-requested:triage reviewed-by:reviewer"#,
         ))
         .expect("local filter should compile")
         .expect("compiled filter");
 
         assert!(compiled.clause.contains("lower(i.author_login) IN (?)"));
         assert!(compiled.clause.contains("FROM stream_item_assignees"));
+        assert!(compiled.clause.contains("lower(i.author_login) IN (?)"));
         assert!(compiled.clause.contains("FROM stream_item_labels"));
         assert!(compiled
             .clause
@@ -229,6 +282,10 @@ mod tests {
                 Value::Text("octo".to_owned()),
                 Value::Text("acme/api".to_owned()),
                 Value::Text("dev".to_owned()),
+                Value::Text("octo".to_owned()),
+                Value::Text("octo".to_owned()),
+                Value::Text("octo".to_owned()),
+                Value::Text("octo".to_owned()),
                 Value::Text("triage".to_owned()),
                 Value::Text("reviewer".to_owned()),
                 Value::Text("bug".to_owned()),

@@ -1,10 +1,20 @@
 use chrono::Utc;
 use rusqlite::{params, OptionalExtension};
 
-use crate::models::{LibraryCounts, SavedQuery};
+use crate::models::{FilterStream, LibraryCounts, SavedQuery, StreamFilter};
 use crate::saved_query_io::ImportedSavedQuery;
 
 use super::{Result, Storage};
+
+#[derive(Clone, Debug)]
+struct FilterStreamRow {
+    id: i64,
+    saved_query_id: i64,
+    name: String,
+    filter_query: String,
+    enabled: bool,
+    position: i64,
+}
 
 impl Storage {
     pub fn list_library_counts(&self, host_id: i64) -> Result<LibraryCounts> {
@@ -36,6 +46,8 @@ impl Storage {
     }
 
     pub fn list_saved_queries(&self, host_id: i64) -> Result<Vec<SavedQuery>> {
+        let filter_stream_rows = self.list_filter_stream_rows(host_id)?;
+
         let mut statement = self.connection().prepare(
             "SELECT
                 q.id,
@@ -63,11 +75,78 @@ impl Storage {
                 enabled: row.get::<_, i64>(3)? == 1,
                 position: row.get(4)?,
                 unread_count: row.get(5)?,
+                filter_streams: Vec::new(),
             })
         })?;
 
-        rows.collect::<std::result::Result<Vec<_>, _>>()
-            .map_err(Into::into)
+        let mut saved_queries = rows
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(crate::storage::StorageError::from)?;
+
+        for saved_query in &mut saved_queries {
+            saved_query.filter_streams = filter_stream_rows
+                .iter()
+                .filter(|row| row.saved_query_id == saved_query.id)
+                .map(|row| {
+                    Ok(FilterStream {
+                        id: row.id,
+                        saved_query_id: row.saved_query_id,
+                        name: row.name.clone(),
+                        filter_query: row.filter_query.clone(),
+                        enabled: row.enabled,
+                        position: row.position,
+                        unread_count: self.count_items_for_saved_query(
+                            saved_query.id,
+                            Some(StreamFilter::Unread),
+                            Some(&row.filter_query),
+                            None,
+                        )?,
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?;
+        }
+
+        Ok(saved_queries)
+    }
+
+    pub fn get_filter_stream(&self, filter_stream_id: i64) -> Result<Option<FilterStream>> {
+        let row = self
+            .connection()
+            .query_row(
+                "SELECT id, saved_query_id, name, filter_query, enabled, position
+                 FROM filter_streams
+                 WHERE id = ?1",
+                params![filter_stream_id],
+                |row| {
+                    Ok(FilterStreamRow {
+                        id: row.get(0)?,
+                        saved_query_id: row.get(1)?,
+                        name: row.get(2)?,
+                        filter_query: row.get(3)?,
+                        enabled: row.get::<_, i64>(4)? == 1,
+                        position: row.get(5)?,
+                    })
+                },
+            )
+            .optional()?;
+
+        row.map(|row| {
+            Ok(FilterStream {
+                id: row.id,
+                saved_query_id: row.saved_query_id,
+                name: row.name,
+                filter_query: row.filter_query.clone(),
+                enabled: row.enabled,
+                position: row.position,
+                unread_count: self.count_items_for_saved_query(
+                    row.saved_query_id,
+                    Some(StreamFilter::Unread),
+                    Some(&row.filter_query),
+                    None,
+                )?,
+            })
+        })
+        .transpose()
     }
 
     pub fn add_saved_query(&self, host_id: i64, name: &str, query: &str) -> Result<i64> {
@@ -98,6 +177,73 @@ impl Storage {
              SET name = ?1, query = ?2, updated_at = ?3
              WHERE id = ?4",
             params![name.trim(), query.trim(), now, saved_query_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn add_filter_stream(
+        &self,
+        saved_query_id: i64,
+        name: &str,
+        filter_query: &str,
+        enabled: bool,
+    ) -> Result<i64> {
+        let now = Utc::now().to_rfc3339();
+        let next_position = self
+            .connection()
+            .query_row(
+                "SELECT COALESCE(MAX(position), -1) + 1
+                 FROM filter_streams
+                 WHERE saved_query_id = ?1",
+                params![saved_query_id],
+                |row| row.get::<_, i64>(0),
+            )
+            .optional()?
+            .unwrap_or(0);
+
+        self.connection().execute(
+            "INSERT INTO filter_streams (
+                saved_query_id, name, filter_query, enabled, position, created_at, updated_at
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
+            params![
+                saved_query_id,
+                name.trim(),
+                filter_query.trim(),
+                i64::from(enabled),
+                next_position,
+                now
+            ],
+        )?;
+        Ok(self.connection().last_insert_rowid())
+    }
+
+    pub fn update_filter_stream(
+        &self,
+        filter_stream_id: i64,
+        name: &str,
+        filter_query: &str,
+        enabled: bool,
+    ) -> Result<()> {
+        let now = Utc::now().to_rfc3339();
+        self.connection().execute(
+            "UPDATE filter_streams
+             SET name = ?1, filter_query = ?2, enabled = ?3, updated_at = ?4
+             WHERE id = ?5",
+            params![
+                name.trim(),
+                filter_query.trim(),
+                i64::from(enabled),
+                now,
+                filter_stream_id
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_filter_stream(&self, filter_stream_id: i64) -> Result<()> {
+        self.connection().execute(
+            "DELETE FROM filter_streams WHERE id = ?1",
+            params![filter_stream_id],
         )?;
         Ok(())
     }
@@ -243,5 +389,35 @@ impl Storage {
             params![message, now, saved_query_id],
         )?;
         Ok(())
+    }
+
+    fn list_filter_stream_rows(&self, host_id: i64) -> Result<Vec<FilterStreamRow>> {
+        let mut statement = self.connection().prepare(
+            "SELECT
+                f.id,
+                f.saved_query_id,
+                f.name,
+                f.filter_query,
+                f.enabled,
+                f.position
+             FROM filter_streams f
+             JOIN saved_queries q ON q.id = f.saved_query_id
+             WHERE q.host_id = ?1
+             ORDER BY f.enabled DESC, f.position ASC, f.name ASC",
+        )?;
+
+        let rows = statement.query_map(params![host_id], |row| {
+            Ok(FilterStreamRow {
+                id: row.get(0)?,
+                saved_query_id: row.get(1)?,
+                name: row.get(2)?,
+                filter_query: row.get(3)?,
+                enabled: row.get::<_, i64>(4)? == 1,
+                position: row.get(5)?,
+            })
+        })?;
+
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(Into::into)
     }
 }

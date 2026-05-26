@@ -49,6 +49,46 @@ fn left_pane_saved_query_click_emits_selection_event() {
 }
 
 #[test]
+fn left_pane_filter_stream_click_emits_selection_event() {
+    let mut saved_query = sample_saved_query();
+    saved_query.filter_streams.push(ghtl::models::FilterStream {
+        id: 11,
+        saved_query_id: saved_query.id,
+        name: "Assigned to dev".to_owned(),
+        filter_query: "assignee:dev".to_owned(),
+        enabled: true,
+        position: 0,
+        unread_count: 2,
+    });
+
+    let mut harness = Harness::new_state(
+        |ctx, state: &mut LeftPaneHarness| {
+            components::left_pane::show(
+                ctx,
+                &mut state.stream,
+                &state.library_counts,
+                &state.saved_queries,
+                &mut state.event,
+            );
+        },
+        LeftPaneHarness {
+            stream: StreamState::default(),
+            library_counts: LibraryCounts::default(),
+            saved_queries: vec![saved_query],
+            event: None,
+        },
+    );
+
+    harness.get_by_label("↳ Assigned to dev").click();
+    harness.run();
+
+    assert!(matches!(
+        harness.state().event,
+        Some(StreamEvent::Select(Selection::FilterStream(11)))
+    ));
+}
+
+#[test]
 fn left_pane_hides_disabled_saved_queries() {
     let harness = Harness::new_state(
         |ctx, state: &mut LeftPaneHarness| {
@@ -107,6 +147,47 @@ fn saved_query_context_menu_marks_query_read() {
     assert!(matches!(
         harness.state().event,
         Some(StreamEvent::MarkSavedQueryRead(7))
+    ));
+}
+
+#[test]
+fn filter_stream_context_menu_marks_filter_stream_read() {
+    let mut saved_query = sample_saved_query();
+    saved_query.filter_streams.push(ghtl::models::FilterStream {
+        id: 11,
+        saved_query_id: saved_query.id,
+        name: "Assigned to dev".to_owned(),
+        filter_query: "assignee:dev".to_owned(),
+        enabled: true,
+        position: 0,
+        unread_count: 2,
+    });
+    let mut harness = Harness::new_state(
+        |ctx, state: &mut LeftPaneHarness| {
+            components::left_pane::show(
+                ctx,
+                &mut state.stream,
+                &state.library_counts,
+                &state.saved_queries,
+                &mut state.event,
+            );
+        },
+        LeftPaneHarness {
+            stream: StreamState::default(),
+            library_counts: LibraryCounts::default(),
+            saved_queries: vec![saved_query],
+            event: None,
+        },
+    );
+
+    harness.get_by_label("↳ Assigned to dev").click_secondary();
+    harness.run();
+    harness.get_by_label("Mark all as read").click();
+    harness.run();
+
+    assert!(matches!(
+        harness.state().event,
+        Some(StreamEvent::MarkFilterStreamRead(11))
     ));
 }
 
@@ -226,6 +307,37 @@ fn saved_query_manager_new_button_is_next_to_queries_heading() {
 }
 
 #[test]
+fn saved_query_manager_filter_button_opens_new_filter_stream_form() {
+    let saved_queries = vec![sample_saved_query()];
+    let mut stream = StreamState::default();
+    stream.selection = Selection::SavedQuery(7);
+    saved_query_manager::open(&mut stream, &saved_queries);
+
+    let mut harness = Harness::new_state(
+        |ctx, state: &mut StreamHarness| {
+            saved_query_manager::show(
+                ctx,
+                &mut state.stream,
+                &state.saved_queries,
+                &mut state.event,
+            );
+        },
+        StreamHarness {
+            stream,
+            saved_queries,
+            event: None,
+        },
+    );
+
+    harness.get_by_label("F+").click();
+    harness.run();
+
+    harness.get_by_label("New filter stream");
+    harness.get_by_label("Local filter");
+    assert!(harness.state().event.is_none());
+}
+
+#[test]
 fn saved_query_manager_toolbar_opens_transfer_screen() {
     let saved_queries = vec![sample_saved_query()];
     let mut stream = StreamState::default();
@@ -266,6 +378,7 @@ fn saved_query_manager_move_down_button_emits_reorder_event() {
             enabled: true,
             position: 1,
             unread_count: 1,
+            filter_streams: Vec::new(),
         },
     ];
     let mut stream = StreamState::default();

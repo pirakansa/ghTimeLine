@@ -256,6 +256,58 @@ fn library_unread_counts_cover_inbox_bookmark_and_archived() {
 }
 
 #[test]
+fn filter_streams_are_nested_under_saved_queries_and_filter_items_locally() {
+    let storage = Storage::in_memory().expect("storage");
+    let config = AppConfig::default_with_pat("token".to_owned());
+    let host_id = storage.ensure_host(&config.host).expect("host");
+    let query_id = storage
+        .add_saved_query(host_id, "Inbox", "is:open")
+        .expect("query");
+    let filter_stream_id = storage
+        .add_filter_stream(query_id, "Assigned to dev", "assignee:dev", true)
+        .expect("filter stream");
+
+    let first_item_id = storage
+        .upsert_stream_item(&sample_item(host_id))
+        .expect("first item")
+        .id;
+    storage
+        .record_saved_query_match(query_id, first_item_id, None)
+        .expect("first match");
+
+    let mut other_item = sample_item(host_id);
+    other_item.number = 43;
+    other_item.title = "Other".to_owned();
+    other_item.assignees = vec![ItemPerson {
+        login: "ops".to_owned(),
+        avatar_url: None,
+    }];
+    let other_item_id = storage
+        .upsert_stream_item(&other_item)
+        .expect("other item")
+        .id;
+    storage
+        .record_saved_query_match(query_id, other_item_id, None)
+        .expect("other match");
+
+    let queries = storage.list_saved_queries(host_id).expect("queries");
+    let filtered_items = storage
+        .list_items_for_filter_stream(filter_stream_id, None, None, SortOrder::UpdatedDesc)
+        .expect("filter stream items");
+    let unread_ids = storage
+        .list_unread_item_ids_for_filter_stream(filter_stream_id)
+        .expect("filter stream unread ids");
+
+    assert_eq!(queries[0].filter_streams.len(), 1);
+    assert_eq!(queries[0].filter_streams[0].name, "Assigned to dev");
+    assert_eq!(queries[0].filter_streams[0].unread_count, 1);
+    assert_eq!(filtered_items.len(), 1);
+    assert_eq!(filtered_items[0].title, "Title");
+    assert_eq!(unread_ids, vec![first_item_id]);
+    assert_ne!(first_item_id, other_item_id);
+}
+
+#[test]
 fn timestamp_based_sorts_use_requested_fields() {
     let storage = Storage::in_memory().expect("storage");
     let config = AppConfig::default_with_pat("token".to_owned());
@@ -714,6 +766,14 @@ fn local_filter_queries_match_supported_metadata() {
             SortOrder::UpdatedDesc,
         )
         .expect("reviewed-by filter");
+    let involves_items = storage
+        .list_items_for_saved_query(
+            query_id,
+            None,
+            Some("involves:triage"),
+            SortOrder::UpdatedDesc,
+        )
+        .expect("involves filter");
 
     assert_eq!(author_items[0].title, "Title");
     assert_eq!(assignee_items[0].title, "Backend item");
@@ -721,6 +781,7 @@ fn local_filter_queries_match_supported_metadata() {
     assert_eq!(repo_items[0].title, "Backend item");
     assert_eq!(requested_items[0].title, "Title");
     assert_eq!(reviewed_items[0].title, "Backend item");
+    assert_eq!(involves_items[0].title, "Title");
 }
 
 #[test]

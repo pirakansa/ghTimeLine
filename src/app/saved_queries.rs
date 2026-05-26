@@ -89,7 +89,20 @@ impl GhStreamApp {
         if let AppMode::Main(runtime) = &mut self.mode {
             match runtime.storage.delete_saved_query(id) {
                 Ok(()) => {
-                    if self.stream.selection == Selection::SavedQuery(id) {
+                    if self.stream.selection == Selection::SavedQuery(id)
+                        || matches!(
+                            self.stream.selection,
+                            Selection::FilterStream(filter_stream_id)
+                                if runtime
+                                    .saved_queries
+                                    .iter()
+                                    .find(|query| query.id == id)
+                                    .is_some_and(|query| query
+                                        .filter_streams
+                                        .iter()
+                                        .any(|stream| stream.id == filter_stream_id))
+                        )
+                    {
                         self.stream.selection = Selection::Library(LibraryView::Inbox);
                         self.stream.reset_item_list_scroll = true;
                     }
@@ -103,6 +116,144 @@ impl GhStreamApp {
                     &mut self.status,
                     &mut self.status_history,
                     format!("Could not delete saved query: {err}"),
+                ),
+            }
+        }
+        self.reload_queries();
+        self.reload_current_view();
+    }
+
+    pub(super) fn add_filter_stream(
+        &mut self,
+        saved_query_id: i64,
+        name: &str,
+        filter_query: &str,
+        enabled: bool,
+    ) {
+        if name.trim().is_empty() || filter_query.trim().is_empty() {
+            Self::replace_status(
+                &mut self.status,
+                &mut self.status_history,
+                "Filter stream name and filter must not be empty.",
+            );
+            return;
+        }
+
+        if let AppMode::Main(runtime) = &mut self.mode {
+            if let Err(err) = runtime
+                .storage
+                .validate_local_filter(Some(filter_query.trim()))
+            {
+                Self::replace_status_error(
+                    &mut self.status,
+                    &mut self.status_history,
+                    format!("Could not create filter stream: {err}"),
+                );
+                return;
+            }
+
+            match runtime
+                .storage
+                .add_filter_stream(saved_query_id, name, filter_query, enabled)
+            {
+                Ok(id) => {
+                    self.stream.selection = Selection::FilterStream(id);
+                    self.stream.reset_item_list_scroll = true;
+                    Self::replace_status(
+                        &mut self.status,
+                        &mut self.status_history,
+                        "Filter stream created.",
+                    );
+                }
+                Err(err) => Self::replace_status_error(
+                    &mut self.status,
+                    &mut self.status_history,
+                    format!("Could not create filter stream: {err}"),
+                ),
+            }
+        }
+        self.reload_queries();
+        self.reload_current_view();
+    }
+
+    pub(super) fn update_filter_stream(
+        &mut self,
+        id: i64,
+        name: &str,
+        filter_query: &str,
+        enabled: bool,
+    ) {
+        if name.trim().is_empty() || filter_query.trim().is_empty() {
+            Self::replace_status(
+                &mut self.status,
+                &mut self.status_history,
+                "Filter stream name and filter must not be empty.",
+            );
+            return;
+        }
+
+        if let AppMode::Main(runtime) = &mut self.mode {
+            if let Err(err) = runtime
+                .storage
+                .validate_local_filter(Some(filter_query.trim()))
+            {
+                Self::replace_status_error(
+                    &mut self.status,
+                    &mut self.status_history,
+                    format!("Could not update filter stream: {err}"),
+                );
+                return;
+            }
+
+            match runtime
+                .storage
+                .update_filter_stream(id, name, filter_query, enabled)
+            {
+                Ok(()) => Self::replace_status(
+                    &mut self.status,
+                    &mut self.status_history,
+                    "Filter stream updated.",
+                ),
+                Err(err) => Self::replace_status_error(
+                    &mut self.status,
+                    &mut self.status_history,
+                    format!("Could not update filter stream: {err}"),
+                ),
+            }
+        }
+        self.reload_queries();
+        self.reload_current_view();
+    }
+
+    pub(super) fn delete_filter_stream(&mut self, id: i64) {
+        let parent_saved_query_id;
+        if let AppMode::Main(runtime) = &mut self.mode {
+            parent_saved_query_id = runtime.saved_queries.iter().find_map(|query| {
+                query
+                    .filter_streams
+                    .iter()
+                    .find(|stream| stream.id == id)
+                    .map(|_| query.id)
+            });
+
+            match runtime.storage.delete_filter_stream(id) {
+                Ok(()) => {
+                    if self.stream.selection == Selection::FilterStream(id) {
+                        self.stream.selection = parent_saved_query_id
+                            .map(Selection::SavedQuery)
+                            .unwrap_or(Selection::Library(LibraryView::Inbox));
+                        self.stream.reset_item_list_scroll = true;
+                    }
+                    Self::replace_status(
+                        &mut self.status,
+                        &mut self.status_history,
+                        "Filter stream deleted.",
+                    );
+                }
+                Err(err) => Self::replace_status_error(
+                    &mut self.status,
+                    &mut self.status_history,
+                    format!("Could not delete filter stream: {err}"),
                 ),
             }
         }
@@ -189,6 +340,48 @@ impl GhStreamApp {
                     &mut self.status,
                     &mut self.status_history,
                     format!("Could not mark saved query read: {err}"),
+                ),
+            }
+        }
+        if did_update_items {
+            self.reload_queries();
+            self.reload_current_view_for_changed_items(&changed_item_ids);
+        }
+    }
+
+    pub(super) fn mark_filter_stream_read(&mut self, id: i64) {
+        let mut changed_item_ids = Vec::new();
+        let mut did_update_items = false;
+        if let AppMode::Main(runtime) = &mut self.mode {
+            match runtime.storage.list_unread_item_ids_for_filter_stream(id) {
+                Ok(ids) => changed_item_ids = ids,
+                Err(err) => {
+                    Self::replace_status_error(
+                        &mut self.status,
+                        &mut self.status_history,
+                        format!("Could not inspect filter stream items: {err}"),
+                    );
+                    return;
+                }
+            }
+            match runtime.storage.mark_filter_stream_read(id) {
+                Ok(0) => Self::replace_status(
+                    &mut self.status,
+                    &mut self.status_history,
+                    "No unread items to mark read.",
+                ),
+                Ok(count) => {
+                    Self::replace_status(
+                        &mut self.status,
+                        &mut self.status_history,
+                        format!("Marked {count} items as read."),
+                    );
+                    did_update_items = true;
+                }
+                Err(err) => Self::replace_status_error(
+                    &mut self.status,
+                    &mut self.status_history,
+                    format!("Could not mark filter stream read: {err}"),
                 ),
             }
         }

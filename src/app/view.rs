@@ -222,6 +222,9 @@ fn load_current_view(
         Selection::SavedQuery(id) => {
             storage.list_items_for_saved_query(*id, filter, local_filter, sort)
         }
+        Selection::FilterStream(id) => {
+            storage.list_items_for_filter_stream(*id, filter, local_filter, sort)
+        }
     }
 }
 

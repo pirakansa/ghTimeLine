@@ -23,8 +23,8 @@ Saved query export uses a separate YAML file by default:
 
 ## Database File
 
-Fetched stream data, saved queries, unread state, bookmarks, and archived state
-are stored in a local SQLite database:
+Fetched stream data, saved queries, filter streams, unread state, bookmarks, and
+archived state are stored in a local SQLite database:
 
 - Linux: `$XDG_DATA_HOME/ghtl/ghtl.db`, or
   `~/.local/share/ghtl/ghtl.db` when `XDG_DATA_HOME` is
