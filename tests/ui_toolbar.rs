@@ -36,6 +36,25 @@ fn toolbar_buttons_emit_refresh_and_filter_events() {
 }
 
 #[test]
+fn remote_updates_banner_emits_show_updates_event() {
+    let mut harness = Harness::new_ui_state(
+        |ui, state: &mut ToolbarHarness| {
+            components::remote_updates_banner::show(ui, 2, &mut state.event);
+        },
+        sample_toolbar_harness(),
+    );
+
+    harness.get_by_label("2 updated items available.");
+    harness.get_by_label("Show updates").click();
+    harness.run();
+
+    assert!(matches!(
+        harness.state().event,
+        Some(StreamEvent::ShowRemoteUpdates)
+    ));
+}
+
+#[test]
 fn preferences_menu_emits_open_setup_event() {
     let mut harness = Harness::new_state(
         |ctx, state: &mut ToolbarHarness| {

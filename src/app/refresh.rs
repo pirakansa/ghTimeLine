@@ -63,7 +63,7 @@ impl GhStreamApp {
             self.reload_queries();
         }
         if !outcome.changed_item_ids.is_empty() {
-            self.reload_current_view_for_changed_items(&outcome.changed_item_ids);
+            self.defer_current_view_updates(&outcome.changed_item_ids);
         }
     }
 

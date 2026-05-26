@@ -28,6 +28,12 @@ Refresh and network errors must not clear the previously stored list.
 Changing the selected library entry or saved query resets the item list scroll
 position to the top.
 
+Remote changes discovered by either manual refresh or automatic polling must
+not reorder or replace the currently displayed item list without user action.
+When stored remote changes affect that view, the right pane displays an update
+banner. Selecting **Show updates** reloads the item list from SQLite and clears
+the pending update banner. Local item actions remain immediately visible.
+
 ## Filters And Sorting
 
 Filters:

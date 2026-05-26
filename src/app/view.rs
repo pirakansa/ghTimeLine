@@ -30,7 +30,48 @@ impl GhStreamApp {
         if let AppMode::Main(runtime) = &mut self.mode {
             let sort = current_sort(runtime);
             match load_current_view(&runtime.storage, runtime.host_id, &selection, filter, sort) {
-                Ok(items) => runtime.items = items,
+                Ok(items) => {
+                    runtime.items = items;
+                    self.stream.pending_remote_item_ids.clear();
+                }
+                Err(err) => Self::replace_status_error(
+                    &mut self.status,
+                    &mut self.status_history,
+                    format!("Could not load stream items: {err}"),
+                ),
+            }
+        }
+    }
+
+    pub(super) fn defer_current_view_updates(&mut self, changed_item_ids: &[i64]) {
+        if changed_item_ids.is_empty() && self.stream.pending_remote_item_ids.is_empty() {
+            return;
+        }
+
+        let selection = self.stream.selection.clone();
+        let filter = self.stream.filter;
+        if let AppMode::Main(runtime) = &mut self.mode {
+            let sort = current_sort(runtime);
+            match load_current_view(&runtime.storage, runtime.host_id, &selection, filter, sort) {
+                Ok(latest_items) if latest_items == runtime.items => {
+                    self.stream.pending_remote_item_ids.clear();
+                }
+                Ok(latest_items) => {
+                    let candidate_ids = self
+                        .stream
+                        .pending_remote_item_ids
+                        .iter()
+                        .copied()
+                        .chain(changed_item_ids.iter().copied())
+                        .collect::<HashSet<_>>();
+                    self.stream.pending_remote_item_ids = candidate_ids
+                        .into_iter()
+                        .filter(|item_id| {
+                            runtime.items.iter().find(|item| item.id == *item_id)
+                                != latest_items.iter().find(|item| item.id == *item_id)
+                        })
+                        .collect();
+                }
                 Err(err) => Self::replace_status_error(
                     &mut self.status,
                     &mut self.status_history,
@@ -57,7 +98,13 @@ impl GhStreamApp {
                 changed_item_ids,
             ) {
                 Ok(changed_items) => {
-                    if current_view_membership_changed(
+                    if !self.stream.pending_remote_item_ids.is_empty() {
+                        patch_local_item_state(
+                            &mut runtime.items,
+                            changed_item_ids,
+                            &changed_items,
+                        );
+                    } else if current_view_membership_changed(
                         &runtime.items,
                         changed_item_ids,
                         &changed_items,
@@ -87,6 +134,10 @@ impl GhStreamApp {
                     format!("Could not load changed stream items: {err}"),
                 ),
             }
+        }
+
+        if !self.stream.pending_remote_item_ids.is_empty() {
+            self.defer_current_view_updates(&[]);
         }
     }
 
@@ -187,6 +238,31 @@ fn patch_current_items(
     if items.len() > STREAM_VIEW_LIMIT {
         items.truncate(STREAM_VIEW_LIMIT);
     }
+}
+
+fn patch_local_item_state(
+    items: &mut Vec<StreamItem>,
+    changed_item_ids: &[i64],
+    changed_items: &[StreamItem],
+) {
+    let changed_by_id = changed_items
+        .iter()
+        .map(|item| (item.id, item))
+        .collect::<HashMap<_, _>>();
+    let changed_ids = changed_item_ids.iter().copied().collect::<HashSet<_>>();
+
+    items.retain_mut(|item| {
+        if !changed_ids.contains(&item.id) {
+            return true;
+        }
+        let Some(changed) = changed_by_id.get(&item.id) else {
+            return false;
+        };
+        item.is_unread = changed.is_unread;
+        item.is_bookmarked = changed.is_bookmarked;
+        item.is_archived = changed.is_archived;
+        true
+    });
 }
 
 fn compare_items(left: &StreamItem, right: &StreamItem, sort: SortOrder) -> Ordering {
