@@ -46,21 +46,25 @@ Supported local filter terms:
 
 - `author:<login>`
 - `assignee:<login>`
+- `draft:true` or `draft:false`
 - `involves:<login>`
-- `is:issue` or `is:pr`
+- `is:issue`, `is:pr`, `is:open`, `is:closed`, or `is:merged`
 - `label:<name>`
+- `org:<owner>`
 - `repo:<owner/name>`
 - `review-requested:<login>`
 - `reviewed-by:<login>`
+- `user:<owner>`
 
 `involves:` is broader than the other people filters. It matches authors,
 assignees, requested reviewers, reviewers, stored participants/commenters, and
 users mentioned in the fetched body or comment text.
 
 You can combine different keys with spaces. Different keys are matched together,
-repeated values of the same key are matched as alternatives, and repeated
-`label:` terms must all be present. Use **Apply** to activate the filter and
-**Clear** to remove it.
+repeated values of the same key are matched as alternatives, repeated `is:`
+terms narrow by category such as `is:pr is:open`, and repeated `label:` terms
+must all be present. Use **Apply** to activate the filter and **Clear** to
+remove it.
 
 Filter streams use the same local filter syntax, but they persist under a saved
 query in the left pane and saved query manager.

@@ -850,6 +850,146 @@ fn local_filter_is_type_matches_pull_requests() {
 }
 
 #[test]
+fn local_filter_user_and_org_match_repository_owner() {
+    let storage = Storage::in_memory().expect("storage");
+    let config = AppConfig::default_with_pat("token".to_owned());
+    let host_id = storage.ensure_host(&config.host).expect("host");
+    let query_id = storage
+        .add_saved_query(host_id, "Inbox", "is:open")
+        .expect("query");
+
+    let first_item_id = storage
+        .upsert_stream_item(&sample_item(host_id))
+        .expect("first item")
+        .id;
+    storage
+        .record_saved_query_match(query_id, first_item_id, Some(0))
+        .expect("first match");
+
+    let mut second_item = sample_item(host_id);
+    second_item.number = 77;
+    second_item.repository_owner = "platform".to_owned();
+    second_item.repository_name = "console".to_owned();
+    second_item.title = "Platform item".to_owned();
+    let second_item_id = storage
+        .upsert_stream_item(&second_item)
+        .expect("second item")
+        .id;
+    storage
+        .record_saved_query_match(query_id, second_item_id, Some(1))
+        .expect("second match");
+
+    let user_items = storage
+        .list_items_for_saved_query(query_id, None, Some("user:owner"), SortOrder::UpdatedDesc)
+        .expect("user filter");
+    let org_items = storage
+        .list_items_for_saved_query(query_id, None, Some("org:platform"), SortOrder::UpdatedDesc)
+        .expect("org filter");
+
+    assert_eq!(user_items.len(), 1);
+    assert_eq!(user_items[0].title, "Title");
+    assert_eq!(org_items.len(), 1);
+    assert_eq!(org_items[0].title, "Platform item");
+}
+
+#[test]
+fn local_filter_state_and_draft_queries_match_expected_items() {
+    let storage = Storage::in_memory().expect("storage");
+    let config = AppConfig::default_with_pat("token".to_owned());
+    let host_id = storage.ensure_host(&config.host).expect("host");
+    let query_id = storage
+        .add_saved_query(host_id, "Inbox", "is:open")
+        .expect("query");
+
+    let open_pr_id = storage
+        .upsert_stream_item(&sample_item(host_id))
+        .expect("open pr")
+        .id;
+    storage
+        .record_saved_query_match(query_id, open_pr_id, Some(0))
+        .expect("open pr match");
+
+    let mut closed_issue = sample_item(host_id);
+    closed_issue.number = 50;
+    closed_issue.item_type = ItemType::Issue;
+    closed_issue.title = "Closed issue".to_owned();
+    closed_issue.state = "closed".to_owned();
+    closed_issue.is_draft = None;
+    closed_issue.is_merged = None;
+    let closed_issue_id = storage
+        .upsert_stream_item(&closed_issue)
+        .expect("closed issue")
+        .id;
+    storage
+        .record_saved_query_match(query_id, closed_issue_id, Some(1))
+        .expect("closed issue match");
+
+    let mut merged_pr = sample_item(host_id);
+    merged_pr.number = 51;
+    merged_pr.title = "Merged pr".to_owned();
+    merged_pr.state = "closed".to_owned();
+    merged_pr.is_merged = Some(true);
+    let merged_pr_id = storage
+        .upsert_stream_item(&merged_pr)
+        .expect("merged pr")
+        .id;
+    storage
+        .record_saved_query_match(query_id, merged_pr_id, Some(2))
+        .expect("merged pr match");
+
+    let mut draft_pr = sample_item(host_id);
+    draft_pr.number = 52;
+    draft_pr.title = "Draft pr".to_owned();
+    draft_pr.is_draft = Some(true);
+    let draft_pr_id = storage.upsert_stream_item(&draft_pr).expect("draft pr").id;
+    storage
+        .record_saved_query_match(query_id, draft_pr_id, Some(3))
+        .expect("draft pr match");
+
+    let open_items = storage
+        .list_items_for_saved_query(query_id, None, Some("is:open"), SortOrder::UpdatedDesc)
+        .expect("is:open filter");
+    let closed_items = storage
+        .list_items_for_saved_query(query_id, None, Some("is:closed"), SortOrder::UpdatedDesc)
+        .expect("is:closed filter");
+    let merged_items = storage
+        .list_items_for_saved_query(query_id, None, Some("is:merged"), SortOrder::UpdatedDesc)
+        .expect("is:merged filter");
+    let draft_items = storage
+        .list_items_for_saved_query(query_id, None, Some("draft:true"), SortOrder::UpdatedDesc)
+        .expect("draft:true filter");
+    let open_pr_items = storage
+        .list_items_for_saved_query(
+            query_id,
+            None,
+            Some("is:pr is:open"),
+            SortOrder::UpdatedDesc,
+        )
+        .expect("is:pr is:open filter");
+
+    assert_eq!(
+        open_items
+            .iter()
+            .map(|item| item.title.as_str())
+            .collect::<Vec<_>>(),
+        vec!["Draft pr", "Title"]
+    );
+    assert_eq!(closed_items.len(), 1);
+    assert_eq!(closed_items[0].title, "Closed issue");
+    assert_eq!(merged_items.len(), 1);
+    assert_eq!(merged_items[0].title, "Merged pr");
+    assert_eq!(draft_items.len(), 1);
+    assert_eq!(draft_items[0].title, "Draft pr");
+    assert_eq!(
+        open_pr_items
+            .iter()
+            .map(|item| item.title.as_str())
+            .collect::<Vec<_>>(),
+        vec!["Draft pr", "Title"]
+    );
+}
+
+#[test]
 fn local_filter_rejects_unsupported_terms() {
     let storage = Storage::in_memory().expect("storage");
     let error = storage

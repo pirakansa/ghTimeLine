@@ -8,10 +8,14 @@ struct ParsedLocalFilter {
     assignees: Vec<String>,
     involves: Vec<String>,
     item_types: Vec<String>,
+    item_states: Vec<IsState>,
     labels: Vec<String>,
+    org_owners: Vec<String>,
     repos: Vec<String>,
     review_requested: Vec<String>,
     reviewed_by: Vec<String>,
+    user_owners: Vec<String>,
+    draft_values: Vec<bool>,
 }
 
 #[derive(Debug, Default, PartialEq)]
@@ -36,10 +40,27 @@ pub(super) fn compile(query: Option<&str>) -> Result<Option<CompiledLocalFilter>
             &mut params,
         ));
     }
+    if !parsed.item_states.is_empty() {
+        clauses.push(or_is_state_clause(&parsed.item_states));
+    }
     if !parsed.authors.is_empty() {
         clauses.push(or_equals_clause(
             "lower(i.author_login)",
             &parsed.authors,
+            &mut params,
+        ));
+    }
+    if !parsed.user_owners.is_empty() {
+        clauses.push(or_equals_clause(
+            "lower(i.repository_owner)",
+            &parsed.user_owners,
+            &mut params,
+        ));
+    }
+    if !parsed.org_owners.is_empty() {
+        clauses.push(or_equals_clause(
+            "lower(i.repository_owner)",
+            &parsed.org_owners,
             &mut params,
         ));
     }
@@ -87,11 +108,21 @@ pub(super) fn compile(query: Option<&str>) -> Result<Option<CompiledLocalFilter>
             ));
         }
     }
+    if !parsed.draft_values.is_empty() {
+        clauses.push(or_draft_clause(&parsed.draft_values));
+    }
 
     Ok(Some(CompiledLocalFilter {
         clause: clauses.join(" AND "),
         params,
     }))
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum IsState {
+    Open,
+    Closed,
+    Merged,
 }
 
 fn parse(query: &str) -> Result<ParsedLocalFilter> {
@@ -115,23 +146,26 @@ fn parse(query: &str) -> Result<ParsedLocalFilter> {
         match key.as_str() {
             "author" => parsed.authors.push(value),
             "assignee" => parsed.assignees.push(value),
+            "draft" => parsed.draft_values.push(parse_bool_filter(&key, &value)?),
             "involves" => parsed.involves.push(value),
-            "is" => {
-                let db_value = match value.as_str() {
-                    "issue" => "issue".to_owned(),
-                    "pr" => "pull_request".to_owned(),
-                    _ => {
-                        return Err(StorageError::InvalidFilter(format!(
-                            "Unsupported value for 'is' filter: {value} (expected 'issue' or 'pr')"
+            "is" => match value.as_str() {
+                "issue" => parsed.item_types.push("issue".to_owned()),
+                "pr" => parsed.item_types.push("pull_request".to_owned()),
+                "open" => parsed.item_states.push(IsState::Open),
+                "closed" => parsed.item_states.push(IsState::Closed),
+                "merged" => parsed.item_states.push(IsState::Merged),
+                _ => {
+                    return Err(StorageError::InvalidFilter(format!(
+                            "Unsupported value for 'is' filter: {value} (expected 'issue', 'pr', 'open', 'closed', or 'merged')"
                         )));
-                    }
-                };
-                parsed.item_types.push(db_value);
-            }
+                }
+            },
             "label" => parsed.labels.push(value),
+            "org" => parsed.org_owners.push(value),
             "repo" => parsed.repos.push(value),
             "review-requested" => parsed.review_requested.push(value),
             "reviewed-by" => parsed.reviewed_by.push(value),
+            "user" => parsed.user_owners.push(value),
             _ => {
                 return Err(StorageError::InvalidFilter(format!(
                     "Unsupported local filter key: {key}"
@@ -183,6 +217,43 @@ fn or_equals_clause(column: &str, values: &[String], params: &mut Vec<Value>) ->
         .collect::<Vec<_>>()
         .join(", ");
     format!("{column} IN ({placeholders})")
+}
+
+fn or_is_state_clause(values: &[IsState]) -> String {
+    let clauses = values
+        .iter()
+        .map(|value| match value {
+            IsState::Open => "i.state = 'open'".to_owned(),
+            IsState::Closed => "(i.state = 'closed' AND COALESCE(i.is_merged, 0) = 0)".to_owned(),
+            IsState::Merged => "COALESCE(i.is_merged, 0) = 1".to_owned(),
+        })
+        .collect::<Vec<_>>()
+        .join(" OR ");
+    format!("({clauses})")
+}
+
+fn or_draft_clause(values: &[bool]) -> String {
+    let clauses = values
+        .iter()
+        .map(|value| {
+            format!(
+                "(i.item_type = 'pull_request' AND COALESCE(i.is_draft, 0) = {})",
+                i64::from(*value)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(" OR ");
+    format!("({clauses})")
+}
+
+fn parse_bool_filter(key: &str, value: &str) -> Result<bool> {
+    match value {
+        "true" => Ok(true),
+        "false" => Ok(false),
+        _ => Err(StorageError::InvalidFilter(format!(
+            "Unsupported value for '{key}' filter: {value} (expected 'true' or 'false')"
+        ))),
+    }
 }
 
 fn or_relation_clause(
@@ -287,15 +358,17 @@ mod tests {
     #[test]
     fn compiles_supported_local_filter_subset() {
         let compiled = compile(Some(
-            r#"author:octo assignee:dev involves:octo label:bug label:"needs triage" repo:acme/api review-requested:triage reviewed-by:reviewer is:issue"#,
+            r#"author:octo assignee:dev involves:octo is:issue is:open draft:true label:bug label:"needs triage" org:acme repo:acme/api review-requested:triage reviewed-by:reviewer user:acme"#,
         ))
         .expect("local filter should compile")
         .expect("compiled filter");
 
+        assert!(compiled.clause.contains("i.state = 'open'"));
         assert!(compiled.clause.contains("lower(i.author_login) IN (?)"));
         assert!(compiled.clause.contains("FROM stream_item_assignees"));
         assert!(compiled.clause.contains("lower(i.author_login) IN (?)"));
         assert!(compiled.clause.contains("FROM stream_item_labels"));
+        assert!(compiled.clause.contains("lower(i.repository_owner) IN (?)"));
         assert!(compiled
             .clause
             .contains("lower(i.repository_owner || '/' || i.repository_name) IN (?)"));
@@ -304,11 +377,16 @@ mod tests {
         assert!(compiled.clause.contains("FROM stream_item_participants"));
         assert!(compiled.clause.contains("FROM stream_item_mentions"));
         assert!(compiled.clause.contains("i.item_type IN (?)"));
+        assert!(compiled
+            .clause
+            .contains("i.item_type = 'pull_request' AND COALESCE(i.is_draft, 0) = 1"));
         assert_eq!(
             compiled.params,
             vec![
                 Value::Text("issue".to_owned()),
                 Value::Text("octo".to_owned()),
+                Value::Text("acme".to_owned()),
+                Value::Text("acme".to_owned()),
                 Value::Text("acme/api".to_owned()),
                 Value::Text("dev".to_owned()),
                 Value::Text("octo".to_owned()),
@@ -339,11 +417,34 @@ mod tests {
     }
 
     #[test]
+    fn compiles_is_type_and_state_with_and_semantics() {
+        let compiled = compile(Some("is:pr is:open"))
+            .expect("is:pr is:open should compile")
+            .expect("compiled filter");
+
+        assert!(compiled
+            .clause
+            .contains("i.item_type IN (?) AND (i.state = 'open')"));
+        assert_eq!(
+            compiled.params,
+            vec![Value::Text("pull_request".to_owned())]
+        );
+    }
+
+    #[test]
     fn rejects_invalid_is_value() {
-        let error = compile(Some("is:open"))
+        let error = compile(Some("is:read"))
             .expect_err("invalid is value should fail")
             .to_string();
         assert!(error.contains("Unsupported value for 'is' filter"));
+    }
+
+    #[test]
+    fn rejects_invalid_draft_value() {
+        let error = compile(Some("draft:maybe"))
+            .expect_err("invalid draft value should fail")
+            .to_string();
+        assert!(error.contains("Unsupported value for 'draft' filter"));
     }
 
     #[test]

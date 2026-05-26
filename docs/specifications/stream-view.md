@@ -53,12 +53,15 @@ Supported local filter terms are:
 
 - `author:<login>`
 - `assignee:<login>`
+- `draft:true` or `draft:false`
 - `involves:<login>`
-- `is:issue` or `is:pr`
+- `is:issue`, `is:pr`, `is:open`, `is:closed`, or `is:merged`
 - `label:<name>`
+- `org:<owner>`
 - `repo:<owner/name>`
 - `review-requested:<login>`
 - `reviewed-by:<login>`
+- `user:<owner>`
 
 `involves:` matches against locally stored author, assignee, review-requested,
 reviewed-by, participant, commenter, and parsed `@mention` metadata.
@@ -67,6 +70,8 @@ Local filter terms combine as follows:
 
 - Different filter keys use `AND`
 - Repeated values of the same key use `OR`
+- Repeated `is:` terms combine by category (`type`, `state`, `draft`) so
+  `is:pr is:open` narrows to open pull requests
 - Repeated `label:` terms use `AND`
 
 Unsupported or malformed local filter terms must be rejected with a user-visible
