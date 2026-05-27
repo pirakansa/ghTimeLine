@@ -2,7 +2,7 @@ use chrono::Utc;
 use rusqlite::{params, OptionalExtension};
 
 use crate::models::{FilterStream, LibraryCounts, SavedQuery, StreamFilter};
-use crate::saved_query_io::ImportedSavedQuery;
+use crate::saved_query_io::{ImportedFilterStream, ImportedSavedQuery};
 
 use super::{Result, Storage};
 
@@ -294,7 +294,14 @@ impl Storage {
                         now
                     ],
                 )?;
-                inserted_ids.push(storage.connection().last_insert_rowid());
+                let saved_query_id = storage.connection().last_insert_rowid();
+                inserted_ids.push(saved_query_id);
+                insert_imported_filter_streams(
+                    storage,
+                    saved_query_id,
+                    &query.filter_streams,
+                    &now,
+                )?;
             }
 
             Ok(inserted_ids)
@@ -420,4 +427,29 @@ impl Storage {
         rows.collect::<std::result::Result<Vec<_>, _>>()
             .map_err(Into::into)
     }
+}
+
+fn insert_imported_filter_streams(
+    storage: &Storage,
+    saved_query_id: i64,
+    filter_streams: &[ImportedFilterStream],
+    now: &str,
+) -> Result<()> {
+    for filter_stream in filter_streams {
+        storage.connection().execute(
+            "INSERT INTO filter_streams (
+                saved_query_id, name, filter_query, enabled, position, created_at, updated_at
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
+            params![
+                saved_query_id,
+                filter_stream.name,
+                filter_stream.filter_query,
+                if filter_stream.enabled { 1 } else { 0 },
+                filter_stream.position,
+                now
+            ],
+        )?;
+    }
+
+    Ok(())
 }

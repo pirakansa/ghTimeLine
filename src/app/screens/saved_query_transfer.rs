@@ -24,7 +24,7 @@ pub fn show(
             ui.label("YAML file");
             ui.text_edit_singleline(&mut state.transfer_path);
             ui.label(
-                "Export writes the current host and saved query definitions only.",
+                "Export writes the current host plus saved query and filter stream definitions only.",
             );
             ui.label(
                 "Import replaces this host's saved queries and clears cached matches until the next refresh.",

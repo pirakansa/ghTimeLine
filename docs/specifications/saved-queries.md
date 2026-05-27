@@ -32,17 +32,21 @@ Saved query YAML import/export includes:
 - GitHub Search query string
 - Enabled state
 - Position
+- Filter stream name
+- Filter stream local query string
+- Filter stream enabled state
+- Filter stream position within its saved query
 
-Saved query YAML import must replace the current host's saved queries. Import
-does not preserve cached matches or sync metadata; the next refresh rebuilds
-matches from the imported definitions.
+Saved query YAML import must replace the current host's saved queries and filter
+stream definitions. Import does not preserve cached matches or sync metadata;
+the next refresh rebuilds matches from the imported definitions.
 
 Saved queries target GitHub Search for issues and pull requests. Their refresh
 requests use recently updated ordering independently of the stream view sort.
 
-Filter streams are local-only. Refreshing a selected filter stream refreshes its
-parent saved query rather than issuing an additional remote query for the filter
-stream itself.
+Filter streams remain local child views over cached saved query matches.
+Refreshing a selected filter stream refreshes its parent saved query rather than
+issuing an additional remote query for the filter stream itself.
 
 Saved query unread badges count distinct matched items where local state is
 unread and not archived.

@@ -424,6 +424,10 @@ fn polling_interval_change_updates_runtime_and_yaml_config() {
 #[test]
 fn export_queries_writes_yaml_without_runtime_fields() {
     let (mut app, _) = app_with_one_item();
+    let Selection::SavedQuery(query_id) = app.stream.selection else {
+        panic!("app should select saved query");
+    };
+    app.add_filter_stream(query_id, "Assigned to dev", "assignee:dev", true);
     let path = temp_saved_queries_path("export");
 
     app.export_queries(path.to_str().expect("path should be utf-8"));
@@ -432,6 +436,15 @@ fn export_queries_writes_yaml_without_runtime_fields() {
     assert_eq!(imported.queries.len(), 1);
     assert_eq!(imported.queries[0].name, "Inbox");
     assert_eq!(imported.queries[0].query, "is:open");
+    assert_eq!(imported.queries[0].filter_streams.len(), 1);
+    assert_eq!(
+        imported.queries[0].filter_streams[0].name,
+        "Assigned to dev"
+    );
+    assert_eq!(
+        imported.queries[0].filter_streams[0].filter_query,
+        "assignee:dev"
+    );
     let yaml = std::fs::read_to_string(&path).expect("yaml should be readable");
     assert!(!yaml.contains("unread_count"));
     assert!(!yaml.contains("id:"));
@@ -456,6 +469,15 @@ queries:
     query: "is:pr review-requested:@me"
     enabled: true
     position: 0
+    filter_streams:
+      - name: Assigned to me
+        filter_query: "assignee:@me"
+        enabled: true
+        position: 0
+      - name: Team mentions
+        filter_query: "review-requested:triage"
+        enabled: false
+        position: 1
   - name: Disabled inbox
     query: "is:issue is:open"
     enabled: false
@@ -472,6 +494,16 @@ queries:
     assert_eq!(runtime.saved_queries.len(), 2);
     assert_eq!(runtime.saved_queries[0].name, "Review requested");
     assert_eq!(runtime.saved_queries[0].position, 0);
+    assert_eq!(runtime.saved_queries[0].filter_streams.len(), 2);
+    assert_eq!(
+        runtime.saved_queries[0].filter_streams[0].name,
+        "Assigned to me"
+    );
+    assert_eq!(
+        runtime.saved_queries[0].filter_streams[0].filter_query,
+        "assignee:@me"
+    );
+    assert!(!runtime.saved_queries[0].filter_streams[1].enabled);
     assert_eq!(runtime.saved_queries[1].name, "Disabled inbox");
     assert!(!runtime.saved_queries[1].enabled);
     assert!(matches!(app.stream.selection, Selection::SavedQuery(_)));
