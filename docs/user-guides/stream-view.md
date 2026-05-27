@@ -70,6 +70,9 @@ Select an author, assignee, requested-reviewer, or reviewer avatar in an item
 card to add its matching local filter term. Selecting an avatar whose term is
 already active does not add a duplicate term.
 
+Select the repository reference in an item header to add `repo:<owner/name>`,
+or select its issue or pull request icon to add `is:issue` or `is:pr`.
+
 Filter streams use the same local filter syntax, but they persist under a saved
 query in the left pane and saved query manager.
 

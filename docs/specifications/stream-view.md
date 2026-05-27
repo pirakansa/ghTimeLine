@@ -82,6 +82,10 @@ filter term unless it is already active: author avatars use `author:`, assignee
 avatars use `assignee:`, requested-reviewer avatars use `review-requested:`,
 and completed-review avatars use `reviewed-by:`.
 
+Selecting the repository reference in an item header adds `repo:<owner/name>`.
+Selecting its type icon adds `is:issue` for issues or `is:pr` for pull
+requests.
+
 Sort values:
 
 - `updated_desc`

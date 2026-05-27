@@ -167,6 +167,32 @@ fn clicking_person_avatar_emits_matching_local_filter_add_without_opening_item()
 }
 
 #[test]
+fn clicking_header_metadata_adds_repo_and_item_type_filters_without_opening_item() {
+    for term in ["repo:owner/repo", "is:pr"] {
+        let mut harness = item_list_harness(sample_stream_item());
+
+        harness.get_by_label(&format!("Filter by {term}")).click();
+        harness.run();
+
+        assert!(matches!(
+            &harness.state().event,
+            Some(StreamEvent::AddLocalFilterTerm(actual)) if actual == term
+        ));
+    }
+
+    let mut issue = sample_stream_item();
+    issue.item_type = ghtl::models::ItemType::Issue;
+    let mut harness = item_list_harness(issue);
+    harness.get_by_label("Filter by is:issue").click();
+    harness.run();
+
+    assert!(matches!(
+        &harness.state().event,
+        Some(StreamEvent::AddLocalFilterTerm(actual)) if actual == "is:issue"
+    ));
+}
+
+#[test]
 fn item_list_hides_user_names_when_avatars_are_present() {
     let harness = Harness::new_ui_state(
         |ui, state: &mut ItemListHarness| {
@@ -361,4 +387,26 @@ fn item_list_scroll_reset_returns_virtualized_list_to_first_item() {
 
     harness.get_by_label("Item 0");
     assert!(!harness.state().reset_scroll_to_top);
+}
+
+fn item_list_harness(item: ghtl::models::StreamItem) -> Harness<'static, ItemListHarness> {
+    Harness::new_ui_state(
+        |ui, state: &mut ItemListHarness| {
+            let mut avatar_cache = components::author_avatar::AvatarCache::default();
+            components::item_list::show(
+                ui,
+                &state.items,
+                &mut avatar_cache,
+                &mut state.list_state,
+                &mut state.reset_scroll_to_top,
+                &mut state.event,
+            );
+        },
+        ItemListHarness {
+            items: vec![item],
+            list_state: components::item_list::ItemListState::default(),
+            reset_scroll_to_top: false,
+            event: None,
+        },
+    )
 }
