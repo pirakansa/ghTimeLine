@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::config;
-use crate::models::{HostConfig, SavedQuery};
+use crate::models::{HostConfig, SavedQuery, StreamSource};
 
 const SAVED_QUERY_DOCUMENT_VERSION: u32 = 1;
 
@@ -34,6 +34,7 @@ pub struct ImportedSavedQueries {
 pub struct ImportedSavedQuery {
     pub name: String,
     pub query: String,
+    pub source: StreamSource,
     pub enabled: bool,
     pub position: i64,
     pub filter_streams: Vec<ImportedFilterStream>,
@@ -58,6 +59,8 @@ struct SavedQueryDocument {
 struct SavedQueryDocumentEntry {
     name: String,
     query: String,
+    #[serde(default)]
+    source: StreamSource,
     enabled: bool,
     position: i64,
     #[serde(default)]
@@ -81,6 +84,7 @@ pub fn write_saved_queries(path: &Path, host: &HostConfig, queries: &[SavedQuery
             .map(|query| SavedQueryDocumentEntry {
                 name: query.name.clone(),
                 query: query.query.clone(),
+                source: query.source,
                 enabled: query.enabled,
                 position: query.position,
                 filter_streams: query
@@ -146,6 +150,7 @@ fn validate_document(document: SavedQueryDocument) -> Result<ImportedSavedQuerie
             Ok(ImportedSavedQuery {
                 name,
                 query,
+                source: entry.source,
                 enabled: entry.enabled,
                 position: index as i64,
                 filter_streams,

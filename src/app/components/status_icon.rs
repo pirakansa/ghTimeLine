@@ -10,6 +10,7 @@ pub enum StatusIcon {
     PullRequestClosed,
     PullRequestDraft,
     PullRequestMerged,
+    Discussion,
 }
 
 impl StatusIcon {
@@ -33,6 +34,7 @@ impl StatusIcon {
                     Self::PullRequestOpen
                 }
             }
+            ItemType::Discussion => Self::Discussion,
         }
     }
 
@@ -44,6 +46,7 @@ impl StatusIcon {
             Self::PullRequestClosed => "Pull request closed",
             Self::PullRequestDraft => "Pull request draft",
             Self::PullRequestMerged => "Pull request merged",
+            Self::Discussion => "Discussion",
         }
     }
 
@@ -53,6 +56,7 @@ impl StatusIcon {
             Self::IssueClosed | Self::PullRequestClosed => egui::Color32::from_rgb(207, 34, 46),
             Self::PullRequestDraft => egui::Color32::from_rgb(101, 109, 118),
             Self::PullRequestMerged => egui::Color32::from_rgb(130, 80, 223),
+            Self::Discussion => egui::Color32::from_rgb(9, 105, 218),
         }
     }
 }
@@ -84,6 +88,7 @@ fn show_with_sense(ui: &mut egui::Ui, icon: StatusIcon, sense: egui::Sense) -> e
                 icon == StatusIcon::PullRequestDraft,
             ),
             StatusIcon::PullRequestMerged => draw_pull_request_merged(painter, rect, icon.color()),
+            StatusIcon::Discussion => draw_issue_open(painter, rect, icon.color()),
         }
     }
 
@@ -214,6 +219,13 @@ mod tests {
 
         item.is_merged = Some(true);
         assert_eq!(StatusIcon::for_item(&item), StatusIcon::PullRequestMerged);
+    }
+
+    #[test]
+    fn status_icon_maps_discussions() {
+        let item = sample_item(ItemType::Discussion);
+
+        assert_eq!(StatusIcon::for_item(&item), StatusIcon::Discussion);
     }
 
     #[test]

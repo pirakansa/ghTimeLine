@@ -4,7 +4,7 @@ use super::saved_query_transfer;
 use crate::app::components::selectable_row;
 use crate::app::screens::stream::{StreamEvent, StreamState};
 use crate::config;
-use crate::models::{FilterStream, SavedQuery, Selection};
+use crate::models::{FilterStream, SavedQuery, Selection, StreamSource};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum EditKind {
@@ -20,6 +20,7 @@ pub struct SavedQueryManagerState {
     edit_filter_stream_id: Option<i64>,
     edit_name: String,
     edit_text: String,
+    edit_source: StreamSource,
     edit_enabled: bool,
     pub(in crate::app::screens) transfer_path: String,
 }
@@ -34,6 +35,7 @@ impl Default for SavedQueryManagerState {
             edit_filter_stream_id: None,
             edit_name: String::new(),
             edit_text: String::new(),
+            edit_source: StreamSource::default(),
             edit_enabled: true,
             transfer_path: config::default_saved_queries_path().display().to_string(),
         }
@@ -247,6 +249,13 @@ fn render_saved_query_form(
     ui.label("Name");
     ui.text_edit_singleline(&mut state.edit_name);
     ui.label("Query");
+    egui::ComboBox::from_label("Source")
+        .selected_text(state.edit_source.label())
+        .show_ui(ui, |ui| {
+            for source in StreamSource::ALL {
+                ui.selectable_value(&mut state.edit_source, source, source.label());
+            }
+        });
     ui.horizontal(|ui| {
         ui.text_edit_singleline(&mut state.edit_text);
         let can_preview = !state.edit_text.trim().is_empty();
@@ -255,7 +264,10 @@ fn render_saved_query_form(
             .on_hover_text("Open this GitHub search in your browser")
             .clicked()
         {
-            *event = Some(StreamEvent::PreviewQuery(state.edit_text.clone()));
+            *event = Some(StreamEvent::PreviewQuery {
+                query: state.edit_text.clone(),
+                source: state.edit_source,
+            });
         }
     });
     ui.checkbox(&mut state.edit_enabled, "Enabled");
@@ -268,6 +280,7 @@ fn render_saved_query_form(
                     id,
                     name: state.edit_name.clone(),
                     query: state.edit_text.clone(),
+                    source: state.edit_source,
                     enabled: state.edit_enabled,
                 });
             }
@@ -281,6 +294,7 @@ fn render_saved_query_form(
                 *event = Some(StreamEvent::AddQuery {
                     name: state.edit_name.clone(),
                     query: state.edit_text.clone(),
+                    source: state.edit_source,
                     enabled: state.edit_enabled,
                 });
                 clear_query_draft(state);
@@ -394,6 +408,7 @@ fn load_query_draft(state: &mut SavedQueryManagerState, query: &SavedQuery) {
     state.edit_filter_stream_id = None;
     state.edit_name = query.name.clone();
     state.edit_text = query.query.clone();
+    state.edit_source = query.source;
     state.edit_enabled = query.enabled;
 }
 
@@ -416,5 +431,6 @@ fn clear_query_draft(state: &mut SavedQueryManagerState) {
     state.edit_filter_stream_id = None;
     state.edit_name.clear();
     state.edit_text.clear();
+    state.edit_source = StreamSource::default();
     state.edit_enabled = true;
 }

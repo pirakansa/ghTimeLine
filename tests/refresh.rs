@@ -1,4 +1,4 @@
-use ghtl::models::{AppConfig, HostConfig, HostKind, Scheme, SortOrder};
+use ghtl::models::{AppConfig, HostConfig, HostKind, ItemType, Scheme, SortOrder, StreamSource};
 use ghtl::storage::Storage;
 use ghtl::sync;
 use httptest::matchers::*;
@@ -114,6 +114,45 @@ fn refresh_fetches_recently_updated_items_first() {
 
     sync::refresh_saved_query(&config, &storage, host_id, &saved_query)
         .expect("refresh should use update ordering");
+}
+
+#[test]
+fn refresh_fetches_discussions_through_graphql_source() {
+    let server = Server::run();
+    server.expect(
+        Expectation::matching(request::method_path("POST", "/api/graphql"))
+            .respond_with(json_encoded(discussion_search_response())),
+    );
+
+    let storage = Storage::in_memory().expect("storage");
+    let config = config_for_server(&server);
+    let host_id = storage.ensure_host(&config.host).expect("host");
+    let query_id = storage
+        .add_saved_query_for_source(
+            host_id,
+            "Discussions",
+            "repo:acme/project feedback",
+            StreamSource::Discussion,
+        )
+        .expect("saved discussion query");
+    let saved_query = storage
+        .list_saved_queries(host_id)
+        .expect("queries")
+        .into_iter()
+        .find(|query| query.id == query_id)
+        .expect("query");
+
+    let stats = sync::refresh_saved_query(&config, &storage, host_id, &saved_query)
+        .expect("discussion refresh should succeed");
+    let items = storage
+        .list_items_for_saved_query(query_id, None, None, SortOrder::UpdatedDesc)
+        .expect("items");
+
+    assert_eq!(saved_query.source, StreamSource::Discussion);
+    assert_eq!(stats.processed_count, 1);
+    assert_eq!(items[0].item_type, ItemType::Discussion);
+    assert_eq!(items[0].title, "Release feedback");
+    assert_eq!(items[0].comment_count, 3);
 }
 
 #[test]
@@ -384,6 +423,26 @@ fn search_response() -> serde_json::Value {
             "draft": false,
             "pull_request": { "url": "https://api.github.com/repos/acme/project/pulls/7" }
         }]
+    })
+}
+
+fn discussion_search_response() -> serde_json::Value {
+    json!({
+        "data": {
+            "search": {
+                "nodes": [{
+                    "id": "D_kwDO",
+                    "number": 12,
+                    "title": "Release feedback",
+                    "url": "https://github.com/acme/project/discussions/12",
+                    "createdAt": "2026-05-22T00:00:00Z",
+                    "updatedAt": "2026-05-23T00:00:00Z",
+                    "repository": { "nameWithOwner": "acme/project" },
+                    "author": { "login": "octo", "avatarUrl": null },
+                    "comments": { "totalCount": 3 }
+                }]
+            }
+        }
     })
 }
 

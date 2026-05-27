@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use ghtl::models::{
     AppConfig, HostKind, ItemPerson, ItemReview, ItemType, LibraryView, SortOrder, StreamFilter,
+    StreamSource,
 };
 use ghtl::saved_query_io::{ImportedFilterStream, ImportedSavedQuery};
 use ghtl::storage::items::StreamItemUpsert;
@@ -661,6 +662,7 @@ fn replacing_saved_queries_clears_old_matches_and_preserves_import_order() {
                 ImportedSavedQuery {
                     name: "Review requested".to_owned(),
                     query: "is:pr review-requested:@me".to_owned(),
+                    source: StreamSource::IssueOrPullRequest,
                     enabled: true,
                     position: 0,
                     filter_streams: vec![ImportedFilterStream {
@@ -673,6 +675,7 @@ fn replacing_saved_queries_clears_old_matches_and_preserves_import_order() {
                 ImportedSavedQuery {
                     name: "Disabled inbox".to_owned(),
                     query: "is:issue is:open".to_owned(),
+                    source: StreamSource::IssueOrPullRequest,
                     enabled: false,
                     position: 1,
                     filter_streams: vec![],

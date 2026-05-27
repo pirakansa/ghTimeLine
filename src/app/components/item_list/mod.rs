@@ -218,6 +218,7 @@ fn show_header_row(ui: &mut egui::Ui, item: &StreamItem, event: &mut Option<Stre
         let type_filter = match item.item_type {
             ItemType::Issue => "is:issue",
             ItemType::PullRequest => "is:pr",
+            ItemType::Discussion => "is:discussion",
         };
         let response = status_icon::show_clickable(ui, icon);
         filter_control(ui, response, type_filter, event);

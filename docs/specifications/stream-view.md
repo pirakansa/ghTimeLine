@@ -24,8 +24,8 @@ Filter stream views are local child views under a saved query. They reuse the
 parent saved query's cached matches and apply an additional SQLite-backed local
 filter without performing a new GitHub search.
 
-When the same issue or pull request matches multiple saved queries, aggregated
-library views display it as a single item.
+When the same issue, pull request, or discussion matches multiple saved
+queries, aggregated library views display it as a single item.
 
 The right pane may show `0 items` when no stored item matches the selected view.
 Refresh and network errors must not clear the previously stored list.
@@ -43,7 +43,8 @@ the pending update banner. Local item actions remain immediately visible.
 Filters:
 
 - `Open`: issues with `state = open`; pull requests with `state = open` and not
-  merged; draft pull requests are included when open and not merged
+  merged; and retrieved discussions; draft pull requests are included when
+  open and not merged
 - `Unread`: local unread state
 - `Bookmarked`: local bookmarked state
 
@@ -55,7 +56,7 @@ Supported local filter terms are:
 - `assignee:<login>`
 - `draft:true` or `draft:false`
 - `involves:<login>`
-- `is:issue`, `is:pr`, `is:open`, `is:closed`, or `is:merged`
+- `is:issue`, `is:pr`, `is:discussion`, `is:open`, `is:closed`, or `is:merged`
 - `label:<name>`
 - `org:<owner>`
 - `repo:<owner/name>`
@@ -83,9 +84,10 @@ temporary local filter input unless it is already present: author avatars use
 `review-requested:`, and completed-review avatars use `reviewed-by:`.
 
 Selecting the repository reference in an item header appends
-`repo:<owner/name>`. Selecting its type icon appends `is:issue` for issues or
-`is:pr` for pull requests. These controls must not activate the draft filter;
-only applying the local filter input changes the displayed items.
+`repo:<owner/name>`. Selecting its type icon appends `is:issue` for issues,
+`is:pr` for pull requests, or `is:discussion` for discussions. These controls
+must not activate the draft filter; only applying the local filter input
+changes the displayed items.
 
 Sort values:
 

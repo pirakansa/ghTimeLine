@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use thiserror::Error;
 
 use crate::github;
-use crate::models::{AppConfig, SavedQuery};
+use crate::models::{AppConfig, SavedQuery, StreamSource};
 use crate::storage::items::{StreamItemSave, StreamItemUpsert};
 use crate::storage::{Storage, StorageError};
 
@@ -28,7 +28,7 @@ struct StreamItemKey {
     repository_owner: String,
     repository_name: String,
     number: i64,
-    is_pull_request: bool,
+    item_type: crate::models::ItemType,
 }
 
 impl From<&StreamItemUpsert> for StreamItemKey {
@@ -38,7 +38,7 @@ impl From<&StreamItemUpsert> for StreamItemKey {
             repository_owner: item.repository_owner.clone(),
             repository_name: item.repository_name.clone(),
             number: item.number,
-            is_pull_request: item.item_type == crate::models::ItemType::PullRequest,
+            item_type: item.item_type.clone(),
         }
     }
 }
@@ -77,7 +77,9 @@ fn refresh_saved_query_with_cache(
     item_cache: &mut HashMap<StreamItemKey, CachedSave>,
 ) -> Result<RefreshStats, SyncError> {
     let mut items = fetch_saved_query_items(config, host_id, saved_query)?;
-    let _ = github::graphql::enrich_items(&config.host, &config.auth.pat, &mut items);
+    if saved_query.source == StreamSource::IssueOrPullRequest {
+        let _ = github::graphql::enrich_items(&config.host, &config.auth.pat, &mut items);
+    }
     persist_saved_query_items(storage, saved_query, &items, item_cache)
 }
 
@@ -86,12 +88,20 @@ fn fetch_saved_query_items(
     host_id: i64,
     saved_query: &SavedQuery,
 ) -> Result<Vec<StreamItemUpsert>, SyncError> {
-    github::rest::search_issues_and_pull_requests(
-        &config.host,
-        &config.auth.pat,
-        host_id,
-        &saved_query.query,
-    )
+    match saved_query.source {
+        StreamSource::IssueOrPullRequest => github::rest::search_issues_and_pull_requests(
+            &config.host,
+            &config.auth.pat,
+            host_id,
+            &saved_query.query,
+        ),
+        StreamSource::Discussion => github::discussion::search_discussions(
+            &config.host,
+            &config.auth.pat,
+            host_id,
+            &saved_query.query,
+        ),
+    }
     .map_err(SyncError::from)
 }
 
@@ -171,8 +181,13 @@ pub fn refresh_saved_queries(
     let successful_items = pending
         .iter_mut()
         .filter_map(|refresh| match refresh {
-            PendingRefresh::Fetched { items, .. } => Some(items),
+            PendingRefresh::Fetched { query, items }
+                if query.source == StreamSource::IssueOrPullRequest =>
+            {
+                Some(items)
+            }
             PendingRefresh::Failed { .. } => None,
+            PendingRefresh::Fetched { .. } => None,
         })
         .flat_map(|items| items.iter_mut());
     let _ = github::graphql::enrich_item_iter(&config.host, &config.auth.pat, successful_items);

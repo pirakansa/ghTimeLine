@@ -1,5 +1,5 @@
 use ghtl::app::screens::stream::{StreamEvent, StreamState};
-use ghtl::models::{LibraryCounts, SavedQuery};
+use ghtl::models::{LibraryCounts, SavedQuery, StreamSource};
 
 pub struct LeftPaneHarness {
     pub stream: StreamState,
@@ -19,6 +19,7 @@ pub fn sample_saved_query() -> SavedQuery {
         id: 7,
         name: "Reviews".to_owned(),
         query: "is:pr review-requested:@me".to_owned(),
+        source: StreamSource::IssueOrPullRequest,
         enabled: true,
         position: 0,
         unread_count: 3,

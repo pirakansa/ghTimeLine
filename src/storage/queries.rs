@@ -1,7 +1,7 @@
 use chrono::Utc;
 use rusqlite::{params, OptionalExtension};
 
-use crate::models::{FilterStream, LibraryCounts, SavedQuery, StreamFilter};
+use crate::models::{FilterStream, LibraryCounts, SavedQuery, StreamFilter, StreamSource};
 use crate::saved_query_io::{ImportedFilterStream, ImportedSavedQuery};
 
 use super::{Result, Storage};
@@ -53,6 +53,7 @@ impl Storage {
                 q.id,
                 q.name,
                 q.query,
+                q.resource_type,
                 q.enabled,
                 q.position,
                 COUNT(DISTINCT CASE
@@ -72,9 +73,10 @@ impl Storage {
                 id: row.get(0)?,
                 name: row.get(1)?,
                 query: row.get(2)?,
-                enabled: row.get::<_, i64>(3)? == 1,
-                position: row.get(4)?,
-                unread_count: row.get(5)?,
+                source: StreamSource::from_db_value(&row.get::<_, String>(3)?),
+                enabled: row.get::<_, i64>(4)? == 1,
+                position: row.get(5)?,
+                unread_count: row.get(6)?,
                 filter_streams: Vec::new(),
             })
         })?;
@@ -150,6 +152,16 @@ impl Storage {
     }
 
     pub fn add_saved_query(&self, host_id: i64, name: &str, query: &str) -> Result<i64> {
+        self.add_saved_query_for_source(host_id, name, query, StreamSource::IssueOrPullRequest)
+    }
+
+    pub fn add_saved_query_for_source(
+        &self,
+        host_id: i64,
+        name: &str,
+        query: &str,
+        source: StreamSource,
+    ) -> Result<i64> {
         let now = Utc::now().to_rfc3339();
         let next_position = self
             .connection()
@@ -163,9 +175,16 @@ impl Storage {
 
         self.connection().execute(
             "INSERT INTO saved_queries (
-                host_id, name, query, position, created_at, updated_at
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
-            params![host_id, name.trim(), query.trim(), next_position, now],
+                host_id, name, query, resource_type, position, created_at, updated_at
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
+            params![
+                host_id,
+                name.trim(),
+                query.trim(),
+                source.as_db_value(),
+                next_position,
+                now
+            ],
         )?;
         Ok(self.connection().last_insert_rowid())
     }
@@ -177,6 +196,29 @@ impl Storage {
              SET name = ?1, query = ?2, updated_at = ?3
              WHERE id = ?4",
             params![name.trim(), query.trim(), now, saved_query_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn update_saved_query_for_source(
+        &self,
+        saved_query_id: i64,
+        name: &str,
+        query: &str,
+        source: StreamSource,
+    ) -> Result<()> {
+        let now = Utc::now().to_rfc3339();
+        self.connection().execute(
+            "UPDATE saved_queries
+             SET name = ?1, query = ?2, resource_type = ?3, updated_at = ?4
+             WHERE id = ?5",
+            params![
+                name.trim(),
+                query.trim(),
+                source.as_db_value(),
+                now,
+                saved_query_id
+            ],
         )?;
         Ok(())
     }
@@ -283,12 +325,13 @@ impl Storage {
             for query in queries {
                 storage.connection().execute(
                     "INSERT INTO saved_queries (
-                        host_id, name, query, enabled, position, created_at, updated_at
-                     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
+                        host_id, name, query, resource_type, enabled, position, created_at, updated_at
+                     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)",
                     params![
                         host_id,
                         query.name,
                         query.query,
+                        query.source.as_db_value(),
                         if query.enabled { 1 } else { 0 },
                         query.position,
                         now

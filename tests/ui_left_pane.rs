@@ -8,7 +8,7 @@ use ghtl::app::screens::{
     saved_query_manager,
     stream::{StreamEvent, StreamState},
 };
-use ghtl::models::{LibraryCounts, LibraryView, SavedQuery, Selection};
+use ghtl::models::{LibraryCounts, LibraryView, SavedQuery, Selection, StreamSource};
 
 use crate::support::{sample_saved_query, LeftPaneHarness, StreamHarness};
 
@@ -261,11 +261,13 @@ fn saved_query_manager_saves_enabled_state_with_changes() {
             id,
             name,
             query,
+            source,
             enabled,
         }) => {
             assert_eq!(*id, 7);
             assert_eq!(name, "Reviews");
             assert_eq!(query, "is:pr review-requested:@me");
+            assert_eq!(*source, StreamSource::IssueOrPullRequest);
             assert!(!enabled);
         }
         Some(_) => panic!("unexpected stream event"),
@@ -365,7 +367,9 @@ fn saved_query_manager_preview_button_emits_query_event() {
 
     assert!(matches!(
         &harness.state().event,
-        Some(StreamEvent::PreviewQuery(query)) if query == "is:pr review-requested:@me"
+        Some(StreamEvent::PreviewQuery { query, source })
+            if query == "is:pr review-requested:@me"
+                && *source == StreamSource::IssueOrPullRequest
     ));
 }
 
@@ -407,6 +411,7 @@ fn saved_query_manager_move_down_button_emits_reorder_event() {
             id: 8,
             name: "Inbox".to_owned(),
             query: "is:open".to_owned(),
+            source: StreamSource::IssueOrPullRequest,
             enabled: true,
             position: 1,
             unread_count: 1,
