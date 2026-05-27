@@ -182,7 +182,7 @@ fn show_item_card(
     show_title(ui, item);
     let avatar_size = author_avatar::size_for_ui(ui);
     people::show_author_and_assignees_row(ui, item, avatar_cache, avatar_size, event);
-    show_metadata_rows(ui, item, avatar_cache, avatar_size);
+    show_metadata_rows(ui, item, avatar_cache, avatar_size, event);
 }
 
 fn show_action_overlay(
@@ -244,8 +244,9 @@ fn show_metadata_rows(
     item: &StreamItem,
     avatar_cache: &mut author_avatar::AvatarCache,
     avatar_size: f32,
+    event: &mut Option<StreamEvent>,
 ) {
-    people::show_reviewer_row(ui, item, avatar_cache, avatar_size);
+    people::show_reviewer_row(ui, item, avatar_cache, avatar_size, event);
     if !item.labels.is_empty() {
         ui.horizontal_wrapped(|ui| {
             for label in &item.labels {

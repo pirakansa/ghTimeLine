@@ -78,8 +78,9 @@ Unsupported or malformed local filter terms must be rejected with a user-visible
 error, and must not replace the previously active local filter.
 
 Selecting a person avatar in an item card adds the matching temporary local
-filter term unless it is already active: author avatars use `author:` and
-assignee avatars use `assignee:`.
+filter term unless it is already active: author avatars use `author:`, assignee
+avatars use `assignee:`, requested-reviewer avatars use `review-requested:`,
+and completed-review avatars use `reviewed-by:`.
 
 Sort values:
 

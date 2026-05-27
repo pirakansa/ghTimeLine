@@ -123,7 +123,12 @@ fn item_list_item_click_emits_open_event() {
 
 #[test]
 fn clicking_person_avatar_emits_matching_local_filter_add_without_opening_item() {
-    for term in ["author:octo", "assignee:dev"] {
+    for term in [
+        "author:octo",
+        "assignee:dev",
+        "review-requested:triage",
+        "reviewed-by:reviewer",
+    ] {
         let mut harness = Harness::new_ui_state(
             |ui, state: &mut ItemListHarness| {
                 let mut avatar_cache = components::author_avatar::AvatarCache::default();
@@ -238,8 +243,17 @@ fn item_list_keeps_comment_count_and_reviewer_row_visible() {
         },
     );
 
-    harness.get_by_label("5");
+    let comment_right = harness.get_by_label("5").rect().right();
+    let reviewer_right = harness
+        .get_by_label("Filter by reviewed-by:reviewer")
+        .rect()
+        .right();
     harness.get_by_label("←");
+
+    assert!(
+        (comment_right - reviewer_right).abs() < 40.0,
+        "review avatars must stay aligned to the card's right edge"
+    );
 }
 
 #[test]
