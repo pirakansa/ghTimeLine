@@ -170,6 +170,7 @@ impl LibraryView {
 pub enum Selection {
     Library(LibraryView),
     SavedQuery(i64),
+    FilterStream(i64),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -300,6 +301,18 @@ pub struct SavedQuery {
     pub id: i64,
     pub name: String,
     pub query: String,
+    pub enabled: bool,
+    pub position: i64,
+    pub unread_count: i64,
+    pub filter_streams: Vec<FilterStream>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FilterStream {
+    pub id: i64,
+    pub saved_query_id: i64,
+    pub name: String,
+    pub filter_query: String,
     pub enabled: bool,
     pub position: i64,
     pub unread_count: i64,

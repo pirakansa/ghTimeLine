@@ -6,6 +6,7 @@ flow.
 ## Manual Refresh
 
 - Refreshes the selected saved query when a saved query is selected.
+- Refreshes the parent saved query when a filter stream is selected.
 - Refreshes all enabled saved queries when a library entry is selected.
 - Persists remote results immediately, but does not automatically redraw the
   current item list when those results change its displayed contents.
@@ -26,9 +27,10 @@ flow.
   first (`sort=updated&order=desc`) so display preferences do not displace
   newly updated items from the fetched page.
 - REST Search results are parsed into normalized stream item data.
-- Pull requests with node IDs are enriched through GraphQL.
+- Issues and pull requests with node IDs are enriched through GraphQL.
 - GraphQL enrichment fills draft state, merge state, merged timestamp, review
-  status, and reviewer metadata when available.
+  status, reviewer metadata, and local involvement metadata such as
+  participants/commenters and parsed mentions when available.
 - Failed GraphQL enrichment must not prevent REST Search data from being stored
   or rendered.
 - Failed GraphQL enrichment must preserve previously stored merge and review

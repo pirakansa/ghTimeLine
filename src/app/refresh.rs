@@ -77,6 +77,13 @@ impl GhStreamApp {
                     .cloned()
                     .into_iter()
                     .collect::<Vec<_>>(),
+                Selection::FilterStream(id) => runtime
+                    .saved_queries
+                    .iter()
+                    .find(|query| query.filter_streams.iter().any(|stream| stream.id == id))
+                    .cloned()
+                    .into_iter()
+                    .collect::<Vec<_>>(),
                 Selection::Library(_) => runtime.saved_queries.clone(),
             },
             AppMode::Setup { .. } => Vec::new(),

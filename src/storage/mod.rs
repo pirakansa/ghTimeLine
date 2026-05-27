@@ -14,6 +14,8 @@ use crate::models::HostConfig;
 pub enum StorageError {
     #[error("database error: {0}")]
     Database(#[from] rusqlite::Error),
+    #[error("invalid local filter: {0}")]
+    InvalidFilter(String),
 }
 
 pub type Result<T> = std::result::Result<T, StorageError>;

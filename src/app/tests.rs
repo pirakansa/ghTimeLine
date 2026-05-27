@@ -67,6 +67,106 @@ fn filter_state_drives_db_backed_item_reload() {
 }
 
 #[test]
+fn local_filter_query_drives_db_backed_item_reload() {
+    let (mut app, _) = app_with_one_item();
+    let Selection::SavedQuery(query_id) = app.stream.selection else {
+        panic!("app should select saved query");
+    };
+
+    let mut other_item = sample_item_with_number(100, "Backend item", "2026-05-24T00:00:00+00:00");
+    other_item.author_login = Some("other".to_owned());
+    other_item.repository_name = "api".to_owned();
+    other_item.labels = vec!["regression".to_owned()];
+    other_item.assignees = vec![ItemPerson {
+        login: "ops".to_owned(),
+        avatar_url: None,
+    }];
+    other_item.review_requests = vec![ItemPerson {
+        login: "qa".to_owned(),
+        avatar_url: None,
+    }];
+    other_item.reviewers = vec![ItemReview {
+        login: "approver".to_owned(),
+        avatar_url: None,
+        state: "approved".to_owned(),
+    }];
+    insert_item_into_query(&mut app, query_id, other_item);
+    app.reload_current_view();
+
+    app.set_local_filter(Some("author:author".to_owned()));
+    assert_items_len(&app, 1);
+    assert_current_titles(&app, &["Title"]);
+
+    app.set_local_filter(Some("repo:owner/api".to_owned()));
+    assert_items_len(&app, 1);
+    assert_current_titles(&app, &["Backend item"]);
+
+    app.set_local_filter(None);
+    assert_items_len(&app, 2);
+}
+
+#[test]
+fn invalid_local_filter_keeps_previous_active_filter() {
+    let (mut app, _) = app_with_one_item();
+
+    app.set_local_filter(Some("label:bug".to_owned()));
+    assert_items_len(&app, 1);
+
+    app.set_local_filter(Some("milestone:v1".to_owned()));
+
+    assert_items_len(&app, 1);
+    assert_eq!(
+        app.status,
+        "Could not apply local filter: invalid local filter: Unsupported local filter key: milestone"
+    );
+}
+
+#[test]
+fn filter_stream_selection_applies_persistent_local_filter() {
+    let (mut app, _) = app_with_one_item();
+    let Selection::SavedQuery(query_id) = app.stream.selection else {
+        panic!("app should select saved query");
+    };
+
+    let mut other_item = sample_item_with_number(100, "Backend item", "2026-05-24T00:00:00+00:00");
+    other_item.assignees = vec![ItemPerson {
+        login: "ops".to_owned(),
+        avatar_url: None,
+    }];
+    insert_item_into_query(&mut app, query_id, other_item);
+
+    app.add_filter_stream(query_id, "Assigned to dev", "assignee:dev", true);
+
+    assert_items_len(&app, 1);
+    assert_current_titles(&app, &["Title"]);
+    assert!(matches!(app.stream.selection, Selection::FilterStream(_)));
+}
+
+#[test]
+fn mark_filter_stream_read_updates_counts_and_current_view() {
+    let (mut app, _) = app_with_one_item();
+    let Selection::SavedQuery(query_id) = app.stream.selection else {
+        panic!("app should select saved query");
+    };
+
+    app.add_filter_stream(query_id, "Assigned to dev", "assignee:dev", true);
+    let Selection::FilterStream(filter_stream_id) = app.stream.selection else {
+        panic!("filter stream should be selected");
+    };
+    app.set_filter(Some(StreamFilter::Unread));
+    assert_items_len(&app, 1);
+
+    app.mark_filter_stream_read(filter_stream_id);
+
+    let AppMode::Main(runtime) = &app.mode else {
+        panic!("app should be in main mode");
+    };
+    assert_eq!(runtime.saved_queries[0].filter_streams[0].unread_count, 0);
+    assert!(runtime.items.is_empty());
+    assert_eq!(app.status, "Marked 1 items as read.");
+}
+
+#[test]
 fn mark_saved_query_read_updates_counts_and_current_view() {
     let (mut app, _) = app_with_one_item();
     let Selection::SavedQuery(query_id) = app.stream.selection else {
@@ -488,6 +588,11 @@ fn sample_item_with_number_for_host(
             avatar_url: Some("https://avatars.githubusercontent.com/u/4?v=4".to_owned()),
             state: "approved".to_owned(),
         }],
+        participants: vec![ItemPerson {
+            login: "commenter".to_owned(),
+            avatar_url: Some("https://avatars.githubusercontent.com/u/5?v=4".to_owned()),
+        }],
+        mentions: vec!["mentioned-user".to_owned()],
         graphql_enriched: true,
     }
 }
@@ -520,6 +625,18 @@ fn assert_items_len(app: &GhStreamApp, expected: usize) {
         panic!("app should be in main mode");
     };
     assert_eq!(runtime.items.len(), expected);
+}
+
+fn assert_current_titles(app: &GhStreamApp, expected: &[&str]) {
+    let AppMode::Main(runtime) = &app.mode else {
+        panic!("app should be in main mode");
+    };
+    let titles = runtime
+        .items
+        .iter()
+        .map(|item| item.title.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(titles, expected);
 }
 
 fn temp_config_path() -> PathBuf {

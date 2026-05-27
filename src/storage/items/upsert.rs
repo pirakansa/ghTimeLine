@@ -98,6 +98,8 @@ impl Storage {
             if item.graphql_enriched {
                 self.replace_review_requests(id, &item.review_requests)?;
                 self.replace_reviews(id, &item.reviewers)?;
+                self.replace_participants(id, &item.participants)?;
+                self.replace_mentions(id, &item.mentions)?;
             }
         }
 

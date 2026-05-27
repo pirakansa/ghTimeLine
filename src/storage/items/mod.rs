@@ -1,3 +1,4 @@
+mod local_filter;
 mod query;
 mod relations;
 mod state;
@@ -33,6 +34,8 @@ pub struct StreamItemUpsert {
     pub assignees: Vec<ItemPerson>,
     pub review_requests: Vec<ItemPerson>,
     pub reviewers: Vec<ItemReview>,
+    pub participants: Vec<ItemPerson>,
+    pub mentions: Vec<String>,
     pub graphql_enriched: bool,
 }
 

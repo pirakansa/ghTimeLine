@@ -51,6 +51,16 @@ impl Storage {
             .map_err(Into::into)
     }
 
+    pub fn list_unread_item_ids_for_filter_stream(
+        &self,
+        filter_stream_id: i64,
+    ) -> Result<Vec<i64>> {
+        self.list_item_ids_for_filter_stream(
+            filter_stream_id,
+            Some(crate::models::StreamFilter::Unread),
+        )
+    }
+
     pub fn list_unread_item_ids_for_library(
         &self,
         host_id: i64,
@@ -105,6 +115,31 @@ impl Storage {
             params![now, saved_query_id],
         )?;
         Ok(updated)
+    }
+
+    pub fn mark_filter_stream_read(&self, filter_stream_id: i64) -> Result<usize> {
+        let unread_item_ids = self.list_unread_item_ids_for_filter_stream(filter_stream_id)?;
+        if unread_item_ids.is_empty() {
+            return Ok(0);
+        }
+
+        let now = now_rfc3339();
+        let placeholders = vec!["?"; unread_item_ids.len()].join(", ");
+        let sql = format!(
+            "UPDATE item_state
+             SET is_unread = 0, read_at = ?1, unread_at = NULL, updated_at = ?1
+             WHERE stream_item_id IN ({placeholders})"
+        );
+        let mut params = vec![rusqlite::types::Value::Text(now)];
+        params.extend(
+            unread_item_ids
+                .iter()
+                .copied()
+                .map(rusqlite::types::Value::Integer),
+        );
+        self.connection()
+            .execute(&sql, rusqlite::params_from_iter(params))
+            .map_err(Into::into)
     }
 
     pub fn mark_library_read(&self, host_id: i64, library: LibraryView) -> Result<usize> {

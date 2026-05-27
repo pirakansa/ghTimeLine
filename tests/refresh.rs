@@ -37,8 +37,24 @@ fn refresh_writes_rest_results_and_graphql_enrichment_to_storage() {
     let stats = sync::refresh_saved_query(&config, &storage, host_id, &saved_query)
         .expect("refresh should succeed");
     let items = storage
-        .list_items_for_saved_query(query_id, None, SortOrder::UpdatedDesc)
+        .list_items_for_saved_query(query_id, None, None, SortOrder::UpdatedDesc)
         .expect("items");
+    let commenter_items = storage
+        .list_items_for_saved_query(
+            query_id,
+            None,
+            Some("involves:commenter"),
+            SortOrder::UpdatedDesc,
+        )
+        .expect("commenter involves items");
+    let mentioned_items = storage
+        .list_items_for_saved_query(
+            query_id,
+            None,
+            Some("involves:release-team"),
+            SortOrder::UpdatedDesc,
+        )
+        .expect("mentioned involves items");
 
     assert_eq!(stats.processed_count, 1);
     assert_eq!(stats.changed_count, 1);
@@ -56,6 +72,8 @@ fn refresh_writes_rest_results_and_graphql_enrichment_to_storage() {
     assert_eq!(items[0].review_requests[0].login, "triage");
     assert_eq!(items[0].reviewers[0].login, "reviewer");
     assert_eq!(items[0].reviewers[0].state, "approved");
+    assert_eq!(commenter_items[0].id, items[0].id);
+    assert_eq!(mentioned_items[0].id, items[0].id);
     assert_eq!(
         items[0].updated_at_github,
         "2026-05-23T00:00:00Z".to_owned()
@@ -131,7 +149,7 @@ fn failed_refresh_preserves_existing_items_and_records_sync_error() {
         .expect("first refresh should succeed");
     let results = sync::refresh_saved_queries(&config, &storage, host_id, &[saved_query]);
     let items = storage
-        .list_items_for_saved_query(query_id, None, SortOrder::UpdatedDesc)
+        .list_items_for_saved_query(query_id, None, None, SortOrder::UpdatedDesc)
         .expect("items");
     let sync_error: Option<String> = storage
         .connection()
@@ -189,7 +207,7 @@ fn graphql_failure_preserves_existing_pull_request_enrichment() {
         .expect("REST data should still be saved when GraphQL fails");
 
     let items = storage
-        .list_items_for_saved_query(query_id, None, SortOrder::UpdatedDesc)
+        .list_items_for_saved_query(query_id, None, None, SortOrder::UpdatedDesc)
         .expect("items");
 
     assert_eq!(items[0].title, "Improve stream after comment");
@@ -302,7 +320,7 @@ fn failed_graphql_batch_does_not_block_successful_batch_enrichment() {
 
     let results = sync::refresh_saved_queries(&config, &storage, host_id, &saved_queries);
     let items = storage
-        .list_items_for_saved_query(query_id, None, SortOrder::UpdatedDesc)
+        .list_items_for_saved_query(query_id, None, None, SortOrder::UpdatedDesc)
         .expect("items");
     let last_item = items
         .iter()
@@ -436,6 +454,7 @@ fn graphql_response_for_node(
                 } else {
                     serde_json::Value::Null
                 },
+                "body": "Ping @release-team before merge",
                 "reviewDecision": review_decision,
                 "reviewRequests": {
                     "totalCount": 1,
@@ -449,11 +468,26 @@ fn graphql_response_for_node(
                 "latestReviews": {
                     "nodes": [{
                         "state": "APPROVED",
+                        "body": "Approved with @review-buddy",
                         "author": {
                             "login": "reviewer",
                             "avatarUrl": "https://avatars.githubusercontent.com/u/4?v=4"
-                        },
-                        "submittedAt": "2026-05-24T00:00:00Z"
+                        }
+                    }]
+                },
+                "participants": {
+                    "nodes": [{
+                        "login": "participant",
+                        "avatarUrl": "https://avatars.githubusercontent.com/u/5?v=4"
+                    }]
+                },
+                "comments": {
+                    "nodes": [{
+                        "body": "Following up with @comment-buddy",
+                        "author": {
+                            "login": "commenter",
+                            "avatarUrl": "https://avatars.githubusercontent.com/u/6?v=4"
+                        }
                     }]
                 }
             }]

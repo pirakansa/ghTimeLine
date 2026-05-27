@@ -29,9 +29,17 @@ impl GhStreamApp {
     pub(super) fn reload_current_view(&mut self) {
         let selection = self.stream.selection.clone();
         let filter = self.stream.filter;
+        let local_filter = self.stream.local_filter.clone();
         if let AppMode::Main(runtime) = &mut self.mode {
             let sort = current_sort(runtime);
-            match load_current_view(&runtime.storage, runtime.host_id, &selection, filter, sort) {
+            match load_current_view(
+                &runtime.storage,
+                runtime.host_id,
+                &selection,
+                filter,
+                local_filter.as_deref(),
+                sort,
+            ) {
                 Ok(items) => {
                     runtime.items = items;
                     self.stream.pending_remote_item_ids.clear();
@@ -52,9 +60,17 @@ impl GhStreamApp {
 
         let selection = self.stream.selection.clone();
         let filter = self.stream.filter;
+        let local_filter = self.stream.local_filter.clone();
         if let AppMode::Main(runtime) = &mut self.mode {
             let sort = current_sort(runtime);
-            match load_current_view(&runtime.storage, runtime.host_id, &selection, filter, sort) {
+            match load_current_view(
+                &runtime.storage,
+                runtime.host_id,
+                &selection,
+                filter,
+                local_filter.as_deref(),
+                sort,
+            ) {
                 Ok(latest_items) if latest_items == runtime.items => {
                     self.stream.pending_remote_item_ids.clear();
                 }
@@ -90,12 +106,14 @@ impl GhStreamApp {
 
         let selection = self.stream.selection.clone();
         let filter = self.stream.filter;
+        let local_filter = self.stream.local_filter.clone();
         if let AppMode::Main(runtime) = &mut self.mode {
             let sort = current_sort(runtime);
             match runtime.storage.list_items_for_selection_by_ids(
                 runtime.host_id,
                 &selection,
                 filter,
+                local_filter.as_deref(),
                 sort,
                 changed_item_ids,
             ) {
@@ -117,6 +135,7 @@ impl GhStreamApp {
                             runtime.host_id,
                             &selection,
                             filter,
+                            local_filter.as_deref(),
                             sort,
                         ) {
                             Ok(items) => runtime.items = items,
@@ -148,6 +167,27 @@ impl GhStreamApp {
         self.reload_current_view();
     }
 
+    pub(super) fn set_local_filter(&mut self, local_filter: Option<String>) {
+        let normalized = local_filter
+            .map(|value| value.trim().to_owned())
+            .filter(|value| !value.is_empty());
+
+        if let AppMode::Main(runtime) = &mut self.mode {
+            if let Err(err) = runtime.storage.validate_local_filter(normalized.as_deref()) {
+                Self::replace_status_error(
+                    &mut self.status,
+                    &mut self.status_history,
+                    format!("Could not apply local filter: {err}"),
+                );
+                return;
+            }
+        }
+
+        self.stream.local_filter = normalized.clone();
+        self.stream.local_filter_input = normalized.unwrap_or_default();
+        self.reload_current_view();
+    }
+
     pub(super) fn select(&mut self, selection: Selection) {
         if self.stream.selection != selection {
             self.stream.reset_item_list_scroll = true;
@@ -172,13 +212,19 @@ fn load_current_view(
     host_id: i64,
     selection: &Selection,
     filter: Option<StreamFilter>,
+    local_filter: Option<&str>,
     sort: SortOrder,
 ) -> crate::storage::Result<Vec<StreamItem>> {
     match selection {
         Selection::Library(library) => {
-            storage.list_items_for_library(host_id, *library, filter, sort)
+            storage.list_items_for_library(host_id, *library, filter, local_filter, sort)
         }
-        Selection::SavedQuery(id) => storage.list_items_for_saved_query(*id, filter, sort),
+        Selection::SavedQuery(id) => {
+            storage.list_items_for_saved_query(*id, filter, local_filter, sort)
+        }
+        Selection::FilterStream(id) => {
+            storage.list_items_for_filter_stream(*id, filter, local_filter, sort)
+        }
     }
 }
 

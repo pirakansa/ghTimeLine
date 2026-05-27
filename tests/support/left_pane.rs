@@ -22,5 +22,6 @@ pub fn sample_saved_query() -> SavedQuery {
         enabled: true,
         position: 0,
         unread_count: 3,
+        filter_streams: Vec::new(),
     }
 }

@@ -77,7 +77,7 @@ fn refresh_saved_query_with_cache(
     item_cache: &mut HashMap<StreamItemKey, CachedSave>,
 ) -> Result<RefreshStats, SyncError> {
     let mut items = fetch_saved_query_items(config, host_id, saved_query)?;
-    let _ = github::graphql::enrich_pull_requests(&config.host, &config.auth.pat, &mut items);
+    let _ = github::graphql::enrich_items(&config.host, &config.auth.pat, &mut items);
     persist_saved_query_items(storage, saved_query, &items, item_cache)
 }
 
@@ -175,11 +175,7 @@ pub fn refresh_saved_queries(
             PendingRefresh::Failed { .. } => None,
         })
         .flat_map(|items| items.iter_mut());
-    let _ = github::graphql::enrich_pull_request_items(
-        &config.host,
-        &config.auth.pat,
-        successful_items,
-    );
+    let _ = github::graphql::enrich_item_iter(&config.host, &config.auth.pat, successful_items);
 
     let mut item_cache = HashMap::new();
     pending

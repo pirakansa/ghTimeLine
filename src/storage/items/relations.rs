@@ -82,6 +82,40 @@ impl Storage {
         Ok(())
     }
 
+    pub(super) fn replace_participants(
+        &self,
+        stream_item_id: i64,
+        participants: &[ItemPerson],
+    ) -> Result<()> {
+        self.connection().execute(
+            "DELETE FROM stream_item_participants WHERE stream_item_id = ?1",
+            params![stream_item_id],
+        )?;
+        for participant in participants {
+            self.connection().execute(
+                "INSERT INTO stream_item_participants (stream_item_id, login, avatar_url)
+                 VALUES (?1, ?2, ?3)",
+                params![stream_item_id, participant.login, participant.avatar_url],
+            )?;
+        }
+        Ok(())
+    }
+
+    pub(super) fn replace_mentions(&self, stream_item_id: i64, mentions: &[String]) -> Result<()> {
+        self.connection().execute(
+            "DELETE FROM stream_item_mentions WHERE stream_item_id = ?1",
+            params![stream_item_id],
+        )?;
+        for mention in mentions {
+            self.connection().execute(
+                "INSERT INTO stream_item_mentions (stream_item_id, login)
+                 VALUES (?1, ?2)",
+                params![stream_item_id, mention],
+            )?;
+        }
+        Ok(())
+    }
+
     pub(super) fn list_labels_by_item_id(
         &self,
         item_ids: &[i64],

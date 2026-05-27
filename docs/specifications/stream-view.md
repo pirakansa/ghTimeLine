@@ -20,6 +20,10 @@ Library entries:
 Saved query views show items matched to that query and exclude archived items by
 default.
 
+Filter stream views are local child views under a saved query. They reuse the
+parent saved query's cached matches and apply an additional SQLite-backed local
+filter without performing a new GitHub search.
+
 When the same issue or pull request matches multiple saved queries, aggregated
 library views display it as a single item.
 
@@ -42,6 +46,36 @@ Filters:
   merged; draft pull requests are included when open and not merged
 - `Unread`: local unread state
 - `Bookmarked`: local bookmarked state
+
+The toolbar also supports a temporary local filter query that narrows the
+currently displayed SQLite-backed list without issuing new GitHub API requests.
+Supported local filter terms are:
+
+- `author:<login>`
+- `assignee:<login>`
+- `draft:true` or `draft:false`
+- `involves:<login>`
+- `is:issue`, `is:pr`, `is:open`, `is:closed`, or `is:merged`
+- `label:<name>`
+- `org:<owner>`
+- `repo:<owner/name>`
+- `review-requested:<login>`
+- `reviewed-by:<login>`
+- `user:<owner>`
+
+`involves:` matches against locally stored author, assignee, review-requested,
+reviewed-by, participant, commenter, and parsed `@mention` metadata.
+
+Local filter terms combine as follows:
+
+- Different filter keys use `AND`
+- Repeated values of the same key use `OR`
+- Repeated `is:` terms combine by category (`type`, `state`, `draft`) so
+  `is:pr is:open` narrows to open pull requests
+- Repeated `label:` terms use `AND`
+
+Unsupported or malformed local filter terms must be rejected with a user-visible
+error, and must not replace the previously active local filter.
 
 Sort values:
 
@@ -83,6 +117,9 @@ Library entries and saved queries with unread items provide **Mark all as read**
 from their context menus. For Library entries, the action marks unread items
 across enabled saved queries within the selected library scope. **Inbox** and
 **Bookmark** exclude archived items; **Archived** marks archived unread items.
+
+Filter streams also provide **Mark all as read** for unread, non-archived items
+visible within that filter stream.
 
 ## Item Opening
 

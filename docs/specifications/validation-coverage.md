@@ -18,5 +18,6 @@ The current test suite covers:
 - Archived unread badge behavior
 - Saved query updates
 - Stream toolbar sort ordering for selected saved query views
+- Local SQL-backed toolbar filter validation and matching
 - UI state/event handling
 - `egui_kittest` component interactions for toolbar, left pane, and item list

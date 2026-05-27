@@ -312,17 +312,35 @@ impl eframe::App for GhStreamApp {
                     Some(screens::stream::StreamEvent::SetFilter(filter)) => {
                         self.set_filter(filter)
                     }
+                    Some(screens::stream::StreamEvent::SetLocalFilter(filter)) => {
+                        self.set_local_filter(filter)
+                    }
+                    Some(screens::stream::StreamEvent::AddFilterStream {
+                        saved_query_id,
+                        name,
+                        filter_query,
+                        enabled,
+                    }) => self.add_filter_stream(saved_query_id, &name, &filter_query, enabled),
                     Some(screens::stream::StreamEvent::AddQuery {
                         name,
                         query,
                         enabled,
                     }) => self.add_query(&name, &query, enabled),
+                    Some(screens::stream::StreamEvent::UpdateFilterStream {
+                        id,
+                        name,
+                        filter_query,
+                        enabled,
+                    }) => self.update_filter_stream(id, &name, &filter_query, enabled),
                     Some(screens::stream::StreamEvent::UpdateQuery {
                         id,
                         name,
                         query,
                         enabled,
                     }) => self.update_query(id, &name, &query, enabled),
+                    Some(screens::stream::StreamEvent::DeleteFilterStream(id)) => {
+                        self.delete_filter_stream(id)
+                    }
                     Some(screens::stream::StreamEvent::DeleteQuery(id)) => self.delete_query(id),
                     Some(screens::stream::StreamEvent::MoveQueryUp(id)) => self.move_query_up(id),
                     Some(screens::stream::StreamEvent::MoveQueryDown(id)) => {
@@ -330,6 +348,9 @@ impl eframe::App for GhStreamApp {
                     }
                     Some(screens::stream::StreamEvent::MarkLibraryRead(library)) => {
                         self.mark_library_read(library)
+                    }
+                    Some(screens::stream::StreamEvent::MarkFilterStreamRead(id)) => {
+                        self.mark_filter_stream_read(id)
                     }
                     Some(screens::stream::StreamEvent::MarkSavedQueryRead(id)) => {
                         self.mark_saved_query_read(id)

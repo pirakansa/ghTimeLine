@@ -1,18 +1,36 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::github::{client, GitHubError};
-use crate::models::{HostConfig, ItemType};
-use crate::models::{ItemPerson, ItemReview};
+use crate::models::{HostConfig, ItemPerson, ItemReview, ItemType};
 use crate::storage::items::StreamItemUpsert;
 
-const PULL_REQUEST_ENRICHMENT_QUERY: &str = r#"
-query PullRequestEnrichment($ids: [ID!]!) {
+const ITEM_ENRICHMENT_QUERY: &str = r#"
+query ItemEnrichment($ids: [ID!]!) {
   nodes(ids: $ids) {
+    ... on Issue {
+      id
+      body
+      participants(first: 20) {
+        nodes {
+          login
+          avatarUrl
+        }
+      }
+      comments(first: 20) {
+        nodes {
+          author {
+            ... on User {
+              login
+              avatarUrl
+            }
+          }
+          body
+        }
+      }
+    }
     ... on PullRequest {
       id
-      number
-      title
-      state
+      body
       isDraft
       merged
       mergedAt
@@ -31,18 +49,37 @@ query PullRequestEnrichment($ids: [ID!]!) {
       latestReviews(first: 20) {
         nodes {
           state
+          body
           author {
-            login
-            avatarUrl
+            ... on User {
+              login
+              avatarUrl
+            }
           }
-          submittedAt
+        }
+      }
+      participants(first: 20) {
+        nodes {
+          login
+          avatarUrl
+        }
+      }
+      comments(first: 20) {
+        nodes {
+          author {
+            ... on User {
+              login
+              avatarUrl
+            }
+          }
+          body
         }
       }
     }
   }
 }
 "#;
-const PULL_REQUEST_ENRICHMENT_BATCH_SIZE: usize = 50;
+const ITEM_ENRICHMENT_BATCH_SIZE: usize = 50;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ReviewSignal {
@@ -65,15 +102,15 @@ impl ReviewSignal {
     }
 }
 
-pub fn enrich_pull_requests(
+pub fn enrich_items(
     host: &HostConfig,
     pat: &str,
     items: &mut [StreamItemUpsert],
 ) -> Result<(), GitHubError> {
-    enrich_pull_request_items(host, pat, items.iter_mut())
+    enrich_item_iter(host, pat, items.iter_mut())
 }
 
-pub(crate) fn enrich_pull_request_items<'a>(
+pub(crate) fn enrich_item_iter<'a>(
     host: &HostConfig,
     pat: &str,
     items: impl IntoIterator<Item = &'a mut StreamItemUpsert>,
@@ -82,7 +119,6 @@ pub(crate) fn enrich_pull_request_items<'a>(
     let mut seen_ids = HashSet::new();
     let ids = items
         .iter()
-        .filter(|item| item.item_type == ItemType::PullRequest)
         .filter_map(|item| item.node_id.clone())
         .filter(|node_id| seen_ids.insert(node_id.clone()))
         .collect::<Vec<_>>();
@@ -93,8 +129,8 @@ pub(crate) fn enrich_pull_request_items<'a>(
 
     let mut enrichment_by_id = HashMap::new();
     let mut first_error = None;
-    for batch in ids.chunks(PULL_REQUEST_ENRICHMENT_BATCH_SIZE) {
-        match fetch_pull_request_enrichment(host, pat, batch) {
+    for batch in ids.chunks(ITEM_ENRICHMENT_BATCH_SIZE) {
+        match fetch_item_enrichment(host, pat, batch) {
             Ok(batch_enrichment) => enrichment_by_id.extend(batch_enrichment),
             Err(error) if first_error.is_none() => first_error = Some(error),
             Err(_) => {}
@@ -106,15 +142,25 @@ pub(crate) fn enrich_pull_request_items<'a>(
             continue;
         };
         let Some(enrichment) = enrichment_by_id.get(node_id) else {
-            item.review_status = Some(ReviewSignal::Unknown.as_db_value().to_owned());
+            if item.item_type == ItemType::PullRequest {
+                item.review_status = Some(ReviewSignal::Unknown.as_db_value().to_owned());
+            }
             continue;
         };
-        item.is_draft = Some(enrichment.is_draft);
-        item.is_merged = Some(enrichment.merged);
-        item.merged_at_github = enrichment.merged_at.clone();
-        item.review_status = Some(enrichment.review_status.as_db_value().to_owned());
-        item.review_requests = enrichment.review_requests.clone();
-        item.reviewers = enrichment.reviewers.clone();
+
+        if item.item_type == ItemType::PullRequest {
+            item.is_draft = enrichment.is_draft;
+            item.is_merged = enrichment.merged;
+            item.merged_at_github = enrichment.merged_at.clone();
+            item.review_status = enrichment
+                .review_status
+                .as_ref()
+                .map(|signal| signal.as_db_value().to_owned());
+            item.review_requests = enrichment.review_requests.clone();
+            item.reviewers = enrichment.reviewers.clone();
+        }
+        item.participants = enrichment.participants.clone();
+        item.mentions = enrichment.mentions.clone();
         item.graphql_enriched = true;
     }
 
@@ -124,13 +170,13 @@ pub(crate) fn enrich_pull_request_items<'a>(
     }
 }
 
-fn fetch_pull_request_enrichment(
+fn fetch_item_enrichment(
     host: &HostConfig,
     pat: &str,
     ids: &[String],
-) -> Result<HashMap<String, PullRequestEnrichment>, GitHubError> {
+) -> Result<HashMap<String, ItemEnrichment>, GitHubError> {
     let request = GraphqlRequest {
-        query: PULL_REQUEST_ENRICHMENT_QUERY,
+        query: ITEM_ENRICHMENT_QUERY,
         variables: GraphqlVariables { ids },
     };
     let body = serde_json::to_string(&request).map_err(|error| GitHubError::Parse {
@@ -140,13 +186,13 @@ fn fetch_pull_request_enrichment(
     let mut response = client::authenticated_post_json(host, pat, &host.graphql_url(), body)?;
     client::ensure_success(host, &response)?;
     let body = client::read_body(host, pat, &mut response)?;
-    parse_pull_request_enrichment(host, &body)
+    parse_item_enrichment(host, &body)
 }
 
-fn parse_pull_request_enrichment(
+fn parse_item_enrichment(
     host: &HostConfig,
     body: &str,
-) -> Result<HashMap<String, PullRequestEnrichment>, GitHubError> {
+) -> Result<HashMap<String, ItemEnrichment>, GitHubError> {
     let response =
         serde_json::from_str::<GraphqlResponse>(body).map_err(|error| GitHubError::Parse {
             host: host.name.clone(),
@@ -169,25 +215,31 @@ fn parse_pull_request_enrichment(
         return Ok(enrichments);
     };
     for node in data.nodes.into_iter().flatten() {
-        let review_status = derive_review_signal(&node);
+        let review_status = node
+            .review_status_fields_present()
+            .then(|| derive_review_signal(&node));
         let review_requests = review_requests(&node);
         let reviewers = reviewers(&node);
+        let participants = participants(&node, &reviewers);
+        let mentions = mentions(&node);
         enrichments.insert(
             node.id.clone(),
-            PullRequestEnrichment {
+            ItemEnrichment {
                 is_draft: node.is_draft,
                 merged: node.merged,
                 merged_at: node.merged_at,
                 review_status,
                 review_requests,
                 reviewers,
+                participants,
+                mentions,
             },
         );
     }
     Ok(enrichments)
 }
 
-fn derive_review_signal(node: &PullRequestNode) -> ReviewSignal {
+fn derive_review_signal(node: &EnrichedNode) -> ReviewSignal {
     if node.review_decision.as_deref() == Some("CHANGES_REQUESTED")
         || node.latest_reviews.nodes.iter().any(|review| {
             review.state == "CHANGES_REQUESTED" || review.state == "CHANGES_REQUESTED_EVENT"
@@ -201,6 +253,154 @@ fn derive_review_signal(node: &PullRequestNode) -> ReviewSignal {
         Some("REVIEW_REQUIRED") => ReviewSignal::ReviewRequired,
         _ if node.review_requests.total_count > 0 => ReviewSignal::ReviewRequired,
         _ => ReviewSignal::None,
+    }
+}
+
+fn review_requests(node: &EnrichedNode) -> Vec<ItemPerson> {
+    dedupe_people(node.review_requests.nodes.iter().filter_map(|node| {
+        let reviewer = node.requested_reviewer.as_ref()?;
+        let login = reviewer.login.as_ref()?;
+        Some(ItemPerson {
+            login: login.clone(),
+            avatar_url: reviewer.avatar_url.clone(),
+        })
+    }))
+}
+
+fn reviewers(node: &EnrichedNode) -> Vec<ItemReview> {
+    let mut reviewers = node
+        .latest_reviews
+        .nodes
+        .iter()
+        .filter_map(|review| {
+            let author = review.author.as_ref()?;
+            let login = author.login.as_ref()?;
+            normalize_review_state(&review.state).map(|state| ItemReview {
+                login: login.clone(),
+                avatar_url: author.avatar_url.clone(),
+                state: state.to_owned(),
+            })
+        })
+        .collect::<Vec<_>>();
+    reviewers.sort_by(|left, right| {
+        left.login
+            .to_ascii_lowercase()
+            .cmp(&right.login.to_ascii_lowercase())
+    });
+    reviewers
+}
+
+fn participants(node: &EnrichedNode, reviewers: &[ItemReview]) -> Vec<ItemPerson> {
+    dedupe_people(
+        node.participants
+            .nodes
+            .iter()
+            .filter_map(user_to_person)
+            .chain(
+                node.comments
+                    .nodes
+                    .iter()
+                    .filter_map(|comment| comment.author.as_ref().and_then(user_to_person)),
+            )
+            .chain(reviewers.iter().map(|review| ItemPerson {
+                login: review.login.clone(),
+                avatar_url: review.avatar_url.clone(),
+            })),
+    )
+}
+
+fn mentions(node: &EnrichedNode) -> Vec<String> {
+    let mut mentions = HashSet::new();
+    collect_mentions_from_text(&node.body, &mut mentions);
+    for comment in &node.comments.nodes {
+        collect_mentions_from_text(&comment.body, &mut mentions);
+    }
+    for review in &node.latest_reviews.nodes {
+        collect_mentions_from_text(&review.body, &mut mentions);
+    }
+    let mut mentions = mentions.into_iter().collect::<Vec<_>>();
+    mentions.sort();
+    mentions
+}
+
+fn collect_mentions_from_text(text: &str, mentions: &mut HashSet<String>) {
+    let chars = text.chars().collect::<Vec<_>>();
+    let mut index = 0;
+    while index < chars.len() {
+        if chars[index] != '@' {
+            index += 1;
+            continue;
+        }
+
+        if index > 0 && is_login_char(chars[index - 1]) {
+            index += 1;
+            continue;
+        }
+
+        let start = index + 1;
+        if start >= chars.len() || !chars[start].is_ascii_alphanumeric() {
+            index += 1;
+            continue;
+        }
+
+        let mut end = start + 1;
+        while end < chars.len() && is_login_char(chars[end]) {
+            end += 1;
+        }
+
+        if chars[end - 1] == '-' {
+            index = end;
+            continue;
+        }
+
+        let login = chars[start..end].iter().collect::<String>();
+        if !login.is_empty() {
+            mentions.insert(login.to_ascii_lowercase());
+        }
+        index = end;
+    }
+}
+
+fn is_login_char(ch: char) -> bool {
+    ch.is_ascii_alphanumeric() || ch == '-'
+}
+
+fn dedupe_people(people: impl IntoIterator<Item = ItemPerson>) -> Vec<ItemPerson> {
+    let mut by_login = HashMap::<String, ItemPerson>::new();
+    for person in people {
+        let key = person.login.to_ascii_lowercase();
+        by_login
+            .entry(key)
+            .and_modify(|existing| {
+                if existing.avatar_url.is_none() {
+                    existing.avatar_url = person.avatar_url.clone();
+                }
+            })
+            .or_insert(person);
+    }
+
+    let mut people = by_login.into_values().collect::<Vec<_>>();
+    people.sort_by(|left, right| {
+        left.login
+            .to_ascii_lowercase()
+            .cmp(&right.login.to_ascii_lowercase())
+    });
+    people
+}
+
+fn user_to_person(user: &UserRef) -> Option<ItemPerson> {
+    user.login.as_ref().map(|login| ItemPerson {
+        login: login.clone(),
+        avatar_url: user.avatar_url.clone(),
+    })
+}
+
+fn normalize_review_state(state: &str) -> Option<&'static str> {
+    match state {
+        "APPROVED" => Some("approved"),
+        "CHANGES_REQUESTED" | "CHANGES_REQUESTED_EVENT" => Some("changes_requested"),
+        "COMMENTED" => Some("commented"),
+        _ => None,
     }
 }
 
@@ -228,108 +428,104 @@ struct GraphqlError {
 
 #[derive(Debug, serde::Deserialize)]
 struct GraphqlData {
-    nodes: Vec<Option<PullRequestNode>>,
+    nodes: Vec<Option<EnrichedNode>>,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Default, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct PullRequestNode {
+struct EnrichedNode {
     id: String,
-    is_draft: bool,
-    merged: bool,
+    #[serde(default)]
+    body: String,
+    #[serde(default)]
+    is_draft: Option<bool>,
+    #[serde(default)]
+    merged: Option<bool>,
     merged_at: Option<String>,
     review_decision: Option<String>,
+    #[serde(default)]
     review_requests: ReviewRequests,
+    #[serde(default)]
     latest_reviews: LatestReviews,
+    #[serde(default)]
+    participants: Participants,
+    #[serde(default)]
+    comments: Comments,
 }
 
-#[derive(Debug, serde::Deserialize)]
+impl EnrichedNode {
+    fn review_status_fields_present(&self) -> bool {
+        self.is_draft.is_some() || self.merged.is_some() || self.review_decision.is_some()
+    }
+}
+
+#[derive(Debug, Default, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ReviewRequests {
+    #[serde(default)]
     total_count: i64,
     #[serde(default)]
     nodes: Vec<ReviewRequestNode>,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Default, serde::Deserialize)]
 struct LatestReviews {
     #[serde(default)]
     nodes: Vec<ReviewNode>,
 }
 
-#[derive(Debug, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ReviewRequestNode {
-    requested_reviewer: Option<RequestedReviewer>,
+#[derive(Debug, Default, serde::Deserialize)]
+struct Participants {
+    #[serde(default)]
+    nodes: Vec<UserRef>,
+}
+
+#[derive(Debug, Default, serde::Deserialize)]
+struct Comments {
+    #[serde(default)]
+    nodes: Vec<CommentNode>,
 }
 
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct RequestedReviewer {
+struct ReviewRequestNode {
+    requested_reviewer: Option<UserRef>,
+}
+
+#[derive(Debug, Default, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UserRef {
     login: Option<String>,
     avatar_url: Option<String>,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Default, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ReviewNode {
     state: String,
-    author: Option<ReviewAuthor>,
+    #[serde(default)]
+    body: String,
+    author: Option<UserRef>,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Default, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct ReviewAuthor {
-    login: String,
-    avatar_url: Option<String>,
-}
-
-fn review_requests(node: &PullRequestNode) -> Vec<ItemPerson> {
-    node.review_requests
-        .nodes
-        .iter()
-        .filter_map(|node| match &node.requested_reviewer {
-            Some(reviewer) => reviewer.login.as_ref().map(|login| ItemPerson {
-                login: login.clone(),
-                avatar_url: reviewer.avatar_url.clone(),
-            }),
-            None => None,
-        })
-        .collect()
-}
-
-fn reviewers(node: &PullRequestNode) -> Vec<ItemReview> {
-    node.latest_reviews
-        .nodes
-        .iter()
-        .filter_map(|review| {
-            let author = review.author.as_ref()?;
-            normalize_review_state(&review.state).map(|state| ItemReview {
-                login: author.login.clone(),
-                avatar_url: author.avatar_url.clone(),
-                state: state.to_owned(),
-            })
-        })
-        .collect()
-}
-
-fn normalize_review_state(state: &str) -> Option<&'static str> {
-    match state {
-        "APPROVED" => Some("approved"),
-        "CHANGES_REQUESTED" | "CHANGES_REQUESTED_EVENT" => Some("changes_requested"),
-        "COMMENTED" => Some("commented"),
-        _ => None,
-    }
+struct CommentNode {
+    author: Option<UserRef>,
+    #[serde(default)]
+    body: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct PullRequestEnrichment {
-    is_draft: bool,
-    merged: bool,
+struct ItemEnrichment {
+    is_draft: Option<bool>,
+    merged: Option<bool>,
     merged_at: Option<String>,
-    review_status: ReviewSignal,
+    review_status: Option<ReviewSignal>,
     review_requests: Vec<ItemPerson>,
     reviewers: Vec<ItemReview>,
+    participants: Vec<ItemPerson>,
+    mentions: Vec<String>,
 }
 
 #[cfg(test)]
@@ -359,12 +555,10 @@ mod tests {
           "data": {
             "nodes": [{
               "id": "PR_kwDO",
-              "number": 7,
-              "title": "Improve stream",
-              "state": "OPEN",
               "isDraft": true,
               "merged": false,
               "mergedAt": null,
+              "body": "Ping @octo and @release-team.",
               "reviewDecision": "REVIEW_REQUIRED",
               "reviewRequests": {
                 "totalCount": 2,
@@ -378,24 +572,38 @@ mod tests {
               "latestReviews": {
                 "nodes": [{
                   "state": "COMMENTED",
+                  "body": "Looks good to me @review-ally",
                   "author": {
                     "login": "reviewer",
                     "avatarUrl": "https://avatars.githubusercontent.com/u/2?v=4"
-                  },
-                  "submittedAt": "2026-05-23T00:00:00Z"
+                  }
+                }]
+              },
+              "participants": {
+                "nodes": [{
+                  "login": "participant",
+                  "avatarUrl": "https://avatars.githubusercontent.com/u/3?v=4"
+                }]
+              },
+              "comments": {
+                "nodes": [{
+                  "body": "Following up with @comment-ally",
+                  "author": {
+                    "login": "commenter",
+                    "avatarUrl": "https://avatars.githubusercontent.com/u/4?v=4"
+                  }
                 }]
               }
             }]
           }
         }"#;
 
-        let enrichments =
-            parse_pull_request_enrichment(&config.host, body).expect("graphql response");
+        let enrichments = parse_item_enrichment(&config.host, body).expect("graphql response");
         let enrichment = enrichments.get("PR_kwDO").expect("enrichment");
 
-        assert!(enrichment.is_draft);
-        assert!(!enrichment.merged);
-        assert_eq!(enrichment.review_status, ReviewSignal::ReviewRequired);
+        assert_eq!(enrichment.is_draft, Some(true));
+        assert_eq!(enrichment.merged, Some(false));
+        assert_eq!(enrichment.review_status, Some(ReviewSignal::ReviewRequired));
         assert_eq!(
             enrichment.review_requests,
             vec![ItemPerson {
@@ -411,17 +619,58 @@ mod tests {
                 state: "commented".to_owned()
             }]
         );
+        assert_eq!(
+            enrichment.participants,
+            vec![
+                ItemPerson {
+                    login: "commenter".to_owned(),
+                    avatar_url: Some("https://avatars.githubusercontent.com/u/4?v=4".to_owned())
+                },
+                ItemPerson {
+                    login: "participant".to_owned(),
+                    avatar_url: Some("https://avatars.githubusercontent.com/u/3?v=4".to_owned())
+                },
+                ItemPerson {
+                    login: "reviewer".to_owned(),
+                    avatar_url: Some("https://avatars.githubusercontent.com/u/2?v=4".to_owned())
+                }
+            ]
+        );
+        assert_eq!(
+            enrichment.mentions,
+            vec![
+                "comment-ally".to_owned(),
+                "octo".to_owned(),
+                "release-team".to_owned(),
+                "review-ally".to_owned()
+            ]
+        );
+    }
+
+    #[test]
+    fn extracts_mentions_from_plain_text() {
+        let mut mentions = HashSet::new();
+
+        collect_mentions_from_text(
+            "Thanks @octo-team, cc @dev-1. Skip email@example.com and trailing @dash-.",
+            &mut mentions,
+        );
+
+        let mut mentions = mentions.into_iter().collect::<Vec<_>>();
+        mentions.sort();
+        assert_eq!(mentions, vec!["dev-1".to_owned(), "octo-team".to_owned()]);
     }
 
     fn pull_request_node(
         review_decision: Option<&str>,
         review_request_count: i64,
         review_states: Vec<&str>,
-    ) -> PullRequestNode {
-        PullRequestNode {
+    ) -> EnrichedNode {
+        EnrichedNode {
             id: "PR_kwDO".to_owned(),
-            is_draft: false,
-            merged: false,
+            body: String::new(),
+            is_draft: Some(false),
+            merged: Some(false),
             merged_at: None,
             review_decision: review_decision.map(ToOwned::to_owned),
             review_requests: ReviewRequests {
@@ -433,10 +682,13 @@ mod tests {
                     .into_iter()
                     .map(|state| ReviewNode {
                         state: state.to_owned(),
+                        body: String::new(),
                         author: None,
                     })
                     .collect(),
             },
+            participants: Participants::default(),
+            comments: Comments::default(),
         }
     }
 }
