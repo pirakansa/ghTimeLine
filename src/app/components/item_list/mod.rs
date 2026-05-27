@@ -247,12 +247,12 @@ fn filter_control(
     term: &str,
     event: &mut Option<StreamEvent>,
 ) {
-    let label = format!("Filter by {term}");
+    let label = format!("Add to local filter: {term}");
     response.widget_info(|| {
         egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), &label)
     });
     if response.on_hover_text(&label).clicked() {
-        *event = Some(StreamEvent::AddLocalFilterTerm(term.to_owned()));
+        *event = Some(StreamEvent::AddLocalFilterInputTerm(term.to_owned()));
     }
 }
 

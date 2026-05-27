@@ -146,7 +146,7 @@ fn filter_avatar(
     event: &mut Option<StreamEvent>,
 ) {
     let filter = format!("{filter_key}:{login}");
-    let label = format!("Filter by {filter}");
+    let label = format!("Add to local filter: {filter}");
     response.widget_info(|| {
         egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), &label)
     });
@@ -160,7 +160,7 @@ fn filter_avatar(
                     .is_some_and(|pos| response.rect.contains(pos))
         });
     if clicked {
-        *event = Some(StreamEvent::AddLocalFilterTerm(filter));
+        *event = Some(StreamEvent::AddLocalFilterInputTerm(filter));
     }
 }
 

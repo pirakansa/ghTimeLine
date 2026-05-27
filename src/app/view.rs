@@ -188,23 +188,17 @@ impl GhStreamApp {
         self.reload_current_view();
     }
 
-    pub(super) fn add_local_filter_term(&mut self, term: &str) {
-        let active = self
-            .stream
-            .local_filter
-            .as_deref()
-            .unwrap_or_default()
-            .trim();
-        if active.split_whitespace().any(|existing| existing == term) {
+    pub(super) fn add_local_filter_input_term(&mut self, term: &str) {
+        let input = self.stream.local_filter_input.trim();
+        if input.split_whitespace().any(|existing| existing == term) {
             return;
         }
 
-        let local_filter = if active.is_empty() {
+        self.stream.local_filter_input = if input.is_empty() {
             term.to_owned()
         } else {
-            format!("{active} {term}")
+            format!("{input} {term}")
         };
-        self.set_local_filter(Some(local_filter));
     }
 
     pub(super) fn select(&mut self, selection: Selection) {

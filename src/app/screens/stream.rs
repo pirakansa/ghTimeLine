@@ -49,7 +49,7 @@ pub enum StreamEvent {
     Select(Selection),
     SetFilter(Option<StreamFilter>),
     SetLocalFilter(Option<String>),
-    AddLocalFilterTerm(String),
+    AddLocalFilterInputTerm(String),
     AddFilterStream {
         saved_query_id: i64,
         name: String,

@@ -77,14 +77,15 @@ Local filter terms combine as follows:
 Unsupported or malformed local filter terms must be rejected with a user-visible
 error, and must not replace the previously active local filter.
 
-Selecting a person avatar in an item card adds the matching temporary local
-filter term unless it is already active: author avatars use `author:`, assignee
-avatars use `assignee:`, requested-reviewer avatars use `review-requested:`,
-and completed-review avatars use `reviewed-by:`.
+Selecting a person avatar in an item card appends the matching term to the
+temporary local filter input unless it is already present: author avatars use
+`author:`, assignee avatars use `assignee:`, requested-reviewer avatars use
+`review-requested:`, and completed-review avatars use `reviewed-by:`.
 
-Selecting the repository reference in an item header adds `repo:<owner/name>`.
-Selecting its type icon adds `is:issue` for issues or `is:pr` for pull
-requests.
+Selecting the repository reference in an item header appends
+`repo:<owner/name>`. Selecting its type icon appends `is:issue` for issues or
+`is:pr` for pull requests. These controls must not activate the draft filter;
+only applying the local filter input changes the displayed items.
 
 Sort values:
 

@@ -315,8 +315,8 @@ impl eframe::App for GhStreamApp {
                     Some(screens::stream::StreamEvent::SetLocalFilter(filter)) => {
                         self.set_local_filter(filter)
                     }
-                    Some(screens::stream::StreamEvent::AddLocalFilterTerm(term)) => {
-                        self.add_local_filter_term(&term)
+                    Some(screens::stream::StreamEvent::AddLocalFilterInputTerm(term)) => {
+                        self.add_local_filter_input_term(&term)
                     }
                     Some(screens::stream::StreamEvent::AddFilterStream {
                         saved_query_id,

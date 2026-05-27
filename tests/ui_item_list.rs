@@ -122,7 +122,7 @@ fn item_list_item_click_emits_open_event() {
 }
 
 #[test]
-fn clicking_person_avatar_emits_matching_local_filter_add_without_opening_item() {
+fn clicking_person_avatar_emits_matching_local_filter_input_add_without_opening_item() {
     for term in [
         "author:octo",
         "assignee:dev",
@@ -149,14 +149,14 @@ fn clicking_person_avatar_emits_matching_local_filter_add_without_opening_item()
             },
         );
 
-        let label = format!("Filter by {term}");
+        let label = format!("Add to local filter: {term}");
         let avatar = harness.get_by_label(&label);
         let avatar_rect = avatar.rect();
         avatar.click();
         harness.run();
 
         match &harness.state().event {
-            Some(StreamEvent::AddLocalFilterTerm(actual)) => assert_eq!(actual, term),
+            Some(StreamEvent::AddLocalFilterInputTerm(actual)) => assert_eq!(actual, term),
             Some(StreamEvent::ItemAction(_)) => {
                 panic!("avatar click opened the item for {term} at {avatar_rect:?}")
             }
@@ -167,28 +167,32 @@ fn clicking_person_avatar_emits_matching_local_filter_add_without_opening_item()
 }
 
 #[test]
-fn clicking_header_metadata_adds_repo_and_item_type_filters_without_opening_item() {
+fn clicking_header_metadata_adds_repo_and_item_type_filter_input_without_opening_item() {
     for term in ["repo:owner/repo", "is:pr"] {
         let mut harness = item_list_harness(sample_stream_item());
 
-        harness.get_by_label(&format!("Filter by {term}")).click();
+        harness
+            .get_by_label(&format!("Add to local filter: {term}"))
+            .click();
         harness.run();
 
         assert!(matches!(
             &harness.state().event,
-            Some(StreamEvent::AddLocalFilterTerm(actual)) if actual == term
+            Some(StreamEvent::AddLocalFilterInputTerm(actual)) if actual == term
         ));
     }
 
     let mut issue = sample_stream_item();
     issue.item_type = ghtl::models::ItemType::Issue;
     let mut harness = item_list_harness(issue);
-    harness.get_by_label("Filter by is:issue").click();
+    harness
+        .get_by_label("Add to local filter: is:issue")
+        .click();
     harness.run();
 
     assert!(matches!(
         &harness.state().event,
-        Some(StreamEvent::AddLocalFilterTerm(actual)) if actual == "is:issue"
+        Some(StreamEvent::AddLocalFilterInputTerm(actual)) if actual == "is:issue"
     ));
 }
 
@@ -271,7 +275,7 @@ fn item_list_keeps_comment_count_and_reviewer_row_visible() {
 
     let comment_right = harness.get_by_label("5").rect().right();
     let reviewer_right = harness
-        .get_by_label("Filter by reviewed-by:reviewer")
+        .get_by_label("Add to local filter: reviewed-by:reviewer")
         .rect()
         .right();
     harness.get_by_label("←");
