@@ -10,7 +10,14 @@ pub fn show(
     avatar_url: Option<&str>,
     login: Option<&str>,
 ) -> egui::Response {
-    show_sized(ui, cache, avatar_url, login, size_for_ui(ui))
+    show_sized_with_sense(
+        ui,
+        cache,
+        avatar_url,
+        login,
+        size_for_ui(ui),
+        egui::Sense::hover(),
+    )
 }
 
 pub fn show_sized(
@@ -20,6 +27,43 @@ pub fn show_sized(
     login: Option<&str>,
     size: f32,
 ) -> egui::Response {
+    show_sized_with_sense(ui, cache, avatar_url, login, size, egui::Sense::hover())
+}
+
+pub fn show_clickable(
+    ui: &mut egui::Ui,
+    cache: &mut AvatarCache,
+    avatar_url: Option<&str>,
+    login: Option<&str>,
+) -> egui::Response {
+    show_sized_with_sense(
+        ui,
+        cache,
+        avatar_url,
+        login,
+        size_for_ui(ui),
+        egui::Sense::click(),
+    )
+}
+
+pub fn show_sized_clickable(
+    ui: &mut egui::Ui,
+    cache: &mut AvatarCache,
+    avatar_url: Option<&str>,
+    login: Option<&str>,
+    size: f32,
+) -> egui::Response {
+    show_sized_with_sense(ui, cache, avatar_url, login, size, egui::Sense::click())
+}
+
+fn show_sized_with_sense(
+    ui: &mut egui::Ui,
+    cache: &mut AvatarCache,
+    avatar_url: Option<&str>,
+    login: Option<&str>,
+    size: f32,
+    sense: egui::Sense,
+) -> egui::Response {
     let desired_size = egui::vec2(size, size);
 
     if let Some(url) = avatar_url {
@@ -28,12 +72,13 @@ pub fn show_sized(
             return ui.add(
                 egui::Image::from_texture(&texture)
                     .fit_to_exact_size(desired_size)
-                    .corner_radius(corner_radius),
+                    .corner_radius(corner_radius)
+                    .sense(sense),
             );
         }
     }
 
-    placeholder(ui, login, size)
+    placeholder(ui, login, size, sense)
 }
 
 pub fn size_for_ui(ui: &egui::Ui) -> f32 {
@@ -41,8 +86,13 @@ pub fn size_for_ui(ui: &egui::Ui) -> f32 {
     (font_size * 2.4).clamp(28.0, 44.0)
 }
 
-fn placeholder(ui: &mut egui::Ui, login: Option<&str>, size: f32) -> egui::Response {
-    let (rect, response) = ui.allocate_exact_size(egui::vec2(size, size), egui::Sense::hover());
+fn placeholder(
+    ui: &mut egui::Ui,
+    login: Option<&str>,
+    size: f32,
+    sense: egui::Sense,
+) -> egui::Response {
+    let (rect, response) = ui.allocate_exact_size(egui::vec2(size, size), sense);
     let visuals = ui.visuals();
     let fill = visuals.widgets.inactive.bg_fill.gamma_multiply(1.1);
     let stroke = visuals.widgets.noninteractive.bg_stroke;

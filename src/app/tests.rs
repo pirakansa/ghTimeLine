@@ -106,6 +106,30 @@ fn local_filter_query_drives_db_backed_item_reload() {
 }
 
 #[test]
+fn clicked_filter_term_is_added_to_input_without_applying_or_rewriting_query() {
+    let (mut app, _) = app_with_one_item();
+
+    app.set_local_filter(Some("assignee:dev".to_owned()));
+    app.stream.local_filter_input = r#"label:"needs triage""#.to_owned();
+    app.add_local_filter_input_term("assignee:missing");
+    assert_items_len(&app, 1);
+    assert_eq!(
+        app.stream.local_filter_input,
+        r#"label:"needs triage" assignee:missing"#
+    );
+    assert_eq!(app.stream.local_filter.as_deref(), Some("assignee:dev"));
+
+    app.add_local_filter_input_term("assignee:missing");
+    assert_eq!(
+        app.stream.local_filter_input,
+        r#"label:"needs triage" assignee:missing"#
+    );
+
+    app.set_local_filter(Some(app.stream.local_filter_input.clone()));
+    assert_items_len(&app, 0);
+}
+
+#[test]
 fn invalid_local_filter_keeps_previous_active_filter() {
     let (mut app, _) = app_with_one_item();
 

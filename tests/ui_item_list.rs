@@ -122,6 +122,81 @@ fn item_list_item_click_emits_open_event() {
 }
 
 #[test]
+fn clicking_person_avatar_emits_matching_local_filter_input_add_without_opening_item() {
+    for term in [
+        "author:octo",
+        "assignee:dev",
+        "review-requested:triage",
+        "reviewed-by:reviewer",
+    ] {
+        let mut harness = Harness::new_ui_state(
+            |ui, state: &mut ItemListHarness| {
+                let mut avatar_cache = components::author_avatar::AvatarCache::default();
+                components::item_list::show(
+                    ui,
+                    &state.items,
+                    &mut avatar_cache,
+                    &mut state.list_state,
+                    &mut state.reset_scroll_to_top,
+                    &mut state.event,
+                );
+            },
+            ItemListHarness {
+                items: vec![sample_stream_item()],
+                list_state: components::item_list::ItemListState::default(),
+                reset_scroll_to_top: false,
+                event: None,
+            },
+        );
+
+        let label = format!("Add to local filter: {term}");
+        let avatar = harness.get_by_label(&label);
+        let avatar_rect = avatar.rect();
+        avatar.click();
+        harness.run();
+
+        match &harness.state().event {
+            Some(StreamEvent::AddLocalFilterInputTerm(actual)) => assert_eq!(actual, term),
+            Some(StreamEvent::ItemAction(_)) => {
+                panic!("avatar click opened the item for {term} at {avatar_rect:?}")
+            }
+            Some(_) => panic!("avatar emitted another event for {term} at {avatar_rect:?}"),
+            None => panic!("avatar emitted no event for {term} at {avatar_rect:?}"),
+        }
+    }
+}
+
+#[test]
+fn clicking_header_metadata_adds_repo_and_item_type_filter_input_without_opening_item() {
+    for term in ["repo:owner/repo", "is:pr"] {
+        let mut harness = item_list_harness(sample_stream_item());
+
+        harness
+            .get_by_label(&format!("Add to local filter: {term}"))
+            .click();
+        harness.run();
+
+        assert!(matches!(
+            &harness.state().event,
+            Some(StreamEvent::AddLocalFilterInputTerm(actual)) if actual == term
+        ));
+    }
+
+    let mut issue = sample_stream_item();
+    issue.item_type = ghtl::models::ItemType::Issue;
+    let mut harness = item_list_harness(issue);
+    harness
+        .get_by_label("Add to local filter: is:issue")
+        .click();
+    harness.run();
+
+    assert!(matches!(
+        &harness.state().event,
+        Some(StreamEvent::AddLocalFilterInputTerm(actual)) if actual == "is:issue"
+    ));
+}
+
+#[test]
 fn item_list_hides_user_names_when_avatars_are_present() {
     let harness = Harness::new_ui_state(
         |ui, state: &mut ItemListHarness| {
@@ -198,8 +273,17 @@ fn item_list_keeps_comment_count_and_reviewer_row_visible() {
         },
     );
 
-    harness.get_by_label("5");
+    let comment_right = harness.get_by_label("5").rect().right();
+    let reviewer_right = harness
+        .get_by_label("Add to local filter: reviewed-by:reviewer")
+        .rect()
+        .right();
     harness.get_by_label("←");
+
+    assert!(
+        (comment_right - reviewer_right).abs() < 40.0,
+        "review avatars must stay aligned to the card's right edge"
+    );
 }
 
 #[test]
@@ -307,4 +391,26 @@ fn item_list_scroll_reset_returns_virtualized_list_to_first_item() {
 
     harness.get_by_label("Item 0");
     assert!(!harness.state().reset_scroll_to_top);
+}
+
+fn item_list_harness(item: ghtl::models::StreamItem) -> Harness<'static, ItemListHarness> {
+    Harness::new_ui_state(
+        |ui, state: &mut ItemListHarness| {
+            let mut avatar_cache = components::author_avatar::AvatarCache::default();
+            components::item_list::show(
+                ui,
+                &state.items,
+                &mut avatar_cache,
+                &mut state.list_state,
+                &mut state.reset_scroll_to_top,
+                &mut state.event,
+            );
+        },
+        ItemListHarness {
+            items: vec![item],
+            list_state: components::item_list::ItemListState::default(),
+            reset_scroll_to_top: false,
+            event: None,
+        },
+    )
 }

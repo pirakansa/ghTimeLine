@@ -4,7 +4,7 @@ use eframe::egui;
 
 use super::{author_avatar, status_icon};
 use crate::app::screens::stream::{ItemAction, StreamEvent};
-use crate::models::StreamItem;
+use crate::models::{ItemType, StreamItem};
 
 mod badges;
 mod people;
@@ -144,7 +144,7 @@ fn show_row(
     let response = frame.show(ui, |ui| {
         let available_width = ui.available_width();
         ui.set_width(available_width);
-        show_item_card(ui, item, avatar_cache);
+        show_item_card(ui, item, avatar_cache, event);
     });
     let card_rect = response.response.rect;
     let visible_rect = card_rect.intersect(ui.clip_rect());
@@ -176,12 +176,13 @@ fn show_item_card(
     ui: &mut egui::Ui,
     item: &StreamItem,
     avatar_cache: &mut author_avatar::AvatarCache,
+    event: &mut Option<StreamEvent>,
 ) {
-    show_header_row(ui, item);
+    show_header_row(ui, item, event);
     show_title(ui, item);
     let avatar_size = author_avatar::size_for_ui(ui);
-    people::show_author_and_assignees_row(ui, item, avatar_cache, avatar_size);
-    show_metadata_rows(ui, item, avatar_cache, avatar_size);
+    people::show_author_and_assignees_row(ui, item, avatar_cache, avatar_size, event);
+    show_metadata_rows(ui, item, avatar_cache, avatar_size, event);
 }
 
 fn show_action_overlay(
@@ -211,13 +212,24 @@ fn show_action_overlay(
         });
 }
 
-fn show_header_row(ui: &mut egui::Ui, item: &StreamItem) {
+fn show_header_row(ui: &mut egui::Ui, item: &StreamItem, event: &mut Option<StreamEvent>) {
     ui.horizontal(|ui| {
         let icon = status_icon::StatusIcon::for_item(item);
-        status_icon::show(ui, icon).on_hover_text(icon.label());
-        ui.label(
-            egui::RichText::new(format!("{} #{}", item.repository_full_name(), item.number)).weak(),
+        let type_filter = match item.item_type {
+            ItemType::Issue => "is:issue",
+            ItemType::PullRequest => "is:pr",
+        };
+        let response = status_icon::show_clickable(ui, icon);
+        filter_control(ui, response, type_filter, event);
+        let repository_filter = format!("repo:{}", item.repository_full_name());
+        let response = ui.add(
+            egui::Label::new(
+                egui::RichText::new(format!("{} #{}", item.repository_full_name(), item.number))
+                    .weak(),
+            )
+            .sense(egui::Sense::click()),
         );
+        filter_control(ui, response, &repository_filter, event);
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             ui.label(
                 egui::RichText::new(super::relative_time::format(
@@ -227,6 +239,21 @@ fn show_header_row(ui: &mut egui::Ui, item: &StreamItem) {
             );
         });
     });
+}
+
+fn filter_control(
+    ui: &mut egui::Ui,
+    response: egui::Response,
+    term: &str,
+    event: &mut Option<StreamEvent>,
+) {
+    let label = format!("Add to local filter: {term}");
+    response.widget_info(|| {
+        egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), &label)
+    });
+    if response.on_hover_text(&label).clicked() {
+        *event = Some(StreamEvent::AddLocalFilterInputTerm(term.to_owned()));
+    }
 }
 
 fn show_title(ui: &mut egui::Ui, item: &StreamItem) {
@@ -243,8 +270,9 @@ fn show_metadata_rows(
     item: &StreamItem,
     avatar_cache: &mut author_avatar::AvatarCache,
     avatar_size: f32,
+    event: &mut Option<StreamEvent>,
 ) {
-    people::show_reviewer_row(ui, item, avatar_cache, avatar_size);
+    people::show_reviewer_row(ui, item, avatar_cache, avatar_size, event);
     if !item.labels.is_empty() {
         ui.horizontal_wrapped(|ui| {
             for label in &item.labels {

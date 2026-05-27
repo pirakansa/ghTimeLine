@@ -58,9 +58,17 @@ impl StatusIcon {
 }
 
 pub fn show(ui: &mut egui::Ui, icon: StatusIcon) -> egui::Response {
+    show_with_sense(ui, icon, egui::Sense::hover())
+}
+
+pub fn show_clickable(ui: &mut egui::Ui, icon: StatusIcon) -> egui::Response {
+    show_with_sense(ui, icon, egui::Sense::click())
+}
+
+fn show_with_sense(ui: &mut egui::Ui, icon: StatusIcon, sense: egui::Sense) -> egui::Response {
     let icon_size = size_for_ui(ui);
     let desired_size = egui::vec2(icon_size, icon_size);
-    let (rect, response) = ui.allocate_exact_size(desired_size, egui::Sense::hover());
+    let (rect, response) = ui.allocate_exact_size(desired_size, sense);
 
     if ui.is_rect_visible(rect) {
         let painter = ui.painter();

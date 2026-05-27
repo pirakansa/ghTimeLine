@@ -4,6 +4,7 @@ use eframe::egui;
 
 use super::badges;
 use crate::app::components::author_avatar;
+use crate::app::screens::stream::StreamEvent;
 use crate::models::{ItemPerson, ItemReview, StreamItem};
 
 pub(super) fn show_author_and_assignees_row(
@@ -11,28 +12,29 @@ pub(super) fn show_author_and_assignees_row(
     item: &StreamItem,
     avatar_cache: &mut author_avatar::AvatarCache,
     avatar_size: f32,
+    event: &mut Option<StreamEvent>,
 ) {
     ui.horizontal(|ui| {
         if let Some(author) = &item.author_login {
-            author_avatar::show(
+            let response = author_avatar::show_clickable(
                 ui,
                 avatar_cache,
                 item.author_avatar_url.as_deref(),
                 Some(author.as_str()),
-            )
-            .on_hover_text(author);
+            );
+            filter_avatar(ui, response, "author", author, event);
         }
         if !item.assignees.is_empty() {
             ui.label(egui::RichText::new("→").weak());
             for assignee in &item.assignees {
-                author_avatar::show_sized(
+                let response = author_avatar::show_sized_clickable(
                     ui,
                     avatar_cache,
                     assignee.avatar_url.as_deref(),
                     Some(assignee.login.as_str()),
                     avatar_size,
-                )
-                .on_hover_text(&assignee.login);
+                );
+                filter_avatar(ui, response, "assignee", &assignee.login, event);
             }
         }
         badges::show_comment_count(ui, item.comment_count);
@@ -44,6 +46,7 @@ pub(super) fn show_reviewer_row(
     item: &StreamItem,
     avatar_cache: &mut author_avatar::AvatarCache,
     avatar_size: f32,
+    event: &mut Option<StreamEvent>,
 ) {
     if item.review_requests.is_empty() && item.reviewers.is_empty() {
         return;
@@ -55,11 +58,18 @@ pub(super) fn show_reviewer_row(
         |ui| {
             let reviewed_logins = reviewed_logins(&item.reviewers, &item.review_requests);
             for reviewer in item.reviewers.iter().rev() {
-                show_review_chip(ui, avatar_cache, reviewer, avatar_size);
+                show_review_chip(ui, avatar_cache, reviewer, avatar_size, event);
             }
             for request in item.review_requests.iter().rev() {
                 if !is_reviewed_login(reviewed_logins.as_ref(), request.login.as_str()) {
-                    show_person_chip(ui, avatar_cache, request, Some("requested"), avatar_size);
+                    show_person_chip(
+                        ui,
+                        avatar_cache,
+                        request,
+                        Some("requested"),
+                        avatar_size,
+                        event,
+                    );
                 }
             }
             ui.label(egui::RichText::new("←").weak());
@@ -93,20 +103,19 @@ fn show_person_chip(
     person: &ItemPerson,
     review_state: Option<&str>,
     size: f32,
+    event: &mut Option<StreamEvent>,
 ) {
-    let response = author_avatar::show_sized(
+    let response = author_avatar::show_sized_clickable(
         ui,
         avatar_cache,
         person.avatar_url.as_deref(),
         Some(person.login.as_str()),
         size,
-    )
-    .on_hover_text(match review_state {
-        Some(state) => format!("{} ({state})", person.login),
-        None => person.login.clone(),
-    });
+    );
+    let avatar_rect = response.rect;
+    filter_avatar(ui, response, "review-requested", &person.login, event);
     if let Some(state) = review_state {
-        badges::paint_review_badge(ui, response.rect, state);
+        badges::paint_review_badge(ui, avatar_rect, state);
     }
 }
 
@@ -115,16 +124,44 @@ fn show_review_chip(
     avatar_cache: &mut author_avatar::AvatarCache,
     review: &ItemReview,
     size: f32,
+    event: &mut Option<StreamEvent>,
 ) {
-    let response = author_avatar::show_sized(
+    let response = author_avatar::show_sized_clickable(
         ui,
         avatar_cache,
         review.avatar_url.as_deref(),
         Some(review.login.as_str()),
         size,
-    )
-    .on_hover_text(format!("{} ({})", review.login, review.state));
-    badges::paint_review_badge(ui, response.rect, &review.state);
+    );
+    let avatar_rect = response.rect;
+    filter_avatar(ui, response, "reviewed-by", &review.login, event);
+    badges::paint_review_badge(ui, avatar_rect, &review.state);
+}
+
+fn filter_avatar(
+    ui: &mut egui::Ui,
+    response: egui::Response,
+    filter_key: &str,
+    login: &str,
+    event: &mut Option<StreamEvent>,
+) {
+    let filter = format!("{filter_key}:{login}");
+    let label = format!("Add to local filter: {filter}");
+    response.widget_info(|| {
+        egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), &label)
+    });
+    let response = response.on_hover_text(&label);
+    let clicked = response.clicked()
+        || ui.input(|input| {
+            input.pointer.primary_clicked()
+                && input
+                    .pointer
+                    .interact_pos()
+                    .is_some_and(|pos| response.rect.contains(pos))
+        });
+    if clicked {
+        *event = Some(StreamEvent::AddLocalFilterInputTerm(filter));
+    }
 }
 
 #[cfg(test)]

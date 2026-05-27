@@ -66,6 +66,15 @@ terms narrow by category such as `is:pr is:open`, and repeated `label:` terms
 must all be present. Use **Apply** to activate the filter and **Clear** to
 remove it.
 
+Select an author, assignee, requested-reviewer, or reviewer avatar in an item
+card to append its matching term to the **Local filter** input. Selecting an
+avatar whose term is already present does not add a duplicate term.
+
+Select the repository reference in an item header to append `repo:<owner/name>`,
+or select its issue or pull request icon to append `is:issue` or `is:pr`.
+Icon and header clicks only prepare the input; select **Apply** to filter the
+visible item list.
+
 Filter streams use the same local filter syntax, but they persist under a saved
 query in the left pane and saved query manager.
 
