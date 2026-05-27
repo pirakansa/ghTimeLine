@@ -18,10 +18,12 @@ A saved query may also own zero or more filter streams. A filter stream has:
 - Enabled state
 - Position within that parent saved query
 
-The UI supports creating, editing, deleting, enabling, disabling, listing, and
-selecting saved queries through a full-window saved query management screen.
-That screen provides access to a separate full-window import/export screen for
-exporting and importing saved query definitions as YAML.
+The UI supports creating, editing, deleting, enabling, disabling, listing,
+previewing, and selecting saved queries through a full-window saved query
+management screen. Preview opens the current saved query draft in the host's
+GitHub search web UI. That screen provides access to a separate full-window
+import/export screen for exporting and importing saved query definitions as
+YAML.
 Query names and query strings must not be empty when created or updated.
 
 Saved query YAML import/export includes:

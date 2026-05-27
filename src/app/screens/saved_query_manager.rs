@@ -247,7 +247,17 @@ fn render_saved_query_form(
     ui.label("Name");
     ui.text_edit_singleline(&mut state.edit_name);
     ui.label("Query");
-    ui.text_edit_singleline(&mut state.edit_text);
+    ui.horizontal(|ui| {
+        ui.text_edit_singleline(&mut state.edit_text);
+        let can_preview = !state.edit_text.trim().is_empty();
+        if ui
+            .add_enabled(can_preview, egui::Button::new("Preview"))
+            .on_hover_text("Open this GitHub search in your browser")
+            .clicked()
+        {
+            *event = Some(StreamEvent::PreviewQuery(state.edit_text.clone()));
+        }
+    });
     ui.checkbox(&mut state.edit_enabled, "Enabled");
 
     ui.separator();
