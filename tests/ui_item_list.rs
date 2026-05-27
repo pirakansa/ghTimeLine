@@ -122,6 +122,46 @@ fn item_list_item_click_emits_open_event() {
 }
 
 #[test]
+fn clicking_person_avatar_emits_matching_local_filter_add_without_opening_item() {
+    for term in ["author:octo", "assignee:dev"] {
+        let mut harness = Harness::new_ui_state(
+            |ui, state: &mut ItemListHarness| {
+                let mut avatar_cache = components::author_avatar::AvatarCache::default();
+                components::item_list::show(
+                    ui,
+                    &state.items,
+                    &mut avatar_cache,
+                    &mut state.list_state,
+                    &mut state.reset_scroll_to_top,
+                    &mut state.event,
+                );
+            },
+            ItemListHarness {
+                items: vec![sample_stream_item()],
+                list_state: components::item_list::ItemListState::default(),
+                reset_scroll_to_top: false,
+                event: None,
+            },
+        );
+
+        let label = format!("Filter by {term}");
+        let avatar = harness.get_by_label(&label);
+        let avatar_rect = avatar.rect();
+        avatar.click();
+        harness.run();
+
+        match &harness.state().event {
+            Some(StreamEvent::AddLocalFilterTerm(actual)) => assert_eq!(actual, term),
+            Some(StreamEvent::ItemAction(_)) => {
+                panic!("avatar click opened the item for {term} at {avatar_rect:?}")
+            }
+            Some(_) => panic!("avatar emitted another event for {term} at {avatar_rect:?}"),
+            None => panic!("avatar emitted no event for {term} at {avatar_rect:?}"),
+        }
+    }
+}
+
+#[test]
 fn item_list_hides_user_names_when_avatars_are_present() {
     let harness = Harness::new_ui_state(
         |ui, state: &mut ItemListHarness| {

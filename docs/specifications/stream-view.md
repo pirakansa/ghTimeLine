@@ -77,6 +77,10 @@ Local filter terms combine as follows:
 Unsupported or malformed local filter terms must be rejected with a user-visible
 error, and must not replace the previously active local filter.
 
+Selecting a person avatar in an item card adds the matching temporary local
+filter term unless it is already active: author avatars use `author:` and
+assignee avatars use `assignee:`.
+
 Sort values:
 
 - `updated_desc`

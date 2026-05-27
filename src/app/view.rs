@@ -188,6 +188,25 @@ impl GhStreamApp {
         self.reload_current_view();
     }
 
+    pub(super) fn add_local_filter_term(&mut self, term: &str) {
+        let active = self
+            .stream
+            .local_filter
+            .as_deref()
+            .unwrap_or_default()
+            .trim();
+        if active.split_whitespace().any(|existing| existing == term) {
+            return;
+        }
+
+        let local_filter = if active.is_empty() {
+            term.to_owned()
+        } else {
+            format!("{active} {term}")
+        };
+        self.set_local_filter(Some(local_filter));
+    }
+
     pub(super) fn select(&mut self, selection: Selection) {
         if self.stream.selection != selection {
             self.stream.reset_item_list_scroll = true;

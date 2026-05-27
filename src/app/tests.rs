@@ -106,6 +106,25 @@ fn local_filter_query_drives_db_backed_item_reload() {
 }
 
 #[test]
+fn avatar_filter_term_is_added_once_without_rewriting_existing_query() {
+    let (mut app, _) = app_with_one_item();
+
+    app.set_local_filter(Some(r#"label:"needs triage""#.to_owned()));
+    app.add_local_filter_term("assignee:missing");
+    assert_items_len(&app, 0);
+    assert_eq!(
+        app.stream.local_filter.as_deref(),
+        Some(r#"label:"needs triage" assignee:missing"#)
+    );
+
+    app.add_local_filter_term("assignee:missing");
+    assert_eq!(
+        app.stream.local_filter.as_deref(),
+        Some(r#"label:"needs triage" assignee:missing"#)
+    );
+}
+
+#[test]
 fn invalid_local_filter_keeps_previous_active_filter() {
     let (mut app, _) = app_with_one_item();
 

@@ -144,7 +144,7 @@ fn show_row(
     let response = frame.show(ui, |ui| {
         let available_width = ui.available_width();
         ui.set_width(available_width);
-        show_item_card(ui, item, avatar_cache);
+        show_item_card(ui, item, avatar_cache, event);
     });
     let card_rect = response.response.rect;
     let visible_rect = card_rect.intersect(ui.clip_rect());
@@ -176,11 +176,12 @@ fn show_item_card(
     ui: &mut egui::Ui,
     item: &StreamItem,
     avatar_cache: &mut author_avatar::AvatarCache,
+    event: &mut Option<StreamEvent>,
 ) {
     show_header_row(ui, item);
     show_title(ui, item);
     let avatar_size = author_avatar::size_for_ui(ui);
-    people::show_author_and_assignees_row(ui, item, avatar_cache, avatar_size);
+    people::show_author_and_assignees_row(ui, item, avatar_cache, avatar_size, event);
     show_metadata_rows(ui, item, avatar_cache, avatar_size);
 }
 

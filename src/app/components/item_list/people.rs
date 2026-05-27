@@ -4,6 +4,7 @@ use eframe::egui;
 
 use super::badges;
 use crate::app::components::author_avatar;
+use crate::app::screens::stream::StreamEvent;
 use crate::models::{ItemPerson, ItemReview, StreamItem};
 
 pub(super) fn show_author_and_assignees_row(
@@ -11,28 +12,29 @@ pub(super) fn show_author_and_assignees_row(
     item: &StreamItem,
     avatar_cache: &mut author_avatar::AvatarCache,
     avatar_size: f32,
+    event: &mut Option<StreamEvent>,
 ) {
     ui.horizontal(|ui| {
         if let Some(author) = &item.author_login {
-            author_avatar::show(
+            let response = author_avatar::show_clickable(
                 ui,
                 avatar_cache,
                 item.author_avatar_url.as_deref(),
                 Some(author.as_str()),
-            )
-            .on_hover_text(author);
+            );
+            filter_avatar(ui, response, "author", author, event);
         }
         if !item.assignees.is_empty() {
             ui.label(egui::RichText::new("→").weak());
             for assignee in &item.assignees {
-                author_avatar::show_sized(
+                let response = author_avatar::show_sized_clickable(
                     ui,
                     avatar_cache,
                     assignee.avatar_url.as_deref(),
                     Some(assignee.login.as_str()),
                     avatar_size,
-                )
-                .on_hover_text(&assignee.login);
+                );
+                filter_avatar(ui, response, "assignee", &assignee.login, event);
             }
         }
         badges::show_comment_count(ui, item.comment_count);
@@ -125,6 +127,23 @@ fn show_review_chip(
     )
     .on_hover_text(format!("{} ({})", review.login, review.state));
     badges::paint_review_badge(ui, response.rect, &review.state);
+}
+
+fn filter_avatar(
+    ui: &mut egui::Ui,
+    response: egui::Response,
+    filter_key: &str,
+    login: &str,
+    event: &mut Option<StreamEvent>,
+) {
+    let filter = format!("{filter_key}:{login}");
+    let label = format!("Filter by {filter}");
+    response.widget_info(|| {
+        egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), &label)
+    });
+    if response.on_hover_text(&label).clicked() {
+        *event = Some(StreamEvent::AddLocalFilterTerm(filter));
+    }
 }
 
 #[cfg(test)]

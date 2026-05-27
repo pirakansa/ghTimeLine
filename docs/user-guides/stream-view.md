@@ -66,6 +66,10 @@ terms narrow by category such as `is:pr is:open`, and repeated `label:` terms
 must all be present. Use **Apply** to activate the filter and **Clear** to
 remove it.
 
+Select an author or assignee avatar in an item card to add its matching local
+filter term. Selecting an avatar whose term is already active does not add a
+duplicate term.
+
 Filter streams use the same local filter syntax, but they persist under a saved
 query in the left pane and saved query manager.
 
