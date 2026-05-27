@@ -54,10 +54,6 @@ tasks:
     depends_on: [assets]
     run: cargo build --locked --release --target x86_64-unknown-linux-gnu
     desc: build release binary for Linux amd64
-  linux-arm:
-    depends_on: [assets]
-    run: cargo build --locked --release --target armv7-unknown-linux-gnueabihf
-    desc: build release binary for Linux armv7
   linux-arm64:
     depends_on: [assets]
     run: cargo build --locked --release --target aarch64-unknown-linux-gnu
@@ -67,13 +63,12 @@ tasks:
     run: cargo build --locked --release --target x86_64-pc-windows-gnu
     desc: build release binary for Windows amd64
   release-build:
-    depends_on: [linux-amd64, linux-arm, linux-arm64, win-amd64]
+    depends_on: [linux-amd64, linux-arm64, win-amd64]
     desc: build all release targets
   release-archives:
     depends_on: [release-build]
     run: |
       tar --create --gzip --directory=target/x86_64-unknown-linux-gnu/release --file=./${{ .vars.PROJECT_NAME }}_linux-amd64.tar.gz ${{ .vars.PROJECT_NAME }}
-      tar --create --gzip --directory=target/armv7-unknown-linux-gnueabihf/release --file=./${{ .vars.PROJECT_NAME }}_linux-arm.tar.gz ${{ .vars.PROJECT_NAME }}
       tar --create --gzip --directory=target/aarch64-unknown-linux-gnu/release --file=./${{ .vars.PROJECT_NAME }}_linux-arm64.tar.gz ${{ .vars.PROJECT_NAME }}
       tar --create --gzip --directory=target/x86_64-pc-windows-gnu/release --file=./${{ .vars.PROJECT_NAME }}_win-amd64.tar.gz ${{ .vars.PROJECT_NAME }}.exe
     desc: archive release binaries
