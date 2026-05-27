@@ -218,6 +218,17 @@ impl HostConfig {
             ),
         }
     }
+
+    pub fn search_url(&self, query: &str) -> String {
+        let web_base = match self.kind {
+            HostKind::GitHub => format!("{}://github.com", self.scheme),
+            HostKind::Ghes => format!("{}://{}", self.scheme, self.hostname),
+        };
+        format!(
+            "{web_base}/search?q={}&type=issues",
+            urlencoding::encode(query.trim())
+        )
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -396,5 +407,36 @@ pub struct StreamItem {
 impl StreamItem {
     pub fn repository_full_name(&self) -> String {
         format!("{}/{}", self.repository_owner, self.repository_name)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{HostConfig, HostKind, Scheme};
+
+    #[test]
+    fn github_search_url_uses_public_web_host() {
+        let host = HostConfig::github_default();
+
+        assert_eq!(
+            host.search_url("is:pr review-requested:@me"),
+            "https://github.com/search?q=is%3Apr%20review-requested%3A%40me&type=issues"
+        );
+    }
+
+    #[test]
+    fn ghes_search_url_uses_configured_host() {
+        let host = HostConfig {
+            name: "GHES".to_owned(),
+            scheme: Scheme::Https,
+            hostname: "ghe.example.test".to_owned(),
+            rest_api_base_path: "/api/v3/".to_owned(),
+            kind: HostKind::Ghes,
+        };
+
+        assert_eq!(
+            host.search_url(" repo:acme/api is:issue "),
+            "https://ghe.example.test/search?q=repo%3Aacme%2Fapi%20is%3Aissue&type=issues"
+        );
     }
 }

@@ -5,6 +5,33 @@ use crate::models::{LibraryView, Selection};
 use crate::saved_query_io;
 
 impl GhStreamApp {
+    pub(super) fn preview_query(&mut self, query: &str) {
+        let trimmed = query.trim();
+        if trimmed.is_empty() {
+            Self::replace_status(
+                &mut self.status,
+                &mut self.status_history,
+                "Saved query must not be empty.",
+            );
+            return;
+        }
+
+        if let AppMode::Main(runtime) = &mut self.mode {
+            match open::that(runtime.config.host.search_url(trimmed)) {
+                Ok(()) => Self::replace_status(
+                    &mut self.status,
+                    &mut self.status_history,
+                    "Opened query preview in external browser.",
+                ),
+                Err(err) => Self::replace_status_error(
+                    &mut self.status,
+                    &mut self.status_history,
+                    format!("Could not open browser: {err}"),
+                ),
+            }
+        }
+    }
+
     pub(super) fn add_query(&mut self, name: &str, query: &str, enabled: bool) {
         if name.trim().is_empty() || query.trim().is_empty() {
             Self::replace_status(

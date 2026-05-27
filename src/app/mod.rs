@@ -329,6 +329,9 @@ impl eframe::App for GhStreamApp {
                         query,
                         enabled,
                     }) => self.add_query(&name, &query, enabled),
+                    Some(screens::stream::StreamEvent::PreviewQuery(query)) => {
+                        self.preview_query(&query)
+                    }
                     Some(screens::stream::StreamEvent::UpdateFilterStream {
                         id,
                         name,

@@ -67,6 +67,7 @@ pub enum StreamEvent {
         query: String,
         enabled: bool,
     },
+    PreviewQuery(String),
     UpdateQuery {
         id: i64,
         name: String,

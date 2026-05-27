@@ -338,6 +338,38 @@ fn saved_query_manager_filter_button_opens_new_filter_stream_form() {
 }
 
 #[test]
+fn saved_query_manager_preview_button_emits_query_event() {
+    let saved_queries = vec![sample_saved_query()];
+    let mut stream = StreamState::default();
+    stream.selection = Selection::SavedQuery(7);
+    saved_query_manager::open(&mut stream, &saved_queries);
+
+    let mut harness = Harness::new_state(
+        |ctx, state: &mut StreamHarness| {
+            saved_query_manager::show(
+                ctx,
+                &mut state.stream,
+                &state.saved_queries,
+                &mut state.event,
+            );
+        },
+        StreamHarness {
+            stream,
+            saved_queries,
+            event: None,
+        },
+    );
+
+    harness.get_by_label("Preview").click();
+    harness.run();
+
+    assert!(matches!(
+        &harness.state().event,
+        Some(StreamEvent::PreviewQuery(query)) if query == "is:pr review-requested:@me"
+    ));
+}
+
+#[test]
 fn saved_query_manager_toolbar_opens_transfer_screen() {
     let saved_queries = vec![sample_saved_query()];
     let mut stream = StreamState::default();
