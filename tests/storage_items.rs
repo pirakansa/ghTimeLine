@@ -4,7 +4,7 @@ use std::time::Duration;
 use ghtl::models::{
     AppConfig, HostKind, ItemPerson, ItemReview, ItemType, LibraryView, SortOrder, StreamFilter,
 };
-use ghtl::saved_query_io::ImportedSavedQuery;
+use ghtl::saved_query_io::{ImportedFilterStream, ImportedSavedQuery};
 use ghtl::storage::items::StreamItemUpsert;
 use ghtl::storage::Storage;
 
@@ -643,6 +643,9 @@ fn replacing_saved_queries_clears_old_matches_and_preserves_import_order() {
     let query_id = storage
         .add_saved_query(host_id, "Inbox", "is:open")
         .expect("query");
+    storage
+        .add_filter_stream(query_id, "Assigned to dev", "assignee:dev", true)
+        .expect("filter stream");
     let item_id = storage
         .upsert_stream_item(&sample_item(host_id))
         .expect("item")
@@ -660,12 +663,19 @@ fn replacing_saved_queries_clears_old_matches_and_preserves_import_order() {
                     query: "is:pr review-requested:@me".to_owned(),
                     enabled: true,
                     position: 0,
+                    filter_streams: vec![ImportedFilterStream {
+                        name: "Assigned to me".to_owned(),
+                        filter_query: "assignee:@me".to_owned(),
+                        enabled: true,
+                        position: 0,
+                    }],
                 },
                 ImportedSavedQuery {
                     name: "Disabled inbox".to_owned(),
                     query: "is:issue is:open".to_owned(),
                     enabled: false,
                     position: 1,
+                    filter_streams: vec![],
                 },
             ],
         )
@@ -679,8 +689,11 @@ fn replacing_saved_queries_clears_old_matches_and_preserves_import_order() {
     assert_eq!(inserted_ids.len(), 2);
     assert_eq!(queries[0].name, "Review requested");
     assert_eq!(queries[0].position, 0);
+    assert_eq!(queries[0].filter_streams.len(), 1);
+    assert_eq!(queries[0].filter_streams[0].name, "Assigned to me");
     assert_eq!(queries[1].name, "Disabled inbox");
     assert_eq!(queries[1].position, 1);
+    assert!(queries[1].filter_streams.is_empty());
     assert_eq!(library_counts.inbox_unread_count, 0);
 }
 

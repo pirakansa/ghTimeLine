@@ -31,8 +31,7 @@ dedicated transfer screen for saving or restoring saved query definitions as
 YAML.
 
 - The default file path is `saved-queries.yml` under the app config directory.
-- Export writes the current host and saved query definitions only.
-- Filter streams are local SQLite data and are not included in import/export.
+- Export writes the current host plus saved query and filter stream definitions only.
 - Import replaces the current host's saved queries and clears cached matches
   until the next refresh rebuilds them.
 
