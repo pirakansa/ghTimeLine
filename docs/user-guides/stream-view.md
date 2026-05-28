@@ -80,17 +80,16 @@ query in the left pane and saved query manager.
 
 The sort selector supports:
 
-- Updated descending
-- Updated ascending
-- Created descending
-- Created ascending
-- Comments descending
-- Comments ascending
+- Updated at
+- Created at
+- Read at
+- Closed at
+- Merged at
 
-Library views and saved query views use the toolbar sort, which is saved as the
-default sort in the YAML configuration. Sorting changes the stored item list
-display; saved query refreshes always retrieve recently updated GitHub items
-first.
+Library views, saved query views, and filter stream views use the toolbar sort,
+which is saved as the default sort in the YAML configuration. Sorting changes
+the stored item list display; refreshes always retrieve recently updated GitHub
+items first.
 
 When either manual refresh or automatic polling finds remote changes that
 affect the currently visible list, the app keeps your current reading position
@@ -121,6 +120,18 @@ back to GitHub.
 
 ## Status Messages
 
-The bottom status bar shows lightweight status messages for setup, refresh,
-errors, host name, and redacted token state. Errors are shown without clearing
-the current item list.
+The bottom status bar shows the latest lightweight status message for setup,
+refresh, preferences, errors, host name, and redacted token state. Errors are
+shown without clearing the current item list.
+
+Select the status indicator to open the **Status log** and review recent
+messages.
+
+## Preferences
+
+Use **Preferences** in the top menu bar for:
+
+- **Host settings** to reopen the setup screen
+- **Theme** to switch between system, light, and dark
+- **Font size** to switch between X-Small, Small, Default, Large, and X-Large
+- **Polling interval** to change automatic refresh timing

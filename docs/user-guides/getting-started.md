@@ -10,8 +10,8 @@ Run the native desktop app with:
 vorbere run run
 ```
 
-On first launch, the app opens the setup screen because it needs one GitHub host
-and a Personal Access Token before it can refresh streams.
+On first launch, the app opens the setup screen because it needs one GitHub or
+GHES host and a Personal Access Token before it can refresh streams.
 
 ## First-Run Setup
 
@@ -43,3 +43,6 @@ while offline or while credentials are being fixed.
 Use **Save** to write the configuration and enter the main stream view. After
 setup, use **Preferences** > **Host settings** to reopen this screen and update
 the host or token.
+
+After setup, the app opens the stream view with the **Inbox** library selected.
+Use **Manage** in the left pane to add your first saved query.

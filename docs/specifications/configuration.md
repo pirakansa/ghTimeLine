@@ -40,12 +40,17 @@ Configuration rules:
 - `auth.pat` must be non-empty and is stored as plain text in v1.
 - `ui.theme` must be `light`, `dark`, or `system`.
 - `ui.accent_color` must be a `#RRGGBB` hex color.
-- `ui.default_sort` must be one of the supported sort values.
-- `ui.font_size` must be `default`, `large`, or `x_large`.
+- `ui.default_sort` must be one of `updated_desc`, `created_desc`,
+  `read_desc`, `closed_desc`, or `merged_desc`.
+- `ui.font_size` must be `x_small`, `small`, `default`, `large`, or `x_large`.
 - `refresh.polling_interval_seconds` must be from `15` through `3600`.
 
 Unknown enum values are rejected by deserialization and validation. Unknown
 object keys may be ignored by the YAML parser.
+
+Legacy `updated_asc`, `created_asc`, `comments_desc`, and `comments_asc`
+values are still accepted when reading older config files, but they normalize
+to the current descending sort values when the config is next saved.
 
 The effective REST API base URL is:
 

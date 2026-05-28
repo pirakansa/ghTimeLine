@@ -8,7 +8,7 @@ the storage implementation.
 ## Product Scope
 
 `ghTimeLine` is a Rust desktop app for tracking GitHub issues, pull requests,
-and discussions through saved GitHub Search queries.
+discussions, and supported ProjectV2 items through saved queries.
 
 Implemented v1 scope:
 
@@ -19,6 +19,7 @@ Implemented v1 scope:
 - SQLite-backed saved queries and stream item state
 - REST Search discovery for issues and pull requests
 - GraphQL Search discovery for discussions
+- GraphQL ProjectV2 discovery for issue and pull request project items
 - GraphQL enrichment for discovered pull requests
 - Two-pane `egui` stream UI
 - Manual refresh and automatic polling
@@ -32,7 +33,9 @@ Out of v1 scope:
 - Team or cross-device state sync
 - Server-side backend components
 - Embedded item detail browser
-- Project streams and other search resource types
+- Project draft issue rendering, redacted items, and full project field rendering
+- Additional search resource types beyond issues, pull requests, discussions,
+  and supported ProjectV2 items
 
 ## References
 

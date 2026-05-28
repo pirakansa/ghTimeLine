@@ -22,10 +22,16 @@ A saved query may also own zero or more filter streams. A filter stream has:
 The UI supports creating, editing, deleting, enabling, disabling, listing,
 previewing, and selecting saved queries through a full-window saved query
 management screen. Preview opens the current saved query draft in the host's
-GitHub search web UI. That screen provides access to a separate full-window
-import/export screen for exporting and importing saved query definitions as
-YAML.
-Query names and query strings must not be empty when created or updated.
+GitHub search web UI for search-based sources, or the resolved project page for
+ProjectV2 sources. That screen provides access to a separate full-window
+import/export screen for exporting and importing saved query definitions as YAML.
+Query names and query strings must not be empty when created or updated. Saved
+query names must be unique per host, and filter stream names must be unique
+within a saved query.
+
+The saved query manager also supports moving saved queries up or down. Reordering
+only swaps with another saved query in the same enabled or disabled group, so
+enabled queries stay above disabled queries in the main left pane.
 
 Saved query YAML import/export includes:
 
@@ -44,6 +50,10 @@ Saved query YAML import/export includes:
 Saved query YAML import must replace the current host's saved queries and filter
 stream definitions. Import does not preserve cached matches or sync metadata;
 the next refresh rebuilds matches from the imported definitions.
+
+Saved query YAML import trims required names and query strings, rejects
+duplicate saved query names and duplicate filter stream names within a saved
+query, and normalizes imported positions into contiguous local order.
 
 Saved queries select one remote source:
 
@@ -73,3 +83,6 @@ unread and not archived.
 
 Disabled saved queries remain editable in the saved query management screen, but
 the main stream left pane only lists enabled saved queries.
+
+Disabled filter streams remain editable in the saved query management screen,
+but the main stream left pane only lists enabled filter streams.

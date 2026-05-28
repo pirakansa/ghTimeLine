@@ -92,17 +92,16 @@ changes the displayed items.
 Sort values:
 
 - `updated_desc`
-- `updated_asc`
 - `created_desc`
-- `created_asc`
-- `comments_desc`
-- `comments_asc`
+- `read_desc`
+- `closed_desc`
+- `merged_desc`
 
 The default sort is `updated_desc`.
 
-Library views and saved query views use `ui.default_sort`, which is controlled
-from the stream toolbar. This value controls local item list ordering only;
-refresh discovery uses updated descending order independently.
+Library views, saved query views, and filter stream views use `ui.default_sort`,
+which is controlled from the stream toolbar. This value controls local item list
+ordering only; refresh discovery uses updated descending order independently.
 
 Changing the default sort writes the updated value to the YAML configuration.
 
@@ -132,6 +131,19 @@ across enabled saved queries within the selected library scope. **Inbox** and
 
 Filter streams also provide **Mark all as read** for unread, non-archived items
 visible within that filter stream.
+
+## Preferences And Status
+
+The **Preferences** menu provides:
+
+- Host settings
+- Theme selection (`system`, `light`, `dark`)
+- Font size selection (`x_small`, `small`, `default`, `large`, `x_large`)
+- Polling interval editing with an allowed range of 15 through 3600 seconds
+
+The bottom status bar shows the latest info or error status without replacing
+the current item list. Selecting the status indicator opens a status log screen
+that keeps recent messages in reverse chronological order.
 
 ## Item Opening
 

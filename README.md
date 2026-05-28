@@ -4,26 +4,28 @@
         <img src="assets/icon.png" alt="ghTimeLine logo" width="320">
 </p>
 
-`ghTimeLine` is a desktop tool under development for reading GitHub
-activity through saved search queries, inspired by
-[Jasper](https://github.com/jasperapp/jasper).
+`ghTimeLine` is a native desktop app for reading GitHub activity through saved
+queries. It tracks issues, pull requests, discussions, and supported ProjectV2
+items in a local SQLite cache so you can review updates without keeping a
+browser tab open for every search.
 
-I have used Jasper as part of my regular GitHub workflow. It shaped the way I
-think about search-query based issue and pull request tracking, but it is no
-longer the best fit for my own environment and workflow: maintenance outside
-Apple Silicon Macs appears to have slowed, some Jasper features are more than I
-need, and some behaviors I want are not available there.
-
-For day-to-day usage, see the [user guides](docs/user-guides/README.md). For
-implemented behavior that should remain stable as the app evolves, see the
-[specification references](docs/specifications/README.md).
-
-## Development
+## Run locally
 
 Prerequisites:
 
 - Rust stable toolchain
 - `vorbere`
+
+Start the desktop app with:
+
+```sh
+vorbere run run
+```
+
+On first launch, complete the setup screen with one GitHub or GHES host and a
+Personal Access Token.
+
+## Development
 
 Useful commands:
 
@@ -35,3 +37,9 @@ vorbere run build
 
 `vorbere run run` starts the native desktop app. The other commands match the
 local validation expected before opening a pull request.
+
+## Documentation
+
+- [User guides](docs/user-guides/README.md): day-to-day usage and workflows
+- [Specification references](docs/specifications/README.md): implemented
+  behavior that should remain stable as the app evolves

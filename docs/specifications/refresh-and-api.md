@@ -58,8 +58,8 @@ flow.
 ## Refresh Write Flow
 
 1. Fetch results using the saved query source: REST Search for issue and pull
-   request streams, GraphQL Search for discussion streams, or GraphQL ProjectV2
-   items for project streams.
+    request streams, GraphQL Search for discussion streams, or GraphQL ProjectV2
+    items for ProjectV2 streams.
 2. Attempt GraphQL enrichment for discovered issue and pull request stream
    items only, including items discovered from ProjectV2 streams.
 3. Upsert stream items and query matches into SQLite; identical items returned

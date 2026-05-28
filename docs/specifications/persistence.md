@@ -7,15 +7,16 @@ This reference defines the local persistence boundary and host identity behavior
 The YAML configuration stores user-editable app settings and the Personal Access
 Token.
 
-Saved query import/export uses a separate YAML document for transferring saved
-query definitions between databases or machines. Filter stream definitions
-remain SQLite-only and are not included in that YAML transfer format.
+Saved query import/export uses a separate YAML document for transferring the
+current host identity plus saved query and filter stream definitions between
+databases or machines.
 
 The local SQLite database stores:
 
 - Host identity metadata
 - Saved query definitions
 - Filter stream definitions
+- Saved query sync metadata such as last success time and last error
 - Materialized stream items
 - Query-to-item matches
 - Local unread, bookmark, and archive state
