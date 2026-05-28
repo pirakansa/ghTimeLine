@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use crate::app::{AppMode, GhStreamApp};
+use crate::github;
 use crate::models::{LibraryView, Selection, StreamSource};
 use crate::saved_query_io;
 
@@ -17,7 +18,23 @@ impl GhStreamApp {
         }
 
         if let AppMode::Main(runtime) = &mut self.mode {
-            match open::that(runtime.config.host.search_url_for(source, trimmed)) {
+            let preview_url = match source {
+                StreamSource::ProjectV2 => {
+                    match github::project::project_preview_url(&runtime.config.host, trimmed) {
+                        Ok(url) => url,
+                        Err(err) => {
+                            Self::replace_status_error(
+                                &mut self.status,
+                                &mut self.status_history,
+                                format!("Could not preview project: {err}"),
+                            );
+                            return;
+                        }
+                    }
+                }
+                _ => runtime.config.host.search_url_for(source, trimmed),
+            };
+            match open::that(preview_url) {
                 Ok(()) => Self::replace_status(
                     &mut self.status,
                     &mut self.status_history,

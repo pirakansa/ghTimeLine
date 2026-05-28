@@ -234,6 +234,7 @@ impl HostConfig {
             match source {
                 StreamSource::IssueOrPullRequest => "issues",
                 StreamSource::Discussion => "discussions",
+                StreamSource::ProjectV2 => "issues",
             }
         )
     }
@@ -333,15 +334,17 @@ pub enum StreamSource {
     #[default]
     IssueOrPullRequest,
     Discussion,
+    ProjectV2,
 }
 
 impl StreamSource {
-    pub const ALL: [Self; 2] = [Self::IssueOrPullRequest, Self::Discussion];
+    pub const ALL: [Self; 3] = [Self::IssueOrPullRequest, Self::Discussion, Self::ProjectV2];
 
     pub fn label(self) -> &'static str {
         match self {
             Self::IssueOrPullRequest => "Issues and pull requests",
             Self::Discussion => "Discussions",
+            Self::ProjectV2 => "Project items",
         }
     }
 
@@ -349,12 +352,14 @@ impl StreamSource {
         match self {
             Self::IssueOrPullRequest => "issue_or_pull_request",
             Self::Discussion => "discussion",
+            Self::ProjectV2 => "project_v2",
         }
     }
 
     pub fn from_db_value(value: &str) -> Self {
         match value {
             "discussion" => Self::Discussion,
+            "project_v2" => Self::ProjectV2,
             _ => Self::IssueOrPullRequest,
         }
     }

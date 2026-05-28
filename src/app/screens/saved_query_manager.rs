@@ -261,7 +261,7 @@ fn render_saved_query_form(
         let can_preview = !state.edit_text.trim().is_empty();
         if ui
             .add_enabled(can_preview, egui::Button::new("Preview"))
-            .on_hover_text("Open this GitHub search in your browser")
+            .on_hover_text("Open this query or project in your browser")
             .clicked()
         {
             *event = Some(StreamEvent::PreviewQuery {

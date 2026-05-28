@@ -77,7 +77,10 @@ fn refresh_saved_query_with_cache(
     item_cache: &mut HashMap<StreamItemKey, CachedSave>,
 ) -> Result<RefreshStats, SyncError> {
     let mut items = fetch_saved_query_items(config, host_id, saved_query)?;
-    if saved_query.source == StreamSource::IssueOrPullRequest {
+    if matches!(
+        saved_query.source,
+        StreamSource::IssueOrPullRequest | StreamSource::ProjectV2
+    ) {
         let _ = github::graphql::enrich_items(&config.host, &config.auth.pat, &mut items);
     }
     persist_saved_query_items(storage, saved_query, &items, item_cache)
@@ -96,6 +99,12 @@ fn fetch_saved_query_items(
             &saved_query.query,
         ),
         StreamSource::Discussion => github::discussion::search_discussions(
+            &config.host,
+            &config.auth.pat,
+            host_id,
+            &saved_query.query,
+        ),
+        StreamSource::ProjectV2 => github::project::search_project_items(
             &config.host,
             &config.auth.pat,
             host_id,
@@ -182,7 +191,10 @@ pub fn refresh_saved_queries(
         .iter_mut()
         .filter_map(|refresh| match refresh {
             PendingRefresh::Fetched { query, items }
-                if query.source == StreamSource::IssueOrPullRequest =>
+                if matches!(
+                    query.source,
+                    StreamSource::IssueOrPullRequest | StreamSource::ProjectV2
+                ) =>
             {
                 Some(items)
             }

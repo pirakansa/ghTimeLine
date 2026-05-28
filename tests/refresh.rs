@@ -158,6 +158,99 @@ fn refresh_fetches_discussions_through_graphql_source() {
 }
 
 #[test]
+fn refresh_fetches_project_v2_items_through_graphql_source() {
+    let server = Server::run();
+    server.expect(
+        Expectation::matching(request::method_path("POST", "/api/graphql"))
+            .times(2)
+            .respond_with(cycle(vec![
+                Box::new(json_encoded(project_items_response("2026-05-24T00:00:00Z"))),
+                Box::new(json_encoded(json!({ "data": { "nodes": [] } }))),
+            ])),
+    );
+
+    let storage = Storage::in_memory().expect("storage");
+    let config = config_for_server(&server);
+    let host_id = storage.ensure_host(&config.host).expect("host");
+    let query_id = storage
+        .add_saved_query_for_source(
+            host_id,
+            "Project",
+            "org:acme number:7",
+            StreamSource::ProjectV2,
+        )
+        .expect("saved project query");
+    let saved_query = storage
+        .list_saved_queries(host_id)
+        .expect("queries")
+        .into_iter()
+        .find(|query| query.id == query_id)
+        .expect("query");
+
+    let stats = sync::refresh_saved_query(&config, &storage, host_id, &saved_query)
+        .expect("project refresh should succeed");
+    let items = storage
+        .list_items_for_saved_query(query_id, None, None, SortOrder::UpdatedDesc)
+        .expect("items");
+
+    assert_eq!(saved_query.source, StreamSource::ProjectV2);
+    assert_eq!(stats.processed_count, 1);
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0].item_type, ItemType::Issue);
+    assert_eq!(items[0].title, "Track project work");
+    assert_eq!(items[0].updated_at_github, "2026-05-24T00:00:00+00:00");
+    assert_eq!(items[0].labels, vec!["project".to_owned()]);
+}
+
+#[test]
+fn project_v2_item_updates_mark_existing_items_unread() {
+    let server = Server::run();
+    server.expect(
+        Expectation::matching(request::method_path("POST", "/api/graphql"))
+            .times(4)
+            .respond_with(cycle(vec![
+                Box::new(json_encoded(project_items_response("2026-05-24T00:00:00Z"))),
+                Box::new(json_encoded(json!({ "data": { "nodes": [] } }))),
+                Box::new(json_encoded(project_items_response("2026-05-25T00:00:00Z"))),
+                Box::new(json_encoded(json!({ "data": { "nodes": [] } }))),
+            ])),
+    );
+
+    let storage = Storage::in_memory().expect("storage");
+    let config = config_for_server(&server);
+    let host_id = storage.ensure_host(&config.host).expect("host");
+    let query_id = storage
+        .add_saved_query_for_source(
+            host_id,
+            "Project",
+            "org:acme number:7",
+            StreamSource::ProjectV2,
+        )
+        .expect("saved project query");
+    let saved_query = storage
+        .list_saved_queries(host_id)
+        .expect("queries")
+        .into_iter()
+        .find(|query| query.id == query_id)
+        .expect("query");
+
+    sync::refresh_saved_query(&config, &storage, host_id, &saved_query)
+        .expect("first project refresh should succeed");
+    storage
+        .mark_saved_query_read(query_id)
+        .expect("mark project query read");
+    sync::refresh_saved_query(&config, &storage, host_id, &saved_query)
+        .expect("second project refresh should succeed");
+    let items = storage
+        .list_items_for_saved_query(query_id, None, None, SortOrder::UpdatedDesc)
+        .expect("items");
+
+    assert_eq!(items.len(), 1);
+    assert!(items[0].is_unread);
+    assert_eq!(items[0].updated_at_github, "2026-05-25T00:00:00+00:00");
+}
+
+#[test]
 fn failed_refresh_preserves_existing_items_and_records_sync_error() {
     let server = Server::run();
     server.expect(
@@ -445,6 +538,50 @@ fn discussion_search_response() -> serde_json::Value {
                     "author": { "login": "octo", "avatarUrl": null },
                     "comments": { "totalCount": 3 }
                 }]
+            }
+        }
+    })
+}
+
+fn project_items_response(project_item_updated_at: &str) -> serde_json::Value {
+    json!({
+        "data": {
+            "organization": {
+                "projectV2": {
+                    "items": {
+                        "pageInfo": {
+                            "hasNextPage": false,
+                            "endCursor": null
+                        },
+                        "nodes": [{
+                            "id": "PVTI_1",
+                            "type": "ISSUE",
+                            "isArchived": false,
+                            "updatedAt": project_item_updated_at,
+                            "content": {
+                                "__typename": "Issue",
+                                "id": "I_1",
+                                "number": 10,
+                                "title": "Track project work",
+                                "url": "https://github.com/acme/project/issues/10",
+                                "state": "OPEN",
+                                "createdAt": "2026-05-22T00:00:00Z",
+                                "updatedAt": "2026-05-23T00:00:00Z",
+                                "closedAt": null,
+                                "comments": { "totalCount": 2 },
+                                "repository": { "nameWithOwner": "acme/project" },
+                                "author": { "login": "octo", "avatarUrl": null },
+                                "labels": { "nodes": [{ "name": "project" }] },
+                                "assignees": {
+                                    "nodes": [{
+                                        "login": "dev",
+                                        "avatarUrl": "https://avatars.githubusercontent.com/u/2?v=4"
+                                    }]
+                                }
+                            }
+                        }]
+                    }
+                }
             }
         }
     })

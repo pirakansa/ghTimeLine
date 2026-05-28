@@ -31,6 +31,15 @@ flow.
   are stored as discussion stream items.
 - Discussion discovery adds recently updated ordering to the GitHub search
   query and does not run pull request enrichment.
+- ProjectV2 saved queries use GraphQL ProjectV2 item discovery. The query string
+  identifies the project as a project URL, `node:PROJECT_ID`,
+  `org:OWNER number:N`, or `user:OWNER number:N`.
+- ProjectV2 discovery pages through up to 500 non-archived project items, stores
+  issue and pull request content, and skips draft issues and redacted items.
+- ProjectV2 item updates are reflected in the stream item update timestamp so
+  project field changes can mark the item unread even when the underlying issue
+  or pull request did not change.
+- ProjectV2 discovery requires a GitHub token with `read:project`.
 - Issues and pull requests with node IDs are enriched through GraphQL.
 - GraphQL enrichment fills draft state, merge state, merged timestamp, review
   status, reviewer metadata, and local involvement metadata such as
@@ -49,9 +58,10 @@ flow.
 ## Refresh Write Flow
 
 1. Fetch results using the saved query source: REST Search for issue and pull
-   request streams, or GraphQL Search for discussion streams.
+   request streams, GraphQL Search for discussion streams, or GraphQL ProjectV2
+   items for project streams.
 2. Attempt GraphQL enrichment for discovered issue and pull request stream
-   items only.
+   items only, including items discovered from ProjectV2 streams.
 3. Upsert stream items and query matches into SQLite; identical items returned
    by multiple saved queries in one refresh reuse a single metadata save.
 4. Mark query sync success or store a short sync error.
@@ -64,6 +74,6 @@ flow.
 The app must not assume polling can infer every GitHub state transition. Cached
 matches may remain when an item stops appearing in a later search result.
 
-ProjectV2 streams are not implemented. They require a distinct source contract
-for project identity, draft items, project fields, and redacted items rather
-than a replacement of issue and pull request REST Search.
+ProjectV2 streams do not currently store draft issues, redacted items, or full
+project field values. They use ProjectV2 item timestamps for change detection
+but render the underlying issue or pull request as the stream item.
