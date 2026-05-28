@@ -447,48 +447,61 @@ fn draw_archive_icon(
     color: egui::Color32,
     active: bool,
 ) {
+    let rect = rect.expand(1.5);
     let stroke = egui::Stroke::new(stroke_width(rect, 0.09), color);
     let box_rect =
-        egui::Rect::from_min_max(lerp_point(rect, 0.18, 0.28), lerp_point(rect, 0.82, 0.78));
-    let lid_y = egui::lerp(rect.top()..=rect.bottom(), 0.34);
-    let slot_left = egui::lerp(rect.left()..=rect.right(), 0.38);
-    let slot_right = egui::lerp(rect.left()..=rect.right(), 0.62);
+        egui::Rect::from_min_max(lerp_point(rect, 0.12, 0.36), lerp_point(rect, 0.88, 0.82));
+    let lid_rect =
+        egui::Rect::from_min_max(lerp_point(rect, 0.18, 0.20), lerp_point(rect, 0.82, 0.40));
+    let corner_radius = rect.width().min(rect.height()) * 0.08;
 
-    painter.rect_stroke(box_rect, 2.0, stroke, egui::StrokeKind::Inside);
+    painter.rect_stroke(box_rect, corner_radius, stroke, egui::StrokeKind::Inside);
     painter.line_segment(
         [
-            egui::pos2(box_rect.left(), lid_y),
-            egui::pos2(box_rect.right(), lid_y),
+            egui::pos2(lid_rect.left(), lid_rect.bottom()),
+            egui::pos2(lid_rect.right(), lid_rect.bottom()),
         ],
         stroke,
     );
     painter.line_segment(
-        [egui::pos2(slot_left, lid_y), egui::pos2(slot_right, lid_y)],
+        [
+            egui::pos2(lid_rect.left(), lid_rect.bottom()),
+            egui::pos2(lid_rect.left() + lid_rect.width() * 0.10, lid_rect.top()),
+        ],
+        stroke,
+    );
+    painter.line_segment(
+        [
+            egui::pos2(lid_rect.right(), lid_rect.bottom()),
+            egui::pos2(lid_rect.right() - lid_rect.width() * 0.10, lid_rect.top()),
+        ],
+        stroke,
+    );
+    painter.line_segment(
+        [
+            egui::pos2(lid_rect.left() + lid_rect.width() * 0.10, lid_rect.top()),
+            egui::pos2(lid_rect.right() - lid_rect.width() * 0.10, lid_rect.top()),
+        ],
         stroke,
     );
 
-    let arrow_tip = if active {
-        lerp_point(rect, 0.50, 0.20)
+    let (arrow_start, arrow_tip, wing_y) = if active {
+        (
+            lerp_point(rect, 0.50, 0.68),
+            lerp_point(rect, 0.50, 0.26),
+            0.40,
+        )
     } else {
-        lerp_point(rect, 0.50, 0.86)
+        (
+            lerp_point(rect, 0.50, 0.26),
+            lerp_point(rect, 0.50, 0.68),
+            0.54,
+        )
     };
-    let arrow_base = if active {
-        lerp_point(rect, 0.50, 0.52)
-    } else {
-        lerp_point(rect, 0.50, 0.48)
-    };
-    let wing_left = if active {
-        lerp_point(rect, 0.36, 0.34)
-    } else {
-        lerp_point(rect, 0.36, 0.70)
-    };
-    let wing_right = if active {
-        lerp_point(rect, 0.64, 0.34)
-    } else {
-        lerp_point(rect, 0.64, 0.70)
-    };
+    let wing_left = lerp_point(rect, 0.36, wing_y);
+    let wing_right = lerp_point(rect, 0.64, wing_y);
 
-    painter.line_segment([arrow_base, arrow_tip], stroke);
+    painter.line_segment([arrow_start, arrow_tip], stroke);
     painter.line_segment([wing_left, arrow_tip], stroke);
     painter.line_segment([wing_right, arrow_tip], stroke);
 }
