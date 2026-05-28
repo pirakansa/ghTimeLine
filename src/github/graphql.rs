@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use super::graphql_types::*;
 use crate::github::{client, GitHubError};
 use crate::models::{HostConfig, ItemPerson, ItemReview, ItemType};
 use crate::storage::items::StreamItemUpsert;
@@ -402,118 +403,6 @@ fn normalize_review_state(state: &str) -> Option<&'static str> {
         "COMMENTED" => Some("commented"),
         _ => None,
     }
-}
-
-#[derive(serde::Serialize)]
-struct GraphqlRequest<'a> {
-    query: &'static str,
-    variables: GraphqlVariables<'a>,
-}
-
-#[derive(serde::Serialize)]
-struct GraphqlVariables<'a> {
-    ids: &'a [String],
-}
-
-#[derive(Debug, serde::Deserialize)]
-struct GraphqlResponse {
-    data: Option<GraphqlData>,
-    errors: Option<Vec<GraphqlError>>,
-}
-
-#[derive(Debug, serde::Deserialize)]
-struct GraphqlError {
-    message: String,
-}
-
-#[derive(Debug, serde::Deserialize)]
-struct GraphqlData {
-    nodes: Vec<Option<EnrichedNode>>,
-}
-
-#[derive(Debug, Default, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct EnrichedNode {
-    id: String,
-    #[serde(default)]
-    body: String,
-    #[serde(default)]
-    is_draft: Option<bool>,
-    #[serde(default)]
-    merged: Option<bool>,
-    merged_at: Option<String>,
-    review_decision: Option<String>,
-    #[serde(default)]
-    review_requests: ReviewRequests,
-    #[serde(default)]
-    latest_reviews: LatestReviews,
-    #[serde(default)]
-    participants: Participants,
-    #[serde(default)]
-    comments: Comments,
-}
-
-impl EnrichedNode {
-    fn review_status_fields_present(&self) -> bool {
-        self.is_draft.is_some() || self.merged.is_some() || self.review_decision.is_some()
-    }
-}
-
-#[derive(Debug, Default, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ReviewRequests {
-    #[serde(default)]
-    total_count: i64,
-    #[serde(default)]
-    nodes: Vec<ReviewRequestNode>,
-}
-
-#[derive(Debug, Default, serde::Deserialize)]
-struct LatestReviews {
-    #[serde(default)]
-    nodes: Vec<ReviewNode>,
-}
-
-#[derive(Debug, Default, serde::Deserialize)]
-struct Participants {
-    #[serde(default)]
-    nodes: Vec<UserRef>,
-}
-
-#[derive(Debug, Default, serde::Deserialize)]
-struct Comments {
-    #[serde(default)]
-    nodes: Vec<CommentNode>,
-}
-
-#[derive(Debug, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ReviewRequestNode {
-    requested_reviewer: Option<UserRef>,
-}
-
-#[derive(Debug, Default, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct UserRef {
-    login: Option<String>,
-    avatar_url: Option<String>,
-}
-
-#[derive(Debug, Default, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ReviewNode {
-    state: String,
-    #[serde(default)]
-    body: String,
-    author: Option<UserRef>,
-}
-
-#[derive(Debug, Default, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct CommentNode {
-    author: Option<UserRef>,
-    #[serde(default)]
-    body: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
