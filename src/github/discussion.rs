@@ -14,6 +14,8 @@ query DiscussionSearch($query: String!, $first: Int!) {
         url
         createdAt
         updatedAt
+        closed
+        closedAt
         repository {
           nameWithOwner
         }
@@ -99,6 +101,10 @@ fn discussion_to_upsert(
             host: host.name.clone(),
             message: "discussion repository name did not include owner and repository".to_owned(),
         })?;
+    let author = discussion.author;
+    let author_login = author.as_ref().map(|author| author.login.clone());
+    let author_avatar_url = author.and_then(|author| author.avatar_url);
+    let state = if discussion.closed { "closed" } else { "open" };
     Ok(StreamItemUpsert {
         host_id,
         node_id: Some(discussion.id),
@@ -107,21 +113,18 @@ fn discussion_to_upsert(
         number: discussion.number,
         item_type: ItemType::Discussion,
         title: discussion.title,
-        author_login: discussion
-            .author
-            .as_ref()
-            .map(|author| author.login.clone()),
-        author_avatar_url: discussion.author.and_then(|author| author.avatar_url),
+        author_login,
+        author_avatar_url,
         html_url: discussion.url,
         api_url: None,
-        state: "open".to_owned(),
+        state: state.to_owned(),
         is_draft: None,
         is_merged: None,
         review_status: None,
         comment_count: discussion.comments.total_count,
         created_at_github: discussion.created_at,
         updated_at_github: discussion.updated_at,
-        closed_at_github: None,
+        closed_at_github: discussion.closed_at,
         merged_at_github: None,
         labels: Vec::new(),
         assignees: Vec::new(),
@@ -175,6 +178,8 @@ struct DiscussionNode {
     url: String,
     created_at: String,
     updated_at: String,
+    closed: bool,
+    closed_at: Option<String>,
     repository: DiscussionRepository,
     author: Option<DiscussionAuthor>,
     comments: DiscussionComments,
@@ -217,6 +222,8 @@ mod tests {
                 "url": "https://github.com/acme/project/discussions/12",
                 "createdAt": "2026-05-22T00:00:00Z",
                 "updatedAt": "2026-05-23T00:00:00Z",
+                "closed": false,
+                "closedAt": null,
                 "repository": { "nameWithOwner": "acme/project" },
                 "author": { "login": "octo", "avatarUrl": null },
                 "comments": { "totalCount": 3 }
@@ -231,5 +238,43 @@ mod tests {
         assert_eq!(items[0].item_type, ItemType::Discussion);
         assert_eq!(items[0].repository_owner, "acme");
         assert_eq!(items[0].comment_count, 3);
+    }
+
+    #[test]
+    fn parses_closed_discussion_state_into_stream_item() {
+        let config = AppConfig::default_with_pat("token".to_owned());
+        let body = r#"{
+          "data": {
+            "search": {
+              "nodes": [{
+                "id": "D_kwDO",
+                "number": 12,
+                "title": "Release feedback",
+                "url": "https://github.com/acme/project/discussions/12",
+                "createdAt": "2026-05-22T00:00:00Z",
+                "updatedAt": "2026-05-23T00:00:00Z",
+                "closed": true,
+                "closedAt": "2026-05-24T00:00:00Z",
+                "repository": { "nameWithOwner": "acme/project" },
+                "author": { "login": "octo", "avatarUrl": "https://avatars.example/octo.png" },
+                "comments": { "totalCount": 3 }
+              }]
+            }
+          }
+        }"#;
+
+        let items = parse_search_response(&config.host, 10, body).expect("discussion result");
+
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].state, "closed");
+        assert_eq!(
+            items[0].closed_at_github.as_deref(),
+            Some("2026-05-24T00:00:00Z")
+        );
+        assert_eq!(items[0].author_login.as_deref(), Some("octo"));
+        assert_eq!(
+            items[0].author_avatar_url.as_deref(),
+            Some("https://avatars.example/octo.png")
+        );
     }
 }

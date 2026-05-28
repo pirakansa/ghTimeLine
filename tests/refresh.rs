@@ -152,6 +152,8 @@ fn refresh_fetches_discussions_through_graphql_source() {
     assert_eq!(stats.processed_count, 1);
     assert_eq!(items[0].item_type, ItemType::Discussion);
     assert_eq!(items[0].title, "Release feedback");
+    assert_eq!(items[0].state, "open");
+    assert_eq!(items[0].closed_at_github, None);
     assert_eq!(items[0].comment_count, 3);
 }
 
@@ -437,6 +439,8 @@ fn discussion_search_response() -> serde_json::Value {
                     "url": "https://github.com/acme/project/discussions/12",
                     "createdAt": "2026-05-22T00:00:00Z",
                     "updatedAt": "2026-05-23T00:00:00Z",
+                    "closed": false,
+                    "closedAt": null,
                     "repository": { "nameWithOwner": "acme/project" },
                     "author": { "login": "octo", "avatarUrl": null },
                     "comments": { "totalCount": 3 }
