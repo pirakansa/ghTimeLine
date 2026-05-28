@@ -7,6 +7,7 @@ The current test suite covers:
 - REST Search response parsing
 - REST Search discovery ordering remains updated-descending
 - GraphQL enrichment parsing and review status derivation
+- GraphQL Discussion Search discovery and discussion item persistence
 - Refresh write-before-render behavior
 - Refresh failure preserving existing stored items
 - GraphQL enrichment failure preserving existing pull request metadata
@@ -17,6 +18,7 @@ The current test suite covers:
 - Item state persistence across metadata upserts
 - Archived unread badge behavior
 - Saved query updates
+- Saved query source persistence and discussion preview routing
 - Stream toolbar sort ordering for selected saved query views
 - Local SQL-backed toolbar filter validation and matching
 - UI state/event handling

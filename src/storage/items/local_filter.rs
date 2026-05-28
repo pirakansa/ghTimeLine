@@ -151,6 +151,7 @@ fn parse(query: &str) -> Result<ParsedLocalFilter> {
             "is" => match value.as_str() {
                 "issue" => parsed.item_types.push("issue".to_owned()),
                 "pr" => parsed.item_types.push("pull_request".to_owned()),
+                "discussion" => parsed.item_types.push("discussion".to_owned()),
                 "open" => parsed.item_states.push(IsState::Open),
                 "closed" => parsed.item_states.push(IsState::Closed),
                 "merged" => parsed.item_states.push(IsState::Merged),
@@ -380,6 +381,16 @@ mod tests {
             compiled.params,
             vec![Value::Text("pull_request".to_owned())]
         );
+    }
+
+    #[test]
+    fn compiles_is_discussion_to_discussion_type() {
+        let compiled = compile(Some("is:discussion"))
+            .expect("is:discussion should compile")
+            .expect("compiled filter");
+
+        assert!(compiled.clause.contains("i.item_type IN (?)"));
+        assert_eq!(compiled.params, vec![Value::Text("discussion".to_owned())]);
     }
 
     #[test]

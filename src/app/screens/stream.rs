@@ -10,7 +10,7 @@ use crate::app::screens::status_log::StatusLogState;
 use crate::app::StatusEntry;
 use crate::models::{
     AppConfig, FontSize, LibraryCounts, LibraryView, SavedQuery, Selection, SortOrder,
-    StreamFilter, StreamItem, Theme,
+    StreamFilter, StreamItem, StreamSource, Theme,
 };
 
 pub struct StreamState {
@@ -65,13 +65,18 @@ pub enum StreamEvent {
     AddQuery {
         name: String,
         query: String,
+        source: StreamSource,
         enabled: bool,
     },
-    PreviewQuery(String),
+    PreviewQuery {
+        query: String,
+        source: StreamSource,
+    },
     UpdateQuery {
         id: i64,
         name: String,
         query: String,
+        source: StreamSource,
         enabled: bool,
     },
     DeleteFilterStream(i64),

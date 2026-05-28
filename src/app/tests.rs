@@ -3,6 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::models::{
     AppConfig, ItemPerson, ItemReview, ItemType, LibraryView, Selection, SortOrder, StreamFilter,
+    StreamSource,
 };
 use crate::saved_query_io::read_saved_queries;
 use crate::storage::items::StreamItemUpsert;
@@ -246,7 +247,7 @@ fn changing_saved_query_requests_item_list_scroll_reset() {
 fn query_creation_and_selected_query_deletion_request_item_list_scroll_reset() {
     let (mut app, _) = app_with_one_item();
 
-    app.add_query("New", "is:issue", true);
+    app.add_query("New", "is:issue", StreamSource::IssueOrPullRequest, true);
     assert!(app.stream.reset_item_list_scroll);
     let Selection::SavedQuery(new_query_id) = app.stream.selection else {
         panic!("new query should be selected");
@@ -436,6 +437,7 @@ fn export_queries_writes_yaml_without_runtime_fields() {
     assert_eq!(imported.queries.len(), 1);
     assert_eq!(imported.queries[0].name, "Inbox");
     assert_eq!(imported.queries[0].query, "is:open");
+    assert_eq!(imported.queries[0].source, StreamSource::IssueOrPullRequest);
     assert_eq!(imported.queries[0].filter_streams.len(), 1);
     assert_eq!(
         imported.queries[0].filter_streams[0].name,

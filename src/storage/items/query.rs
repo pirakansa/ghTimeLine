@@ -453,7 +453,8 @@ fn item_where_sql(
     let filter_clause = match options.filter {
         Some(StreamFilter::Open) => {
             " AND (i.item_type = 'issue' AND i.state = 'open'
-               OR i.item_type = 'pull_request' AND i.state = 'open' AND COALESCE(i.is_merged, 0) = 0)"
+               OR i.item_type = 'pull_request' AND i.state = 'open' AND COALESCE(i.is_merged, 0) = 0
+               OR i.item_type = 'discussion' AND i.state = 'open')"
         }
         Some(StreamFilter::Unread) => " AND s.is_unread = 1",
         Some(StreamFilter::Bookmarked) => " AND s.is_bookmarked = 1",

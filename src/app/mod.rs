@@ -327,10 +327,11 @@ impl eframe::App for GhStreamApp {
                     Some(screens::stream::StreamEvent::AddQuery {
                         name,
                         query,
+                        source,
                         enabled,
-                    }) => self.add_query(&name, &query, enabled),
-                    Some(screens::stream::StreamEvent::PreviewQuery(query)) => {
-                        self.preview_query(&query)
+                    }) => self.add_query(&name, &query, source, enabled),
+                    Some(screens::stream::StreamEvent::PreviewQuery { query, source }) => {
+                        self.preview_query(&query, source)
                     }
                     Some(screens::stream::StreamEvent::UpdateFilterStream {
                         id,
@@ -342,8 +343,9 @@ impl eframe::App for GhStreamApp {
                         id,
                         name,
                         query,
+                        source,
                         enabled,
-                    }) => self.update_query(id, &name, &query, enabled),
+                    }) => self.update_query(id, &name, &query, source, enabled),
                     Some(screens::stream::StreamEvent::DeleteFilterStream(id)) => {
                         self.delete_filter_stream(id)
                     }

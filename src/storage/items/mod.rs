@@ -51,12 +51,14 @@ pub(super) fn item_type_db_value(item_type: &ItemType) -> &'static str {
     match item_type {
         ItemType::Issue => "issue",
         ItemType::PullRequest => "pull_request",
+        ItemType::Discussion => "discussion",
     }
 }
 
 pub(super) fn item_type_from_db(value: &str) -> ItemType {
     match value {
         "pull_request" => ItemType::PullRequest,
+        "discussion" => ItemType::Discussion,
         _ => ItemType::Issue,
     }
 }

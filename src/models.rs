@@ -220,13 +220,21 @@ impl HostConfig {
     }
 
     pub fn search_url(&self, query: &str) -> String {
+        self.search_url_for(StreamSource::IssueOrPullRequest, query)
+    }
+
+    pub fn search_url_for(&self, source: StreamSource, query: &str) -> String {
         let web_base = match self.kind {
             HostKind::GitHub => format!("{}://github.com", self.scheme),
             HostKind::Ghes => format!("{}://{}", self.scheme, self.hostname),
         };
         format!(
-            "{web_base}/search?q={}&type=issues",
-            urlencoding::encode(query.trim())
+            "{web_base}/search?q={}&type={}",
+            urlencoding::encode(query.trim()),
+            match source {
+                StreamSource::IssueOrPullRequest => "issues",
+                StreamSource::Discussion => "discussions",
+            }
         )
     }
 }
@@ -312,10 +320,44 @@ pub struct SavedQuery {
     pub id: i64,
     pub name: String,
     pub query: String,
+    pub source: StreamSource,
     pub enabled: bool,
     pub position: i64,
     pub unread_count: i64,
     pub filter_streams: Vec<FilterStream>,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StreamSource {
+    #[default]
+    IssueOrPullRequest,
+    Discussion,
+}
+
+impl StreamSource {
+    pub const ALL: [Self; 2] = [Self::IssueOrPullRequest, Self::Discussion];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::IssueOrPullRequest => "Issues and pull requests",
+            Self::Discussion => "Discussions",
+        }
+    }
+
+    pub fn as_db_value(self) -> &'static str {
+        match self {
+            Self::IssueOrPullRequest => "issue_or_pull_request",
+            Self::Discussion => "discussion",
+        }
+    }
+
+    pub fn from_db_value(value: &str) -> Self {
+        match value {
+            "discussion" => Self::Discussion,
+            _ => Self::IssueOrPullRequest,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -346,10 +388,11 @@ impl LibraryCounts {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum ItemType {
     Issue,
     PullRequest,
+    Discussion,
 }
 
 impl ItemType {
@@ -357,6 +400,7 @@ impl ItemType {
         match self {
             Self::Issue => "Issue",
             Self::PullRequest => "Pull request",
+            Self::Discussion => "Discussion",
         }
     }
 }
@@ -412,7 +456,7 @@ impl StreamItem {
 
 #[cfg(test)]
 mod tests {
-    use super::{HostConfig, HostKind, Scheme};
+    use super::{HostConfig, HostKind, Scheme, StreamSource};
 
     #[test]
     fn github_search_url_uses_public_web_host() {
@@ -437,6 +481,16 @@ mod tests {
         assert_eq!(
             host.search_url(" repo:acme/api is:issue "),
             "https://ghe.example.test/search?q=repo%3Aacme%2Fapi%20is%3Aissue&type=issues"
+        );
+    }
+
+    #[test]
+    fn discussion_preview_url_selects_discussion_search() {
+        let host = HostConfig::github_default();
+
+        assert_eq!(
+            host.search_url_for(StreamSource::Discussion, "repo:acme/project feedback"),
+            "https://github.com/search?q=repo%3Aacme%2Fproject%20feedback&type=discussions"
         );
     }
 }

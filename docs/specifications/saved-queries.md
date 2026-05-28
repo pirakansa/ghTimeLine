@@ -5,6 +5,7 @@ A saved query has:
 - Host association
 - User-visible name
 - GitHub Search query string
+- Source type (`issue_or_pull_request` or `discussion`)
 - Enabled state
 - Position
 - Last successful sync timestamp
@@ -32,6 +33,7 @@ Saved query YAML import/export includes:
 - Host identity fields
 - Saved query name
 - GitHub Search query string
+- Source type
 - Enabled state
 - Position
 - Filter stream name
@@ -43,8 +45,15 @@ Saved query YAML import must replace the current host's saved queries and filter
 stream definitions. Import does not preserve cached matches or sync metadata;
 the next refresh rebuilds matches from the imported definitions.
 
-Saved queries target GitHub Search for issues and pull requests. Their refresh
-requests use recently updated ordering independently of the stream view sort.
+Saved queries select one remote source:
+
+- Issue and pull request streams use REST Search discovery followed by GraphQL
+  enrichment.
+- Discussion streams use GraphQL Search with `type: DISCUSSION`.
+
+Both sources request recently updated discovery ordering independently of the
+stream view sort. Existing definitions without a source type import as issue
+and pull request streams.
 
 Filter streams remain local child views over cached saved query matches.
 Refreshing a selected filter stream refreshes its parent saved query rather than

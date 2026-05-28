@@ -27,6 +27,10 @@ flow.
   first (`sort=updated&order=desc`) so display preferences do not displace
   newly updated items from the fetched page.
 - REST Search results are parsed into normalized stream item data.
+- Discussion saved queries use GraphQL `search(type: DISCUSSION)` discovery and
+  are stored as discussion stream items.
+- Discussion discovery adds recently updated ordering to the GitHub search
+  query and does not run pull request enrichment.
 - Issues and pull requests with node IDs are enriched through GraphQL.
 - GraphQL enrichment fills draft state, merge state, merged timestamp, review
   status, reviewer metadata, and local involvement metadata such as
@@ -44,8 +48,10 @@ flow.
 
 ## Refresh Write Flow
 
-1. Fetch REST Search results for a saved query.
-2. Attempt GraphQL enrichment for discovered pull requests.
+1. Fetch results using the saved query source: REST Search for issue and pull
+   request streams, or GraphQL Search for discussion streams.
+2. Attempt GraphQL enrichment for discovered issue and pull request stream
+   items only.
 3. Upsert stream items and query matches into SQLite; identical items returned
    by multiple saved queries in one refresh reuse a single metadata save.
 4. Mark query sync success or store a short sync error.
@@ -57,3 +63,7 @@ flow.
 
 The app must not assume polling can infer every GitHub state transition. Cached
 matches may remain when an item stops appearing in a later search result.
+
+ProjectV2 streams are not implemented. They require a distinct source contract
+for project identity, draft items, project fields, and redacted items rather
+than a replacement of issue and pull request REST Search.

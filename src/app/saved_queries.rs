@@ -1,11 +1,11 @@
 use std::path::Path;
 
 use crate::app::{AppMode, GhStreamApp};
-use crate::models::{LibraryView, Selection};
+use crate::models::{LibraryView, Selection, StreamSource};
 use crate::saved_query_io;
 
 impl GhStreamApp {
-    pub(super) fn preview_query(&mut self, query: &str) {
+    pub(super) fn preview_query(&mut self, query: &str, source: StreamSource) {
         let trimmed = query.trim();
         if trimmed.is_empty() {
             Self::replace_status(
@@ -17,7 +17,7 @@ impl GhStreamApp {
         }
 
         if let AppMode::Main(runtime) = &mut self.mode {
-            match open::that(runtime.config.host.search_url(trimmed)) {
+            match open::that(runtime.config.host.search_url_for(source, trimmed)) {
                 Ok(()) => Self::replace_status(
                     &mut self.status,
                     &mut self.status_history,
@@ -32,7 +32,13 @@ impl GhStreamApp {
         }
     }
 
-    pub(super) fn add_query(&mut self, name: &str, query: &str, enabled: bool) {
+    pub(super) fn add_query(
+        &mut self,
+        name: &str,
+        query: &str,
+        source: StreamSource,
+        enabled: bool,
+    ) {
         if name.trim().is_empty() || query.trim().is_empty() {
             Self::replace_status(
                 &mut self.status,
@@ -45,7 +51,7 @@ impl GhStreamApp {
         if let AppMode::Main(runtime) = &mut self.mode {
             match runtime
                 .storage
-                .add_saved_query(runtime.host_id, name, query)
+                .add_saved_query_for_source(runtime.host_id, name, query, source)
             {
                 Ok(id) => {
                     if !enabled {
@@ -77,7 +83,14 @@ impl GhStreamApp {
         self.reload_current_view();
     }
 
-    pub(super) fn update_query(&mut self, id: i64, name: &str, query: &str, enabled: bool) {
+    pub(super) fn update_query(
+        &mut self,
+        id: i64,
+        name: &str,
+        query: &str,
+        source: StreamSource,
+        enabled: bool,
+    ) {
         if name.trim().is_empty() || query.trim().is_empty() {
             Self::replace_status(
                 &mut self.status,
@@ -88,7 +101,10 @@ impl GhStreamApp {
         }
 
         if let AppMode::Main(runtime) = &mut self.mode {
-            match runtime.storage.update_saved_query(id, name, query) {
+            match runtime
+                .storage
+                .update_saved_query_for_source(id, name, query, source)
+            {
                 Ok(()) => match runtime.storage.set_saved_query_enabled(id, enabled) {
                     Ok(()) => Self::replace_status(
                         &mut self.status,

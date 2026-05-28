@@ -1,4 +1,5 @@
 mod client;
+pub mod discussion;
 pub mod graphql;
 pub mod rest;
 

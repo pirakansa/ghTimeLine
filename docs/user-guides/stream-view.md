@@ -34,7 +34,7 @@ non-archived items, while **Archived** affects archived items.
 The toolbar supports these filters:
 
 - **All**: no additional filter
-- **Open**: open issues and open, unmerged pull requests
+- **Open**: open issues, open unmerged pull requests, and discussions
 - **Unread**: unread items
 - **Bookmarked**: bookmarked items
 
@@ -48,7 +48,7 @@ Supported local filter terms:
 - `assignee:<login>`
 - `draft:true` or `draft:false`
 - `involves:<login>`
-- `is:issue`, `is:pr`, `is:open`, `is:closed`, or `is:merged`
+- `is:issue`, `is:pr`, `is:discussion`, `is:open`, `is:closed`, or `is:merged`
 - `label:<name>`
 - `org:<owner>`
 - `repo:<owner/name>`
@@ -71,7 +71,7 @@ card to append its matching term to the **Local filter** input. Selecting an
 avatar whose term is already present does not add a duplicate term.
 
 Select the repository reference in an item header to append `repo:<owner/name>`,
-or select its issue or pull request icon to append `is:issue` or `is:pr`.
+or select its type icon to append `is:issue`, `is:pr`, or `is:discussion`.
 Icon and header clicks only prepare the input; select **Apply** to filter the
 visible item list.
 
