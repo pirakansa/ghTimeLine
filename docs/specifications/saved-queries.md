@@ -5,7 +5,7 @@ A saved query has:
 - Host association
 - User-visible name
 - GitHub Search query string
-- Source type (`issue_or_pull_request` or `discussion`)
+- Source type (`issue_or_pull_request`, `discussion`, or `project_v2`)
 - Enabled state
 - Position
 - Last successful sync timestamp
@@ -50,10 +50,19 @@ Saved queries select one remote source:
 - Issue and pull request streams use REST Search discovery followed by GraphQL
   enrichment.
 - Discussion streams use GraphQL Search with `type: DISCUSSION`.
+- ProjectV2 streams use GraphQL ProjectV2 items discovery and include issue and
+  pull request content only.
 
-Both sources request recently updated discovery ordering independently of the
-stream view sort. Existing definitions without a source type import as issue
-and pull request streams.
+Remote sources request updated-item discovery independently of the stream view
+sort. Existing definitions without a source type import as issue and pull
+request streams.
+
+ProjectV2 query strings must identify a project as a project URL,
+`node:PROJECT_ID`, `org:OWNER number:N`, or `user:OWNER number:N`. ProjectV2
+refreshes page through up to 500 non-archived project items, skip draft issues
+and redacted items, and use the later of the project item update timestamp and
+issue or pull request update timestamp for stream change detection. ProjectV2
+refresh requires a GitHub token with `read:project`.
 
 Filter streams remain local child views over cached saved query matches.
 Refreshing a selected filter stream refreshes its parent saved query rather than

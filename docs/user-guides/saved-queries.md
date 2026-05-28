@@ -1,15 +1,17 @@
 # Saved Queries
 
-Saved queries are GitHub Search query strings for issues, pull requests, or
-discussions. Use **Manage** in the left pane to open the saved query management
+Saved queries track GitHub issues, pull requests, discussions, or ProjectV2
+items. Use **Manage** in the left pane to open the saved query management
 screen.
 
 ## Add A Query
 
 1. Select **New** in the saved query management screen.
 2. Enter a user-visible name.
-3. Select **Issues and pull requests** or **Discussions** as the source.
-4. Enter the GitHub Search query string.
+3. Select **Issues and pull requests**, **Discussions**, or **Project items** as
+   the source.
+4. Enter the GitHub Search query string, or for Project items enter a project
+   URL, `node:PROJECT_ID`, `org:OWNER number:N`, or `user:OWNER number:N`.
 5. Choose whether the query is **Enabled**.
 6. Select **Add**.
 
@@ -24,7 +26,10 @@ Refreshes always look for the most recently updated GitHub items first. Change
 the stored item list ordering from the stream toolbar.
 
 Issue and pull request sources keep their REST Search plus GraphQL enrichment
-flow. Discussion sources are fetched with GitHub GraphQL Search.
+flow. Discussion sources are fetched with GitHub GraphQL Search. Project item
+sources fetch non-archived ProjectV2 issue and pull request items with GraphQL;
+draft issues and redacted items are skipped. Project item refresh requires a
+GitHub token with `read:project`.
 
 ## Delete A Query
 

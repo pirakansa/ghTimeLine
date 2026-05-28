@@ -2,7 +2,7 @@ use rusqlite::Connection;
 
 use super::Result;
 
-pub const SCHEMA_VERSION: i64 = 6;
+pub const SCHEMA_VERSION: i64 = 7;
 
 pub fn migrate(connection: &Connection) -> Result<()> {
     let version =
@@ -23,8 +23,21 @@ pub fn migrate(connection: &Connection) -> Result<()> {
         if version < 6 {
             migrate_stream_sources(connection)?;
         }
+        if (6..7).contains(&version) {
+            migrate_project_v2_source(connection)?;
+        }
         connection.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     }
+    Ok(())
+}
+
+fn migrate_project_v2_source(connection: &Connection) -> Result<()> {
+    connection.pragma_update(None, "foreign_keys", "OFF")?;
+    connection.pragma_update(None, "legacy_alter_table", "ON")?;
+    let migration_result = connection.execute_batch(V7_PROJECT_V2_SOURCE_MIGRATION);
+    connection.pragma_update(None, "legacy_alter_table", "OFF")?;
+    connection.pragma_update(None, "foreign_keys", "ON")?;
+    migration_result?;
     Ok(())
 }
 
@@ -68,7 +81,7 @@ CREATE TABLE saved_queries (
     name TEXT NOT NULL,
     query TEXT NOT NULL,
     resource_type TEXT NOT NULL DEFAULT 'issue_or_pull_request'
-        CHECK (resource_type IN ('issue_or_pull_request', 'discussion')),
+        CHECK (resource_type IN ('issue_or_pull_request', 'discussion', 'project_v2')),
     enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
     position INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
@@ -265,7 +278,7 @@ CREATE TABLE saved_queries (
     name TEXT NOT NULL,
     query TEXT NOT NULL,
     resource_type TEXT NOT NULL DEFAULT 'issue_or_pull_request'
-        CHECK (resource_type IN ('issue_or_pull_request', 'discussion')),
+        CHECK (resource_type IN ('issue_or_pull_request', 'discussion', 'project_v2')),
     enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
     position INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
@@ -326,6 +339,34 @@ CREATE INDEX idx_stream_items_host_repo_number
 COMMIT;
 "#;
 
+const V7_PROJECT_V2_SOURCE_MIGRATION: &str = r#"
+BEGIN IMMEDIATE;
+
+DROP INDEX IF EXISTS idx_saved_queries_host_position;
+ALTER TABLE saved_queries RENAME TO saved_queries_v6;
+CREATE TABLE saved_queries (
+    id INTEGER PRIMARY KEY,
+    host_id INTEGER NOT NULL REFERENCES hosts(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    query TEXT NOT NULL,
+    resource_type TEXT NOT NULL DEFAULT 'issue_or_pull_request'
+        CHECK (resource_type IN ('issue_or_pull_request', 'discussion', 'project_v2')),
+    enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+    position INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    last_successful_sync_at TEXT,
+    last_sync_error TEXT,
+    UNIQUE (host_id, name)
+);
+INSERT INTO saved_queries SELECT * FROM saved_queries_v6;
+DROP TABLE saved_queries_v6;
+CREATE INDEX idx_saved_queries_host_position
+    ON saved_queries(host_id, enabled, position, name);
+
+COMMIT;
+"#;
+
 #[cfg(test)]
 mod tests {
     use rusqlite::Connection;
@@ -376,6 +417,14 @@ mod tests {
                 ["2026-05-27T00:00:00Z"],
             )
             .expect("discussion source");
+        connection
+            .execute(
+                "INSERT INTO saved_queries (
+                    host_id, name, query, resource_type, enabled, position, created_at, updated_at
+                 ) VALUES (1, 'Project', 'org:acme number:1', 'project_v2', 1, 2, ?1, ?1)",
+                ["2026-05-27T00:00:00Z"],
+            )
+            .expect("project source");
         connection
             .execute(
                 "INSERT INTO stream_items (
