@@ -3,6 +3,8 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
+use super::StreamSource;
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum HostKind {
@@ -61,6 +63,7 @@ impl Theme {
         }
     }
 }
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SortOrder {
@@ -126,51 +129,6 @@ impl FromStr for SortOrder {
             _ => Err(()),
         }
     }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum StreamFilter {
-    Open,
-    Unread,
-    Bookmarked,
-}
-
-impl StreamFilter {
-    pub const ALL: [Self; 3] = [Self::Open, Self::Unread, Self::Bookmarked];
-
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Open => "Open",
-            Self::Unread => "Unread",
-            Self::Bookmarked => "Bookmarked",
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum LibraryView {
-    Inbox,
-    Bookmark,
-    Archived,
-}
-
-impl LibraryView {
-    pub const ALL: [Self; 3] = [Self::Inbox, Self::Bookmark, Self::Archived];
-
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Inbox => "Inbox",
-            Self::Bookmark => "Bookmark",
-            Self::Archived => "Archived",
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Selection {
-    Library(LibraryView),
-    SavedQuery(i64),
-    FilterStream(i64),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -316,152 +274,10 @@ impl AppConfig {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SavedQuery {
-    pub id: i64,
-    pub name: String,
-    pub query: String,
-    pub source: StreamSource,
-    pub enabled: bool,
-    pub position: i64,
-    pub unread_count: i64,
-    pub filter_streams: Vec<FilterStream>,
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum StreamSource {
-    #[default]
-    IssueOrPullRequest,
-    Discussion,
-    ProjectV2,
-}
-
-impl StreamSource {
-    pub const ALL: [Self; 3] = [Self::IssueOrPullRequest, Self::Discussion, Self::ProjectV2];
-
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::IssueOrPullRequest => "Issues and pull requests",
-            Self::Discussion => "Discussions",
-            Self::ProjectV2 => "Project items",
-        }
-    }
-
-    pub fn as_db_value(self) -> &'static str {
-        match self {
-            Self::IssueOrPullRequest => "issue_or_pull_request",
-            Self::Discussion => "discussion",
-            Self::ProjectV2 => "project_v2",
-        }
-    }
-
-    pub fn from_db_value(value: &str) -> Self {
-        match value {
-            "discussion" => Self::Discussion,
-            "project_v2" => Self::ProjectV2,
-            _ => Self::IssueOrPullRequest,
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct FilterStream {
-    pub id: i64,
-    pub saved_query_id: i64,
-    pub name: String,
-    pub filter_query: String,
-    pub enabled: bool,
-    pub position: i64,
-    pub unread_count: i64,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct LibraryCounts {
-    pub inbox_unread_count: i64,
-    pub bookmark_unread_count: i64,
-    pub archived_unread_count: i64,
-}
-
-impl LibraryCounts {
-    pub fn unread_count(&self, library: LibraryView) -> i64 {
-        match library {
-            LibraryView::Inbox => self.inbox_unread_count,
-            LibraryView::Bookmark => self.bookmark_unread_count,
-            LibraryView::Archived => self.archived_unread_count,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum ItemType {
-    Issue,
-    PullRequest,
-    Discussion,
-}
-
-impl ItemType {
-    pub fn label(&self) -> &'static str {
-        match self {
-            Self::Issue => "Issue",
-            Self::PullRequest => "Pull request",
-            Self::Discussion => "Discussion",
-        }
-    }
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct ItemPerson {
-    pub login: String,
-    pub avatar_url: Option<String>,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct ItemReview {
-    pub login: String,
-    pub avatar_url: Option<String>,
-    pub state: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct StreamItem {
-    pub id: i64,
-    pub repository_owner: String,
-    pub repository_name: String,
-    pub number: i64,
-    pub item_type: ItemType,
-    pub title: String,
-    pub author_login: Option<String>,
-    pub author_avatar_url: Option<String>,
-    pub html_url: String,
-    pub state: String,
-    pub is_draft: Option<bool>,
-    pub is_merged: Option<bool>,
-    pub review_status: Option<String>,
-    pub comment_count: i64,
-    pub created_at_github: String,
-    pub updated_at_github: String,
-    pub closed_at_github: Option<String>,
-    pub merged_at_github: Option<String>,
-    pub read_at: Option<String>,
-    pub labels: Vec<String>,
-    pub assignees: Vec<ItemPerson>,
-    pub review_requests: Vec<ItemPerson>,
-    pub reviewers: Vec<ItemReview>,
-    pub is_unread: bool,
-    pub is_bookmarked: bool,
-    pub is_archived: bool,
-}
-
-impl StreamItem {
-    pub fn repository_full_name(&self) -> String {
-        format!("{}/{}", self.repository_owner, self.repository_name)
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{HostConfig, HostKind, Scheme, StreamSource};
+    use super::{HostConfig, HostKind, Scheme};
+    use crate::models::StreamSource;
 
     #[test]
     fn github_search_url_uses_public_web_host() {

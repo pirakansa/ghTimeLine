@@ -1,7 +1,9 @@
 mod client;
 pub mod discussion;
 pub mod graphql;
+mod graphql_types;
 pub mod project;
+mod project_types;
 pub mod rest;
 
 use thiserror::Error;
