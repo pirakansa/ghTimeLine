@@ -2,7 +2,7 @@ use crate::github::{client, GitHubError};
 use crate::models::{HostConfig, ItemPerson, ItemType};
 use crate::storage::items::StreamItemUpsert;
 
-const SEARCH_PER_PAGE: u16 = 50;
+pub const SEARCH_PER_PAGE: u16 = 100;
 const SEARCH_SORT: &str = "updated";
 const SEARCH_ORDER: &str = "desc";
 
@@ -18,8 +18,25 @@ pub fn search_issues_and_pull_requests(
     host_id: i64,
     query: &str,
 ) -> Result<Vec<StreamItemUpsert>, GitHubError> {
+    Ok(search_issues_and_pull_requests_page(host, pat, host_id, query, 1, SEARCH_PER_PAGE)?.items)
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SearchPage {
+    pub items: Vec<StreamItemUpsert>,
+    pub total_count: i64,
+}
+
+pub fn search_issues_and_pull_requests_page(
+    host: &HostConfig,
+    pat: &str,
+    host_id: i64,
+    query: &str,
+    page: u16,
+    per_page: u16,
+) -> Result<SearchPage, GitHubError> {
     let endpoint = format!(
-        "{}?q={}&sort={SEARCH_SORT}&order={SEARCH_ORDER}&per_page={SEARCH_PER_PAGE}",
+        "{}?q={}&sort={SEARCH_SORT}&order={SEARCH_ORDER}&per_page={per_page}&page={page}",
         api_url(host, "search/issues"),
         urlencoding::encode(query)
     );
@@ -39,18 +56,23 @@ fn parse_search_response(
     host: &HostConfig,
     host_id: i64,
     body: &str,
-) -> Result<Vec<StreamItemUpsert>, GitHubError> {
+) -> Result<SearchPage, GitHubError> {
     let response =
         serde_json::from_str::<SearchResponse>(body).map_err(|error| GitHubError::Parse {
             host: host.name.clone(),
             message: error.to_string(),
         })?;
 
-    response
+    let items = response
         .items
         .into_iter()
         .map(|item| search_item_to_upsert(host, host_id, item))
-        .collect()
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(SearchPage {
+        items,
+        total_count: response.total_count,
+    })
 }
 
 fn search_item_to_upsert(
@@ -122,6 +144,7 @@ fn parse_repository_url(repository_url: &str) -> Option<(String, String)> {
 
 #[derive(Debug, serde::Deserialize)]
 struct SearchResponse {
+    total_count: i64,
     items: Vec<SearchItem>,
 }
 
@@ -208,8 +231,9 @@ mod tests {
             }]
         }"#;
 
-        let items = parse_search_response(&config.host, 10, body).expect("search response");
-
+        let page = parse_search_response(&config.host, 10, body).expect("search response");
+        assert_eq!(page.total_count, 1);
+        let items = page.items;
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].repository_owner, "acme");
         assert_eq!(items[0].repository_name, "project");

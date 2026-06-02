@@ -1,11 +1,15 @@
 use std::collections::HashMap;
 
+use chrono::{DateTime, Duration, SecondsFormat, Utc};
 use thiserror::Error;
 
 use crate::github;
 use crate::models::{AppConfig, SavedQuery, StreamSource};
 use crate::storage::items::{StreamItemSave, StreamItemUpsert};
 use crate::storage::{Storage, StorageError};
+
+const ISSUE_SEARCH_PAGE: u16 = 1;
+const DELTA_SEARCH_OVERLAP_SECONDS: i64 = 60;
 
 #[derive(Debug, Error)]
 pub enum SyncError {
@@ -76,7 +80,7 @@ fn refresh_saved_query_with_cache(
     saved_query: &SavedQuery,
     item_cache: &mut HashMap<StreamItemKey, CachedSave>,
 ) -> Result<RefreshStats, SyncError> {
-    let mut items = fetch_saved_query_items(config, host_id, saved_query)?;
+    let mut items = fetch_saved_query_items(config, storage, host_id, saved_query)?;
     if matches!(
         saved_query.source,
         StreamSource::IssueOrPullRequest | StreamSource::ProjectV2
@@ -88,16 +92,25 @@ fn refresh_saved_query_with_cache(
 
 fn fetch_saved_query_items(
     config: &AppConfig,
+    storage: &Storage,
     host_id: i64,
     saved_query: &SavedQuery,
 ) -> Result<Vec<StreamItemUpsert>, SyncError> {
     match saved_query.source {
-        StreamSource::IssueOrPullRequest => github::rest::search_issues_and_pull_requests(
-            &config.host,
-            &config.auth.pat,
-            host_id,
-            &saved_query.query,
-        ),
+        StreamSource::IssueOrPullRequest => {
+            let last_successful_sync_at =
+                storage.saved_query_last_successful_sync_at(saved_query.id)?;
+            let query = issue_search_query(&saved_query.query, last_successful_sync_at.as_deref());
+            github::rest::search_issues_and_pull_requests_page(
+                &config.host,
+                &config.auth.pat,
+                host_id,
+                &query,
+                ISSUE_SEARCH_PAGE,
+                github::rest::SEARCH_PER_PAGE,
+            )
+            .map(|page| page.items)
+        }
         StreamSource::Discussion => github::discussion::search_discussions(
             &config.host,
             &config.auth.pat,
@@ -112,6 +125,23 @@ fn fetch_saved_query_items(
         ),
     }
     .map_err(SyncError::from)
+}
+
+fn issue_search_query(base_query: &str, last_successful_sync_at: Option<&str>) -> String {
+    let Some(last_successful_sync_at) = last_successful_sync_at else {
+        return base_query.to_owned();
+    };
+    let updated_since =
+        sync_window_start(last_successful_sync_at).unwrap_or(last_successful_sync_at.to_owned());
+    format!("{base_query} updated:>={updated_since}")
+}
+
+fn sync_window_start(last_successful_sync_at: &str) -> Option<String> {
+    let parsed = DateTime::parse_from_rfc3339(last_successful_sync_at).ok()?;
+    Some(
+        (parsed.with_timezone(&Utc) - Duration::seconds(DELTA_SEARCH_OVERLAP_SECONDS))
+            .to_rfc3339_opts(SecondsFormat::Secs, true),
+    )
 }
 
 fn persist_saved_query_items(
@@ -174,7 +204,7 @@ pub fn refresh_saved_queries(
         .iter()
         .filter(|query| query.enabled)
         .map(
-            |query| match fetch_saved_query_items(config, host_id, query) {
+            |query| match fetch_saved_query_items(config, storage, host_id, query) {
                 Ok(items) => PendingRefresh::Fetched {
                     query: query.clone(),
                     items,
