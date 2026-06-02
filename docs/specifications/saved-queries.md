@@ -67,6 +67,10 @@ Remote sources request updated-item discovery independently of the stream view
 sort. Existing definitions without a source type import as issue and pull
 request streams.
 
+The last successful sync timestamp is maintained by refresh. Issue and pull
+request streams use it to build repeat REST Search delta queries; discussion and
+ProjectV2 streams do not use it for remote query construction.
+
 ProjectV2 query strings must identify a project as a project URL,
 `node:PROJECT_ID`, `org:OWNER number:N`, or `user:OWNER number:N`. ProjectV2
 refreshes page through up to 500 non-archived project items, skip draft issues

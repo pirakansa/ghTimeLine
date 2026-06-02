@@ -90,6 +90,8 @@ fn refresh_fetches_recently_updated_items_first() {
                 contains(("q", "is:pr")),
                 contains(("sort", "updated")),
                 contains(("order", "desc")),
+                contains(("per_page", "100")),
+                contains(("page", "1")),
             ])),
         ])
         .respond_with(json_encoded(search_response())),
@@ -114,6 +116,58 @@ fn refresh_fetches_recently_updated_items_first() {
 
     sync::refresh_saved_query(&config, &storage, host_id, &saved_query)
         .expect("refresh should use update ordering");
+}
+
+#[test]
+fn refresh_uses_saved_query_last_successful_sync_at_for_delta_search() {
+    let server = Server::run();
+    server.expect(
+        Expectation::matching(all_of![
+            request::method_path("GET", "/search/issues"),
+            request::query(url_decoded(all_of![
+                contains(("q", "is:pr updated:>=2026-05-25T11:59:00Z")),
+                contains(("sort", "updated")),
+                contains(("order", "desc")),
+                contains(("per_page", "100")),
+                contains(("page", "1")),
+            ])),
+        ])
+        .respond_with(json_encoded(search_response_updated())),
+    );
+    server.expect(
+        Expectation::matching(request::method_path("POST", "/api/graphql"))
+            .respond_with(json_encoded(graphql_response("APPROVED", true))),
+    );
+
+    let storage = Storage::in_memory().expect("storage");
+    let config = config_for_server(&server);
+    let host_id = storage.ensure_host(&config.host).expect("host");
+    let query_id = storage
+        .add_saved_query(host_id, "PRs", "is:pr")
+        .expect("saved query");
+    storage
+        .connection()
+        .execute(
+            "UPDATE saved_queries
+             SET last_successful_sync_at = ?1
+             WHERE id = ?2",
+            ("2026-05-25T12:00:00+00:00", query_id),
+        )
+        .expect("seed last sync timestamp");
+    let saved_query = storage
+        .list_saved_queries(host_id)
+        .expect("queries")
+        .into_iter()
+        .find(|query| query.id == query_id)
+        .expect("query");
+
+    sync::refresh_saved_query(&config, &storage, host_id, &saved_query)
+        .expect("refresh should use delta search");
+
+    let items = storage
+        .list_items_for_saved_query(query_id, None, None, SortOrder::UpdatedDesc)
+        .expect("items");
+    assert_eq!(items[0].title, "Improve stream after comment");
 }
 
 #[test]

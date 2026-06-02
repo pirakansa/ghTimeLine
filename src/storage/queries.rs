@@ -430,6 +430,23 @@ impl Storage {
         Ok(())
     }
 
+    pub fn saved_query_last_successful_sync_at(
+        &self,
+        saved_query_id: i64,
+    ) -> Result<Option<String>> {
+        self.connection()
+            .query_row(
+                "SELECT last_successful_sync_at
+                 FROM saved_queries
+                 WHERE id = ?1",
+                params![saved_query_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(Into::into)
+            .map(|value| value.flatten())
+    }
+
     pub fn mark_saved_query_sync_error(&self, saved_query_id: i64, message: &str) -> Result<()> {
         let now = Utc::now().to_rfc3339();
         self.connection().execute(
