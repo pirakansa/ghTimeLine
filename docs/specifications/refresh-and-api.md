@@ -26,6 +26,14 @@ flow.
 - REST Search discovery always requests results ordered by most recently updated
   first (`sort=updated&order=desc`) so display preferences do not displace
   newly updated items from the fetched page.
+- REST Search discovery requests the first page with `per_page=100&page=1`.
+- After an issue and pull request saved query has a successful sync timestamp,
+  refresh appends an `updated:>=TIMESTAMP` qualifier to that saved query's base
+  GitHub Search query. The timestamp is the last successful sync time minus a
+  60 second overlap window, formatted as UTC seconds when the stored value is
+  valid RFC 3339.
+- If the stored successful sync timestamp cannot be parsed as RFC 3339, refresh
+  still appends `updated:>=` with the stored timestamp value.
 - REST Search results are parsed into normalized stream item data.
 - Discussion saved queries use GraphQL `search(type: DISCUSSION)` discovery and
   are stored as discussion stream items.
@@ -58,8 +66,10 @@ flow.
 ## Refresh Write Flow
 
 1. Fetch results using the saved query source: REST Search for issue and pull
-    request streams, GraphQL Search for discussion streams, or GraphQL ProjectV2
-    items for ProjectV2 streams.
+   request streams, GraphQL Search for discussion streams, or GraphQL ProjectV2
+   items for ProjectV2 streams. Issue and pull request streams use the saved
+   query sync timestamp to narrow repeat REST Search fetches; discussion and
+   ProjectV2 streams do not use that REST Search delta qualifier.
 2. Attempt GraphQL enrichment for discovered issue and pull request stream
    items only, including items discovered from ProjectV2 streams.
 3. Upsert stream items and query matches into SQLite; identical items returned
