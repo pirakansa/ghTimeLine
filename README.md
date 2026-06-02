@@ -7,7 +7,8 @@
 `ghTimeLine` is a native desktop app for reading GitHub activity through saved
 queries. It tracks issues, pull requests, discussions, and supported ProjectV2
 items in a local SQLite cache so you can review updates without keeping a
-browser tab open for every search.
+browser tab open for every search. It is inspired by
+[Jasper](https://github.com/jasperapp/jasper).
 
 ## Run locally
 
