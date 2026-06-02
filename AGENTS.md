@@ -123,13 +123,12 @@ Confirm `vorbere run check` / `vorbere run test` / `vorbere run build` succeed l
 * Do not commit secrets or confidential information.
 * Do not log personal or authentication data in logs or error messages.
 * Use fictitious URLs and passwords in test data; avoid hitting real services.
-* Obtain user approval before accessing external networks (disabled by default in the agent environment).
+* Obtain user approval before accessing external networks.
 
 ---
 
 ## Agent Notes
 
-* If multiple `AGENTS.md` files exist, reference the one closest to your working directory (this repository only has the top-level file).
 * When instructions conflict, prioritize explicit user prompts and clarify any uncertainties.
 * Before and after your work, ensure `vorbere run check`, `vorbere run test`, and `vorbere run build` all succeed; report the cause and fix if any of them fail.
 
@@ -146,8 +145,6 @@ This project follows **GitHub Flow** based on `main`.
 ### Rules
 
 * Always branch from `main`.
-* Assign reviewers when opening a PR and merge only after CI passes.
-* Feel free to delete branches after merging.
 
 ---
 
@@ -155,22 +152,6 @@ This project follows **GitHub Flow** based on `main`.
 ## Commit Message Policy
 
 Commit messages MUST follow **Conventional Commits** and MUST be written in **English**.
-
-### Header
-`type(scope?): description`
-
-- `type`: feat / fix / docs / style / refactor / test / chore
-- `scope`: optional (module/package/directory)
-- `description`: concise present-tense English summary
-
-### Body
-- First body line MUST state the **WHY** (reason for the change) in a single English sentence.
-- Then list the **HOW** as per-file bullet points in English (`path: concrete change`).
-- Do not claim tests passed unless they were actually run.
-
-### Granularity
-- One semantic change per commit.
-- Keep generated files separate when practical; do not mix with other changes.
 
 For structured authoring (template, checklist), use the skill: `conventional-commits-authoring`.
 
@@ -203,25 +184,6 @@ For structured authoring (template, checklist), use the skill: `conventional-com
 ## Release Process
 
 * Follow **SemVer** for versioning.
-* Tag new releases with `git tag vX.Y.Z` and verify `vorbere run release` outputs.
-* Update CHANGELOG.md and reflect the changes in the release notes (include generators in the PR if they were used).
-
-### CHANGELOG.md Policy
-
-* **Sections**: Follow `[Keep a Changelog]` categories - `Added / Changed / Fixed / Deprecated / Removed / Security`.
-* **Language**: English.
-* **Writing Principles**:
-  * Describe "what changes for the user" in one sentence; include implementation details only when needed.
-  * Emphasize **breaking changes** in bold and provide migration steps.
-  * Include PR/Issue numbers when possible (e.g., `(#123)`).
-* **Workflow**:
-  1. Add entries to the `Unreleased` section in feature PRs.
-  2. Update the version number and date in release PRs.
-  3. After tagging, copy the relevant section into the release notes.
-* **Links (recommended)**:
-  * Add comparison links at the end of the file.
-* **Supporting Tools** (optional):
-  * Use tools like `git-cliff` or `conventional-changelog` to draft entries, then edit manually.
 
 ---
 
