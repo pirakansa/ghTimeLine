@@ -105,6 +105,6 @@ fn help_menu_shows_app_version() {
     harness.get_by_label("Help").click();
     harness.run();
 
-    harness.get_by_label("Version 0.2.0");
+    harness.get_by_label("Version 0.3.0");
     assert!(harness.state().event.is_none());
 }
