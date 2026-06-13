@@ -62,9 +62,17 @@ tasks:
     depends_on: [assets]
     run: cargo build --locked --release --target x86_64-pc-windows-gnu
     desc: build release binary for Windows amd64
+  macos-arm64:
+    depends_on: [assets]
+    run: cargo build --locked --release --target aarch64-apple-darwin
+    desc: build release binary for macOS arm64
   release-build:
     depends_on: [linux-amd64, linux-arm64, win-amd64]
     desc: build all release targets
+  macos-arm64-archive:
+    depends_on: [macos-arm64]
+    run: tar --create --gzip --directory=target/aarch64-apple-darwin/release --file=./${{ .vars.PROJECT_NAME }}_macos-arm64.tar.gz ${{ .vars.PROJECT_NAME }}
+    desc: archive macOS arm64 release binary
   release-archives:
     depends_on: [release-build]
     run: |
