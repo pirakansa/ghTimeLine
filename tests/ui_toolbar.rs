@@ -105,6 +105,7 @@ fn help_menu_shows_app_version() {
     harness.get_by_label("Help").click();
     harness.run();
 
-    harness.get_by_label("Version 0.3.0");
+    let expected_version_label = format!("Version {}", env!("CARGO_PKG_VERSION"));
+    harness.get_by_label(&expected_version_label);
     assert!(harness.state().event.is_none());
 }
