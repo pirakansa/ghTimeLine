@@ -3,9 +3,22 @@ use ghtl::models::{ItemPerson, ItemReview, ItemType, StreamItem};
 
 pub struct ItemListHarness {
     pub items: Vec<StreamItem>,
+    pub avatar_cache: ghtl::app::components::author_avatar::AvatarCache,
     pub list_state: ghtl::app::components::item_list::ItemListState,
     pub reset_scroll_to_top: bool,
     pub event: Option<StreamEvent>,
+}
+
+impl ItemListHarness {
+    pub fn new(items: Vec<StreamItem>) -> Self {
+        Self {
+            items,
+            avatar_cache: ghtl::app::components::author_avatar::AvatarCache::default(),
+            list_state: ghtl::app::components::item_list::ItemListState::default(),
+            reset_scroll_to_top: false,
+            event: None,
+        }
+    }
 }
 
 pub fn sample_stream_item() -> StreamItem {

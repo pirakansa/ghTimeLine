@@ -7,7 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     RUSTUP_PERMIT_COPY_RENAME=true
 
 RUN apt update -y && \
-    apt install -y curl git sudo zstd make \
+    apt install -y curl git sudo zstd make ripgrep \
         libclang-dev libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev libxkbcommon-x11-dev
 
 

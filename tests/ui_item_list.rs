@@ -12,22 +12,16 @@ use crate::support::{sample_archived_stream_item, sample_stream_item, ItemListHa
 fn item_list_action_buttons_emit_item_events() {
     let mut harness = Harness::new_ui_state(
         |ui, state: &mut ItemListHarness| {
-            let mut avatar_cache = components::author_avatar::AvatarCache::default();
             components::item_list::show(
                 ui,
                 &state.items,
-                &mut avatar_cache,
+                &mut state.avatar_cache,
                 &mut state.list_state,
                 &mut state.reset_scroll_to_top,
                 &mut state.event,
             );
         },
-        ItemListHarness {
-            items: vec![sample_stream_item()],
-            list_state: components::item_list::ItemListState::default(),
-            reset_scroll_to_top: false,
-            event: None,
-        },
+        ItemListHarness::new(vec![sample_stream_item()]),
     );
 
     // Hover over the item card to reveal the action overlay
@@ -59,22 +53,16 @@ fn item_list_action_buttons_emit_item_events() {
 
     harness = Harness::new_ui_state(
         |ui, state: &mut ItemListHarness| {
-            let mut avatar_cache = components::author_avatar::AvatarCache::default();
             components::item_list::show(
                 ui,
                 &state.items,
-                &mut avatar_cache,
+                &mut state.avatar_cache,
                 &mut state.list_state,
                 &mut state.reset_scroll_to_top,
                 &mut state.event,
             );
         },
-        ItemListHarness {
-            items: vec![sample_archived_stream_item()],
-            list_state: components::item_list::ItemListState::default(),
-            reset_scroll_to_top: false,
-            event: None,
-        },
+        ItemListHarness::new(vec![sample_archived_stream_item()]),
     );
 
     // Hover over the item card to reveal the action overlay
@@ -93,22 +81,16 @@ fn item_list_action_buttons_emit_item_events() {
 fn item_list_item_click_emits_open_event() {
     let mut harness = Harness::new_ui_state(
         |ui, state: &mut ItemListHarness| {
-            let mut avatar_cache = components::author_avatar::AvatarCache::default();
             components::item_list::show(
                 ui,
                 &state.items,
-                &mut avatar_cache,
+                &mut state.avatar_cache,
                 &mut state.list_state,
                 &mut state.reset_scroll_to_top,
                 &mut state.event,
             );
         },
-        ItemListHarness {
-            items: vec![sample_stream_item()],
-            list_state: components::item_list::ItemListState::default(),
-            reset_scroll_to_top: false,
-            event: None,
-        },
+        ItemListHarness::new(vec![sample_stream_item()]),
     );
 
     harness.get_by_label("Improve stream").click();
@@ -131,22 +113,16 @@ fn clicking_person_avatar_emits_matching_local_filter_input_add_without_opening_
     ] {
         let mut harness = Harness::new_ui_state(
             |ui, state: &mut ItemListHarness| {
-                let mut avatar_cache = components::author_avatar::AvatarCache::default();
                 components::item_list::show(
                     ui,
                     &state.items,
-                    &mut avatar_cache,
+                    &mut state.avatar_cache,
                     &mut state.list_state,
                     &mut state.reset_scroll_to_top,
                     &mut state.event,
                 );
             },
-            ItemListHarness {
-                items: vec![sample_stream_item()],
-                list_state: components::item_list::ItemListState::default(),
-                reset_scroll_to_top: false,
-                event: None,
-            },
+            ItemListHarness::new(vec![sample_stream_item()]),
         );
 
         let label = format!("Add to local filter: {term}");
@@ -200,22 +176,16 @@ fn clicking_header_metadata_adds_repo_and_item_type_filter_input_without_opening
 fn item_list_hides_user_names_when_avatars_are_present() {
     let harness = Harness::new_ui_state(
         |ui, state: &mut ItemListHarness| {
-            let mut avatar_cache = components::author_avatar::AvatarCache::default();
             components::item_list::show(
                 ui,
                 &state.items,
-                &mut avatar_cache,
+                &mut state.avatar_cache,
                 &mut state.list_state,
                 &mut state.reset_scroll_to_top,
                 &mut state.event,
             );
         },
-        ItemListHarness {
-            items: vec![sample_stream_item()],
-            list_state: components::item_list::ItemListState::default(),
-            reset_scroll_to_top: false,
-            event: None,
-        },
+        ItemListHarness::new(vec![sample_stream_item()]),
     );
 
     assert!(harness.query_by_label("octo").is_none());
@@ -228,22 +198,16 @@ fn item_list_hides_user_names_when_avatars_are_present() {
 fn item_list_shows_labels_as_badges_without_heading() {
     let harness = Harness::new_ui_state(
         |ui, state: &mut ItemListHarness| {
-            let mut avatar_cache = components::author_avatar::AvatarCache::default();
             components::item_list::show(
                 ui,
                 &state.items,
-                &mut avatar_cache,
+                &mut state.avatar_cache,
                 &mut state.list_state,
                 &mut state.reset_scroll_to_top,
                 &mut state.event,
             );
         },
-        ItemListHarness {
-            items: vec![sample_stream_item()],
-            list_state: components::item_list::ItemListState::default(),
-            reset_scroll_to_top: false,
-            event: None,
-        },
+        ItemListHarness::new(vec![sample_stream_item()]),
     );
 
     harness.get_by_label("enhancement");
@@ -255,22 +219,16 @@ fn item_list_shows_labels_as_badges_without_heading() {
 fn item_list_keeps_comment_count_and_reviewer_row_visible() {
     let harness = Harness::new_ui_state(
         |ui, state: &mut ItemListHarness| {
-            let mut avatar_cache = components::author_avatar::AvatarCache::default();
             components::item_list::show(
                 ui,
                 &state.items,
-                &mut avatar_cache,
+                &mut state.avatar_cache,
                 &mut state.list_state,
                 &mut state.reset_scroll_to_top,
                 &mut state.event,
             );
         },
-        ItemListHarness {
-            items: vec![sample_stream_item()],
-            list_state: components::item_list::ItemListState::default(),
-            reset_scroll_to_top: false,
-            event: None,
-        },
+        ItemListHarness::new(vec![sample_stream_item()]),
     );
 
     let comment_right = harness.get_by_label("5").rect().right();
@@ -293,22 +251,16 @@ fn item_list_shows_requested_reviewer_row_without_completed_reviews() {
 
     let harness = Harness::new_ui_state(
         |ui, state: &mut ItemListHarness| {
-            let mut avatar_cache = components::author_avatar::AvatarCache::default();
             components::item_list::show(
                 ui,
                 &state.items,
-                &mut avatar_cache,
+                &mut state.avatar_cache,
                 &mut state.list_state,
                 &mut state.reset_scroll_to_top,
                 &mut state.event,
             );
         },
-        ItemListHarness {
-            items: vec![item],
-            list_state: components::item_list::ItemListState::default(),
-            reset_scroll_to_top: false,
-            event: None,
-        },
+        ItemListHarness::new(vec![item]),
     );
 
     harness.get_by_label("←");
@@ -327,22 +279,16 @@ fn item_list_places_following_item_below_a_measured_tall_item() {
 
     let harness = Harness::new_ui_state(
         |ui, state: &mut ItemListHarness| {
-            let mut avatar_cache = components::author_avatar::AvatarCache::default();
             components::item_list::show(
                 ui,
                 &state.items,
-                &mut avatar_cache,
+                &mut state.avatar_cache,
                 &mut state.list_state,
                 &mut state.reset_scroll_to_top,
                 &mut state.event,
             );
         },
-        ItemListHarness {
-            items: vec![tall_item, next_item],
-            list_state: components::item_list::ItemListState::default(),
-            reset_scroll_to_top: false,
-            event: None,
-        },
+        ItemListHarness::new(vec![tall_item, next_item]),
     );
 
     let tall_item_bottom = harness.get_by_label("end-of-tall-item").rect().bottom();
@@ -362,22 +308,16 @@ fn item_list_scroll_reset_returns_virtualized_list_to_first_item() {
         .collect();
     let mut harness = Harness::new_ui_state(
         |ui, state: &mut ItemListHarness| {
-            let mut avatar_cache = components::author_avatar::AvatarCache::default();
             components::item_list::show(
                 ui,
                 &state.items,
-                &mut avatar_cache,
+                &mut state.avatar_cache,
                 &mut state.list_state,
                 &mut state.reset_scroll_to_top,
                 &mut state.event,
             );
         },
-        ItemListHarness {
-            items,
-            list_state: components::item_list::ItemListState::default(),
-            reset_scroll_to_top: false,
-            event: None,
-        },
+        ItemListHarness::new(items),
     );
 
     for _ in 0..3 {
@@ -396,21 +336,15 @@ fn item_list_scroll_reset_returns_virtualized_list_to_first_item() {
 fn item_list_harness(item: ghtl::models::StreamItem) -> Harness<'static, ItemListHarness> {
     Harness::new_ui_state(
         |ui, state: &mut ItemListHarness| {
-            let mut avatar_cache = components::author_avatar::AvatarCache::default();
             components::item_list::show(
                 ui,
                 &state.items,
-                &mut avatar_cache,
+                &mut state.avatar_cache,
                 &mut state.list_state,
                 &mut state.reset_scroll_to_top,
                 &mut state.event,
             );
         },
-        ItemListHarness {
-            items: vec![item],
-            list_state: components::item_list::ItemListState::default(),
-            reset_scroll_to_top: false,
-            event: None,
-        },
+        ItemListHarness::new(vec![item]),
     )
 }
