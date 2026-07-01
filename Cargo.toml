@@ -14,7 +14,7 @@ path = "src/main.rs"
 [dependencies]
 chrono = "0.4.44"
 dirs-next = "2.0.0"
-eframe = "0.33"
+eframe = { version = "0.33", features = ["wgpu"] }
 image = { version = "0.25.8", default-features = false, features = ["jpeg", "png", "webp"] }
 open = "5.3.5"
 rusqlite = { version = "0.39.0", features = ["bundled"] }

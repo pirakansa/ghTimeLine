@@ -20,15 +20,15 @@ tasks:
     desc: fetch required assets
   build:
     depends_on: [assets]
-    run: cargo build --locked
+    run: cargo build
     desc: build native app
   run:
     depends_on: [assets]
-    run: cargo run --locked
+    run: cargo run
     desc: run native app
   debug:
     depends_on: [assets]
-    run: RUST_LOG=debug cargo run --locked
+    run: RUST_LOG=debug cargo run
     desc: run native app with debug logging
   fmt:
     run: cargo fmt --all

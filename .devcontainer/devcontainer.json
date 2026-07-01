@@ -10,7 +10,8 @@
     },
     "mounts": [
         "source=${localEnv:XDG_RUNTIME_DIR},target=${localEnv:XDG_RUNTIME_DIR},readonly,type=bind,consistency=cached",
-        "source=/tmp/.X11-unix/,target=/tmp/.X11-unix/,type=bind,consistency=cached"
+        "source=/tmp/.X11-unix/,target=/tmp/.X11-unix/,type=bind,consistency=cached",
+        "source=/dev/dri/,target=/dev/dri/,type=bind,consistency=cached"
     ],
     "workspaceMount": "source=${localWorkspaceFolder},target=/work/${localWorkspaceFolderBasename},type=bind,consistency=cached",
     "workspaceFolder": "/work/${localWorkspaceFolderBasename}",

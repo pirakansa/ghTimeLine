@@ -10,6 +10,7 @@ fn main() -> eframe::Result<()> {
         viewport: egui::ViewportBuilder::default()
             .with_title(APP_TITLE)
             .with_icon(app_icon()),
+        renderer: eframe::Renderer::Wgpu,
         ..Default::default()
     };
 
