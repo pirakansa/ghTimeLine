@@ -4,12 +4,12 @@ use crate::app::screens::stream::{StreamEvent, StreamState};
 use crate::models::{AppConfig, FontSize, Theme};
 
 pub fn show(
-    ctx: &egui::Context,
+    ui: &mut egui::Ui,
     state: &mut StreamState,
     config: &AppConfig,
     event: &mut Option<StreamEvent>,
 ) {
-    egui::TopBottomPanel::top("menu-bar").show(ctx, |ui| {
+    egui::Panel::top("menu-bar").show(ui, |ui| {
         egui::MenuBar::new().ui(ui, |ui| {
             preferences_menu(ui, state, config, event);
             version_menu(ui);

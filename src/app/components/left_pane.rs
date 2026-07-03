@@ -6,16 +6,16 @@ use crate::models::{FilterStream, LibraryCounts, LibraryView, SavedQuery, Select
 use stream::{StreamEvent, StreamState};
 
 pub fn show(
-    ctx: &egui::Context,
+    ui: &mut egui::Ui,
     state: &mut StreamState,
     library_counts: &LibraryCounts,
     saved_queries: &[SavedQuery],
     event: &mut Option<StreamEvent>,
 ) {
-    egui::SidePanel::left("stream-left")
+    egui::Panel::left("stream-left")
         .resizable(true)
-        .default_width(260.0)
-        .show(ctx, |ui| {
+        .default_size(260.0)
+        .show(ui, |ui| {
             library_section(ui, state, library_counts, event);
             saved_query_section(ui, state, saved_queries, event);
         });

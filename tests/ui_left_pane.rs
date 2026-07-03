@@ -14,7 +14,7 @@ use crate::support::{sample_saved_query, LeftPaneHarness, StreamHarness};
 
 #[test]
 fn left_pane_saved_query_click_emits_selection_event() {
-    let mut harness = Harness::new_state(
+    let mut harness = Harness::new_ui_state(
         |ctx, state: &mut LeftPaneHarness| {
             components::left_pane::show(
                 ctx,
@@ -61,7 +61,7 @@ fn left_pane_filter_stream_click_emits_selection_event() {
         unread_count: 2,
     });
 
-    let mut harness = Harness::new_state(
+    let mut harness = Harness::new_ui_state(
         |ctx, state: &mut LeftPaneHarness| {
             components::left_pane::show(
                 ctx,
@@ -90,7 +90,7 @@ fn left_pane_filter_stream_click_emits_selection_event() {
 
 #[test]
 fn left_pane_hides_disabled_saved_queries() {
-    let harness = Harness::new_state(
+    let harness = Harness::new_ui_state(
         |ctx, state: &mut LeftPaneHarness| {
             components::left_pane::show(
                 ctx,
@@ -121,7 +121,7 @@ fn left_pane_hides_disabled_saved_queries() {
 
 #[test]
 fn saved_query_context_menu_marks_query_read() {
-    let mut harness = Harness::new_state(
+    let mut harness = Harness::new_ui_state(
         |ctx, state: &mut LeftPaneHarness| {
             components::left_pane::show(
                 ctx,
@@ -162,7 +162,7 @@ fn filter_stream_context_menu_marks_filter_stream_read() {
         position: 0,
         unread_count: 2,
     });
-    let mut harness = Harness::new_state(
+    let mut harness = Harness::new_ui_state(
         |ctx, state: &mut LeftPaneHarness| {
             components::left_pane::show(
                 ctx,
@@ -193,7 +193,7 @@ fn filter_stream_context_menu_marks_filter_stream_read() {
 
 #[test]
 fn library_context_menu_marks_library_read() {
-    let mut harness = Harness::new_state(
+    let mut harness = Harness::new_ui_state(
         |ctx, state: &mut LeftPaneHarness| {
             components::left_pane::show(
                 ctx,
@@ -232,7 +232,7 @@ fn saved_query_manager_saves_enabled_state_with_changes() {
     let mut stream = StreamState::default();
     saved_query_manager::open(&mut stream, &saved_queries);
 
-    let mut harness = Harness::new_state(
+    let mut harness = Harness::new_ui_state(
         |ctx, state: &mut StreamHarness| {
             saved_query_manager::show(
                 ctx,
@@ -264,10 +264,10 @@ fn saved_query_manager_saves_enabled_state_with_changes() {
             source,
             enabled,
         }) => {
-            assert_eq!(*id, 7);
+            assert_eq!(id, &7);
             assert_eq!(name, "Reviews");
             assert_eq!(query, "is:pr review-requested:@me");
-            assert_eq!(*source, StreamSource::IssueOrPullRequest);
+            assert_eq!(source, &StreamSource::IssueOrPullRequest);
             assert!(!enabled);
         }
         Some(_) => panic!("unexpected stream event"),
@@ -282,7 +282,7 @@ fn saved_query_manager_new_button_is_next_to_queries_heading() {
     stream.selection = Selection::SavedQuery(7);
     saved_query_manager::open(&mut stream, &saved_queries);
 
-    let mut harness = Harness::new_state(
+    let mut harness = Harness::new_ui_state(
         |ctx, state: &mut StreamHarness| {
             saved_query_manager::show(
                 ctx,
@@ -315,7 +315,7 @@ fn saved_query_manager_filter_button_opens_new_filter_stream_form() {
     stream.selection = Selection::SavedQuery(7);
     saved_query_manager::open(&mut stream, &saved_queries);
 
-    let mut harness = Harness::new_state(
+    let mut harness = Harness::new_ui_state(
         |ctx, state: &mut StreamHarness| {
             saved_query_manager::show(
                 ctx,
@@ -346,7 +346,7 @@ fn saved_query_manager_preview_button_emits_query_event() {
     stream.selection = Selection::SavedQuery(7);
     saved_query_manager::open(&mut stream, &saved_queries);
 
-    let mut harness = Harness::new_state(
+    let mut harness = Harness::new_ui_state(
         |ctx, state: &mut StreamHarness| {
             saved_query_manager::show(
                 ctx,
@@ -369,7 +369,7 @@ fn saved_query_manager_preview_button_emits_query_event() {
         &harness.state().event,
         Some(StreamEvent::PreviewQuery { query, source })
             if query == "is:pr review-requested:@me"
-                && *source == StreamSource::IssueOrPullRequest
+                && source == &StreamSource::IssueOrPullRequest
     ));
 }
 
@@ -380,7 +380,7 @@ fn saved_query_manager_toolbar_opens_transfer_screen() {
     stream.selection = Selection::SavedQuery(7);
     saved_query_manager::open(&mut stream, &saved_queries);
 
-    let mut harness = Harness::new_state(
+    let mut harness = Harness::new_ui_state(
         |ctx, state: &mut StreamHarness| {
             saved_query_manager::show(
                 ctx,
@@ -422,7 +422,7 @@ fn saved_query_manager_move_down_button_emits_reorder_event() {
     stream.selection = Selection::SavedQuery(7);
     saved_query_manager::open(&mut stream, &saved_queries);
 
-    let mut harness = Harness::new_state(
+    let mut harness = Harness::new_ui_state(
         |ctx, state: &mut StreamHarness| {
             saved_query_manager::show(
                 ctx,
@@ -454,7 +454,7 @@ fn saved_query_transfer_buttons_emit_events_with_path() {
     stream.selection = Selection::SavedQuery(7);
     saved_query_manager::open(&mut stream, &saved_queries);
 
-    let mut harness = Harness::new_state(
+    let mut harness = Harness::new_ui_state(
         |ctx, state: &mut StreamHarness| {
             saved_query_manager::show(
                 ctx,

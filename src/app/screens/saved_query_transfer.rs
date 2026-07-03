@@ -4,11 +4,11 @@ use crate::app::screens::saved_query_manager::SavedQueryManagerState;
 use crate::app::screens::stream::StreamEvent;
 
 pub fn show(
-    ctx: &egui::Context,
+    ui: &mut egui::Ui,
     state: &mut SavedQueryManagerState,
     event: &mut Option<StreamEvent>,
 ) {
-    egui::TopBottomPanel::top("saved-query-transfer-toolbar").show(ctx, |ui| {
+    egui::Panel::top("saved-query-transfer-toolbar").show(ui, |ui| {
         ui.horizontal(|ui| {
             ui.heading("Import / export");
             ui.separator();
@@ -18,7 +18,7 @@ pub fn show(
         });
     });
 
-    egui::CentralPanel::default().show(ctx, |ui| {
+    egui::CentralPanel::default().show(ui, |ui| {
         ui.vertical(|ui| {
             ui.set_min_width(360.0);
             ui.label("YAML file");

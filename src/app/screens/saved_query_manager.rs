@@ -43,17 +43,17 @@ impl Default for SavedQueryManagerState {
 }
 
 pub fn show(
-    ctx: &egui::Context,
+    ui: &mut egui::Ui,
     state: &mut StreamState,
     saved_queries: &[SavedQuery],
     event: &mut Option<StreamEvent>,
 ) {
     if state.saved_query_manager.transfer_open {
-        saved_query_transfer::show(ctx, &mut state.saved_query_manager, event);
+        saved_query_transfer::show(ui, &mut state.saved_query_manager, event);
         return;
     }
 
-    egui::TopBottomPanel::top("saved-query-manager-toolbar").show(ctx, |ui| {
+    egui::Panel::top("saved-query-manager-toolbar").show(ui, |ui| {
         ui.horizontal(|ui| {
             ui.heading("Saved queries");
             ui.separator();
@@ -69,15 +69,15 @@ pub fn show(
         });
     });
 
-    egui::SidePanel::left("saved-query-manager-list")
+    egui::Panel::left("saved-query-manager-list")
         .resizable(true)
-        .default_width(280.0)
-        .width_range(180.0..=480.0)
-        .show(ctx, |ui| {
+        .default_size(280.0)
+        .size_range(180.0..=480.0)
+        .show(ui, |ui| {
             saved_query_list(ui, &mut state.saved_query_manager, saved_queries, event);
         });
 
-    egui::CentralPanel::default().show(ctx, |ui| {
+    egui::CentralPanel::default().show(ui, |ui| {
         saved_query_form(ui, &mut state.saved_query_manager, saved_queries, event);
     });
 }

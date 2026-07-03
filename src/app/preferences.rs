@@ -98,7 +98,7 @@ pub(super) fn apply_theme_from_config(ctx: &egui::Context, config: &AppConfig) {
 
 pub(super) fn apply_font_size_from_config(ctx: &egui::Context, config: &AppConfig) {
     let scale = config.ui.font_size.scale();
-    ctx.style_mut(|style| {
+    ctx.all_styles_mut(|style| {
         for (text_style, font_id) in &mut style.text_styles {
             let base = match text_style {
                 egui::TextStyle::Small => 10.0,

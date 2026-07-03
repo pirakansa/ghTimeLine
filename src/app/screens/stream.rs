@@ -107,7 +107,7 @@ pub enum ItemAction {
 }
 
 pub(in crate::app) fn show(
-    ctx: &egui::Context,
+    ui: &mut egui::Ui,
     state: &mut StreamState,
     config: &AppConfig,
     library_counts: &LibraryCounts,
@@ -121,20 +121,20 @@ pub(in crate::app) fn show(
     let mut event = None;
 
     if state.saved_query_manager.open {
-        saved_query_manager::show(ctx, state, saved_queries, &mut event);
+        saved_query_manager::show(ui, state, saved_queries, &mut event);
         return event;
     }
 
     if state.status_log.open {
-        status_log::show(ctx, state, status_history);
+        status_log::show(ui, state, status_history);
         return event;
     }
 
-    components::menu_bar::show(ctx, state, config, &mut event);
-    components::status_bar::show(ctx, state, status_history);
-    components::left_pane::show(ctx, state, library_counts, saved_queries, &mut event);
+    components::menu_bar::show(ui, state, config, &mut event);
+    components::status_bar::show(ui, state, status_history);
+    components::left_pane::show(ui, state, library_counts, saved_queries, &mut event);
 
-    egui::CentralPanel::default().show(ctx, |ui| {
+    egui::CentralPanel::default().show(ui, |ui| {
         components::toolbar::show(ui, state, config, &mut event);
         ui.separator();
         components::remote_updates_banner::show(
