@@ -1,6 +1,6 @@
 [package]
 name = "ghtl"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 description = "GitHub Stream reader for saved search queries"
 license = "MIT"
