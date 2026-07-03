@@ -259,9 +259,13 @@ impl Default for GhStreamApp {
 }
 
 impl eframe::App for GhStreamApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.poll_refresh_result();
         self.maybe_poll(ctx);
+    }
+
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let ctx = ui.ctx().clone();
 
         let mode = std::mem::replace(
             &mut self.mode,
@@ -272,7 +276,7 @@ impl eframe::App for GhStreamApp {
         match mode {
             AppMode::Setup { previous_runtime } => {
                 let event = screens::setup::show(
-                    ctx,
+                    ui,
                     &mut self.setup,
                     &self.status,
                     previous_runtime.is_some(),
@@ -297,11 +301,11 @@ impl eframe::App for GhStreamApp {
                 }
             }
             AppMode::Main(runtime) => {
-                preferences::apply_theme_from_config(ctx, &runtime.config);
-                preferences::apply_font_size_from_config(ctx, &runtime.config);
-                self.stream.avatar_cache.poll(ctx);
+                preferences::apply_theme_from_config(&ctx, &runtime.config);
+                preferences::apply_font_size_from_config(&ctx, &runtime.config);
+                self.stream.avatar_cache.poll(&ctx);
                 let event = screens::stream::show(
-                    ctx,
+                    ui,
                     &mut self.stream,
                     &runtime.config,
                     &runtime.library_counts,
@@ -384,10 +388,10 @@ impl eframe::App for GhStreamApp {
                         self.stream.polling_interval_draft = 0; // reset so it re-syncs from config
                     }
                     Some(screens::stream::StreamEvent::SetTheme(theme)) => {
-                        self.update_theme(ctx, theme)
+                        self.update_theme(&ctx, theme)
                     }
                     Some(screens::stream::StreamEvent::SetFontSize(size)) => {
-                        self.update_font_size(ctx, size)
+                        self.update_font_size(&ctx, size)
                     }
                     Some(screens::stream::StreamEvent::OpenSetup) => self.open_setup_settings(),
                     Some(screens::stream::StreamEvent::ItemAction(action)) => {

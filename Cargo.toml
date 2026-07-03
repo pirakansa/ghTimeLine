@@ -1,6 +1,6 @@
 [package]
 name = "ghtl"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 description = "GitHub Stream reader for saved search queries"
 license = "MIT"
@@ -14,7 +14,7 @@ path = "src/main.rs"
 [dependencies]
 chrono = "0.4.44"
 dirs-next = "2.0.0"
-eframe = { version = "0.33", features = ["wgpu"] }
+eframe = { version = "0.35.0", features = ["wgpu"] }
 image = { version = "0.25.8", default-features = false, features = ["jpeg", "png", "webp"] }
 open = "5.3.5"
 rusqlite = { version = "0.39.0", features = ["bundled"] }
@@ -32,5 +32,5 @@ opt-level = "z"
 strip = true
 
 [dev-dependencies]
-egui_kittest = "0.33.0"
+egui_kittest = "0.35.0"
 httptest = "0.16.4"

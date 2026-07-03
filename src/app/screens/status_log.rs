@@ -9,11 +9,11 @@ pub struct StatusLogState {
 }
 
 pub(in crate::app) fn show(
-    ctx: &egui::Context,
+    ui: &mut egui::Ui,
     state: &mut StreamState,
     status_history: &[StatusEntry],
 ) {
-    egui::TopBottomPanel::top("status-log-toolbar").show(ctx, |ui| {
+    egui::Panel::top("status-log-toolbar").show(ui, |ui| {
         ui.horizontal(|ui| {
             ui.heading("Status log");
             ui.separator();
@@ -23,7 +23,7 @@ pub(in crate::app) fn show(
         });
     });
 
-    egui::CentralPanel::default().show(ctx, |ui| {
+    egui::CentralPanel::default().show(ui, |ui| {
         ui.heading("Recent messages");
         ui.add_space(8.0);
 

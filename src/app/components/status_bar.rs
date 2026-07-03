@@ -4,11 +4,11 @@ use crate::app::screens::stream::StreamState;
 use crate::app::{StatusEntry, StatusLevel};
 
 pub(in crate::app) fn show(
-    ctx: &egui::Context,
+    ui: &mut egui::Ui,
     state: &mut StreamState,
     status_history: &[StatusEntry],
 ) {
-    let bar_height = ctx.style().spacing.interact_size.y + 4.0;
+    let bar_height = ui.spacing().interact_size.y + 4.0;
     let latest = status_history.last();
     let current_status = latest
         .map(|entry| entry.message.as_str())
@@ -17,9 +17,9 @@ pub(in crate::app) fn show(
         .map(|e| e.level == StatusLevel::Error)
         .unwrap_or(false);
 
-    egui::TopBottomPanel::bottom("stream-status")
-        .exact_height(bar_height)
-        .show(ctx, |ui| {
+    egui::Panel::bottom("stream-status")
+        .exact_size(bar_height)
+        .show(ui, |ui| {
             let available_size = egui::vec2(ui.available_width(), ui.available_height());
             let (bar_rect, _) = ui.allocate_exact_size(available_size, egui::Sense::click());
 

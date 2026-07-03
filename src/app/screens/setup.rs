@@ -49,14 +49,14 @@ impl SetupState {
 }
 
 pub fn show(
-    ctx: &egui::Context,
+    ui: &mut egui::Ui,
     state: &mut SetupState,
     status: &str,
     can_cancel: bool,
 ) -> Option<SetupEvent> {
     let mut event = None;
 
-    egui::TopBottomPanel::top("setup-toolbar").show(ctx, |ui| {
+    egui::Panel::top("setup-toolbar").show(ui, |ui| {
         ui.horizontal(|ui| {
             ui.heading("Host settings");
             if can_cancel {
@@ -68,7 +68,7 @@ pub fn show(
         });
     });
 
-    egui::CentralPanel::default().show(ctx, |ui| {
+    egui::CentralPanel::default().show(ui, |ui| {
         ui.label("Configure one GitHub or GHES host. The PAT is stored as plain text in config.yml for v1.");
         ui.add_space(12.0);
 

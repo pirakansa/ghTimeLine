@@ -75,7 +75,7 @@ fn remote_updates_banner_emits_show_updates_event() {
 
 #[test]
 fn preferences_menu_emits_open_setup_event() {
-    let mut harness = Harness::new_state(
+    let mut harness = Harness::new_ui_state(
         |ctx, state: &mut ToolbarHarness| {
             components::menu_bar::show(ctx, &mut state.stream, &state.config, &mut state.event);
         },
@@ -95,7 +95,7 @@ fn preferences_menu_emits_open_setup_event() {
 
 #[test]
 fn help_menu_shows_app_version() {
-    let mut harness = Harness::new_state(
+    let mut harness = Harness::new_ui_state(
         |ctx, state: &mut ToolbarHarness| {
             components::menu_bar::show(ctx, &mut state.stream, &state.config, &mut state.event);
         },
