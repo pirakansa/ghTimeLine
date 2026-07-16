@@ -1,3 +1,4 @@
+use crate::github::FetchedStreamItem;
 use crate::github::{client, GitHubError};
 use crate::models::{HostConfig, ItemPerson, ItemType};
 use crate::storage::items::StreamItemUpsert;
@@ -18,7 +19,10 @@ pub fn search_issues_and_pull_requests(
     host_id: i64,
     query: &str,
 ) -> Result<Vec<StreamItemUpsert>, GitHubError> {
-    Ok(search_issues_and_pull_requests_page(host, pat, host_id, query, 1, SEARCH_PER_PAGE)?.items)
+    Ok(fetch_issues_and_pull_requests(host, pat, query)?
+        .into_iter()
+        .map(|item| super::legacy::into_upsert(host_id, item, false))
+        .collect())
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -35,6 +39,38 @@ pub fn search_issues_and_pull_requests_page(
     page: u16,
     per_page: u16,
 ) -> Result<SearchPage, GitHubError> {
+    let page = fetch_issues_and_pull_requests_page(host, pat, query, page, per_page)?;
+    Ok(SearchPage {
+        items: page
+            .items
+            .into_iter()
+            .map(|item| super::legacy::into_upsert(host_id, item, false))
+            .collect(),
+        total_count: page.total_count,
+    })
+}
+
+pub(crate) fn fetch_issues_and_pull_requests(
+    host: &HostConfig,
+    pat: &str,
+    query: &str,
+) -> Result<Vec<FetchedStreamItem>, GitHubError> {
+    Ok(fetch_issues_and_pull_requests_page(host, pat, query, 1, SEARCH_PER_PAGE)?.items)
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct FetchedSearchPage {
+    pub(crate) items: Vec<FetchedStreamItem>,
+    pub(crate) total_count: i64,
+}
+
+pub(crate) fn fetch_issues_and_pull_requests_page(
+    host: &HostConfig,
+    pat: &str,
+    query: &str,
+    page: u16,
+    per_page: u16,
+) -> Result<FetchedSearchPage, GitHubError> {
     let endpoint = format!(
         "{}?q={}&sort={SEARCH_SORT}&order={SEARCH_ORDER}&per_page={per_page}&page={page}",
         api_url(host, "search/issues"),
@@ -43,7 +79,7 @@ pub fn search_issues_and_pull_requests_page(
     let mut response = client::authenticated_get(host, pat, &endpoint)?;
     client::ensure_success(host, &response)?;
     let body = client::read_body(host, pat, &mut response)?;
-    parse_search_response(host, host_id, &body)
+    parse_search_response(host, &body)
 }
 
 pub fn api_url(host: &HostConfig, path: &str) -> String {
@@ -52,11 +88,7 @@ pub fn api_url(host: &HostConfig, path: &str) -> String {
     format!("{base}{path}")
 }
 
-fn parse_search_response(
-    host: &HostConfig,
-    host_id: i64,
-    body: &str,
-) -> Result<SearchPage, GitHubError> {
+fn parse_search_response(host: &HostConfig, body: &str) -> Result<FetchedSearchPage, GitHubError> {
     let response =
         serde_json::from_str::<SearchResponse>(body).map_err(|error| GitHubError::Parse {
             host: host.name.clone(),
@@ -66,20 +98,19 @@ fn parse_search_response(
     let items = response
         .items
         .into_iter()
-        .map(|item| search_item_to_upsert(host, host_id, item))
+        .map(|item| search_item_to_fetched(host, item))
         .collect::<Result<Vec<_>, _>>()?;
 
-    Ok(SearchPage {
+    Ok(FetchedSearchPage {
         items,
         total_count: response.total_count,
     })
 }
 
-fn search_item_to_upsert(
+fn search_item_to_fetched(
     host: &HostConfig,
-    host_id: i64,
     item: SearchItem,
-) -> Result<StreamItemUpsert, GitHubError> {
+) -> Result<FetchedStreamItem, GitHubError> {
     let (repository_owner, repository_name) = parse_repository_url(&item.repository_url)
         .ok_or_else(|| GitHubError::Parse {
             host: host.name.clone(),
@@ -92,8 +123,7 @@ fn search_item_to_upsert(
     };
     let review_status = matches!(item_type, ItemType::PullRequest).then(|| "unknown".to_owned());
 
-    Ok(StreamItemUpsert {
-        host_id,
+    Ok(FetchedStreamItem {
         node_id: item.node_id,
         repository_owner,
         repository_name,
@@ -126,7 +156,6 @@ fn search_item_to_upsert(
         reviewers: Vec::new(),
         participants: Vec::new(),
         mentions: Vec::new(),
-        graphql_enriched: false,
     })
 }
 
@@ -231,7 +260,7 @@ mod tests {
             }]
         }"#;
 
-        let page = parse_search_response(&config.host, 10, body).expect("search response");
+        let page = parse_search_response(&config.host, body).expect("search response");
         assert_eq!(page.total_count, 1);
         let items = page.items;
         assert_eq!(items.len(), 1);

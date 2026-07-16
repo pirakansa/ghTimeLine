@@ -1,3 +1,4 @@
+use crate::github::FetchedStreamItem;
 use crate::github::{client, GitHubError};
 use crate::models::{HostConfig, ItemType};
 use crate::storage::items::StreamItemUpsert;
@@ -38,6 +39,17 @@ pub fn search_discussions(
     host_id: i64,
     query: &str,
 ) -> Result<Vec<StreamItemUpsert>, GitHubError> {
+    Ok(fetch_discussions(host, pat, query)?
+        .into_iter()
+        .map(|item| super::legacy::into_upsert(host_id, item, true))
+        .collect())
+}
+
+pub(crate) fn fetch_discussions(
+    host: &HostConfig,
+    pat: &str,
+    query: &str,
+) -> Result<Vec<FetchedStreamItem>, GitHubError> {
     let query = format!("{} sort:updated-desc", query.trim());
     let request = GraphqlRequest {
         query: DISCUSSION_SEARCH_QUERY,
@@ -53,14 +65,13 @@ pub fn search_discussions(
     let mut response = client::authenticated_post_json(host, pat, &host.graphql_url(), body)?;
     client::ensure_success(host, &response)?;
     let body = client::read_body(host, pat, &mut response)?;
-    parse_search_response(host, host_id, &body)
+    parse_search_response(host, &body)
 }
 
 fn parse_search_response(
     host: &HostConfig,
-    host_id: i64,
     body: &str,
-) -> Result<Vec<StreamItemUpsert>, GitHubError> {
+) -> Result<Vec<FetchedStreamItem>, GitHubError> {
     let response =
         serde_json::from_str::<GraphqlResponse>(body).map_err(|error| GitHubError::Parse {
             host: host.name.clone(),
@@ -84,15 +95,14 @@ fn parse_search_response(
         .nodes
         .into_iter()
         .flatten()
-        .map(|discussion| discussion_to_upsert(host, host_id, discussion))
+        .map(|discussion| discussion_to_fetched(host, discussion))
         .collect()
 }
 
-fn discussion_to_upsert(
+fn discussion_to_fetched(
     host: &HostConfig,
-    host_id: i64,
     discussion: DiscussionNode,
-) -> Result<StreamItemUpsert, GitHubError> {
+) -> Result<FetchedStreamItem, GitHubError> {
     let (repository_owner, repository_name) = discussion
         .repository
         .name_with_owner
@@ -105,8 +115,7 @@ fn discussion_to_upsert(
     let author_login = author.as_ref().map(|author| author.login.clone());
     let author_avatar_url = author.and_then(|author| author.avatar_url);
     let state = if discussion.closed { "closed" } else { "open" };
-    Ok(StreamItemUpsert {
-        host_id,
+    Ok(FetchedStreamItem {
         node_id: Some(discussion.id),
         repository_owner: repository_owner.to_owned(),
         repository_name: repository_name.to_owned(),
@@ -132,7 +141,6 @@ fn discussion_to_upsert(
         reviewers: Vec::new(),
         participants: Vec::new(),
         mentions: Vec::new(),
-        graphql_enriched: true,
     })
 }
 
@@ -232,7 +240,7 @@ mod tests {
           }
         }"#;
 
-        let items = parse_search_response(&config.host, 10, body).expect("discussion result");
+        let items = parse_search_response(&config.host, body).expect("discussion result");
 
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].item_type, ItemType::Discussion);
@@ -263,7 +271,7 @@ mod tests {
           }
         }"#;
 
-        let items = parse_search_response(&config.host, 10, body).expect("discussion result");
+        let items = parse_search_response(&config.host, body).expect("discussion result");
 
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].state, "closed");

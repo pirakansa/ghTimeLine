@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 
 use super::project_types::*;
+use crate::github::FetchedStreamItem;
 use crate::github::{client, GitHubError};
 use crate::models::{HostConfig, ItemPerson, ItemType};
 use crate::storage::items::StreamItemUpsert;
@@ -25,6 +26,17 @@ pub fn search_project_items(
     host_id: i64,
     query: &str,
 ) -> Result<Vec<StreamItemUpsert>, GitHubError> {
+    Ok(fetch_project_items(host, pat, query)?
+        .into_iter()
+        .map(|item| super::legacy::into_upsert(host_id, item, false))
+        .collect())
+}
+
+pub(crate) fn fetch_project_items(
+    host: &HostConfig,
+    pat: &str,
+    query: &str,
+) -> Result<Vec<FetchedStreamItem>, GitHubError> {
     let locator = parse_project_locator(host, query)?;
     let mut items = Vec::new();
     let mut after = None;
@@ -33,7 +45,6 @@ pub fn search_project_items(
         let page = fetch_project_items_page(
             host,
             pat,
-            host_id,
             &locator,
             after.as_deref(),
             (PROJECT_ITEMS_LIMIT - items.len()).min(PROJECT_ITEMS_PAGE_SIZE),
@@ -158,7 +169,6 @@ fn project_url(host: &HostConfig, locator: &ProjectLocator) -> Result<String, Gi
 fn fetch_project_items_page(
     host: &HostConfig,
     pat: &str,
-    host_id: i64,
     locator: &ProjectLocator,
     after: Option<&str>,
     first: usize,
@@ -171,12 +181,11 @@ fn fetch_project_items_page(
     let mut response = client::authenticated_post_json(host, pat, &host.graphql_url(), body)?;
     client::ensure_success(host, &response)?;
     let body = client::read_body(host, pat, &mut response)?;
-    parse_project_items_response(host, host_id, locator, &body)
+    parse_project_items_response(host, locator, &body)
 }
 
 fn parse_project_items_response(
     host: &HostConfig,
-    host_id: i64,
     locator: &ProjectLocator,
     body: &str,
 ) -> Result<ProjectItemsPage, GitHubError> {
@@ -209,7 +218,7 @@ fn parse_project_items_response(
         .into_iter()
         .flatten()
         .filter(|item| !item.is_archived)
-        .filter_map(|item| project_item_to_upsert(host, host_id, item).transpose())
+        .filter_map(|item| project_item_to_fetched(host, item).transpose())
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok(ProjectItemsPage {
@@ -219,11 +228,10 @@ fn parse_project_items_response(
     })
 }
 
-fn project_item_to_upsert(
+fn project_item_to_fetched(
     host: &HostConfig,
-    host_id: i64,
     item: ProjectItem,
-) -> Result<Option<StreamItemUpsert>, GitHubError> {
+) -> Result<Option<FetchedStreamItem>, GitHubError> {
     let Some(content) = item.content else {
         return Ok(None);
     };
@@ -244,8 +252,7 @@ fn project_item_to_upsert(
     let review_status = matches!(item_type, ItemType::PullRequest).then(|| "unknown".to_owned());
     let updated_at_github = latest_timestamp(&content.updated_at, &item.updated_at);
 
-    Ok(Some(StreamItemUpsert {
-        host_id,
+    Ok(Some(FetchedStreamItem {
         node_id: Some(content.id),
         repository_owner: repository_owner.to_owned(),
         repository_name: repository_name.to_owned(),
@@ -286,7 +293,6 @@ fn project_item_to_upsert(
         reviewers: Vec::new(),
         participants: Vec::new(),
         mentions: Vec::new(),
-        graphql_enriched: false,
     }))
 }
 
@@ -419,7 +425,6 @@ mod tests {
 
         let page = parse_project_items_response(
             &config.host,
-            1,
             &ProjectLocator::Organization {
                 owner: "acme".to_owned(),
                 number: 7,
