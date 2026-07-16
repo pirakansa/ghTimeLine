@@ -614,6 +614,15 @@ fn saved_query_content_and_enabled_state_are_saved_together() {
 }
 
 #[test]
+fn source_update_for_missing_saved_query_remains_a_no_op() {
+    let storage = Storage::in_memory().expect("storage");
+
+    storage
+        .update_saved_query_for_source(999, "Missing", "is:issue", StreamSource::IssueOrPullRequest)
+        .expect("missing query update should remain a no-op");
+}
+
+#[test]
 fn saved_query_enabled_state_is_persisted() {
     let storage = Storage::in_memory().expect("storage");
     let config = AppConfig::default_with_pat("token".to_owned());

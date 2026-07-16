@@ -1,6 +1,7 @@
 use crate::github::FetchedStreamItem;
 use crate::github::{client, GitHubError};
 use crate::models::{HostConfig, ItemType};
+use crate::storage::items::StreamItemUpsert;
 
 const SEARCH_LIMIT: usize = 50;
 const DISCUSSION_SEARCH_QUERY: &str = r#"
@@ -33,6 +34,18 @@ query DiscussionSearch($query: String!, $first: Int!) {
 "#;
 
 pub fn search_discussions(
+    host: &HostConfig,
+    pat: &str,
+    host_id: i64,
+    query: &str,
+) -> Result<Vec<StreamItemUpsert>, GitHubError> {
+    Ok(fetch_discussions(host, pat, query)?
+        .into_iter()
+        .map(|item| super::legacy::into_upsert(host_id, item, true))
+        .collect())
+}
+
+pub(crate) fn fetch_discussions(
     host: &HostConfig,
     pat: &str,
     query: &str,
@@ -128,7 +141,6 @@ fn discussion_to_fetched(
         reviewers: Vec::new(),
         participants: Vec::new(),
         mentions: Vec::new(),
-        graphql_enriched: true,
     })
 }
 

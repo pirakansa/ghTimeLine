@@ -219,12 +219,20 @@ impl Storage {
         query: &str,
         source: StreamSource,
     ) -> Result<()> {
-        let enabled = self.connection().query_row(
-            "SELECT enabled FROM saved_queries WHERE id = ?1",
-            params![saved_query_id],
-            |row| row.get::<_, i64>(0),
-        )? == 1;
-        self.update_saved_query_configured(saved_query_id, name, query, source, enabled)
+        let now = Utc::now().to_rfc3339();
+        self.connection().execute(
+            "UPDATE saved_queries
+             SET name = ?1, query = ?2, resource_type = ?3, updated_at = ?4
+             WHERE id = ?5",
+            params![
+                name.trim(),
+                query.trim(),
+                source.as_db_value(),
+                now,
+                saved_query_id
+            ],
+        )?;
+        Ok(())
     }
 
     pub fn update_saved_query_configured(

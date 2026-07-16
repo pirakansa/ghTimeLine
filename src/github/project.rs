@@ -4,6 +4,7 @@ use super::project_types::*;
 use crate::github::FetchedStreamItem;
 use crate::github::{client, GitHubError};
 use crate::models::{HostConfig, ItemPerson, ItemType};
+use crate::storage::items::StreamItemUpsert;
 
 const PROJECT_ITEMS_LIMIT: usize = 500;
 const PROJECT_ITEMS_PAGE_SIZE: usize = 100;
@@ -20,6 +21,18 @@ pub fn project_preview_url(host: &HostConfig, query: &str) -> Result<String, Git
 }
 
 pub fn search_project_items(
+    host: &HostConfig,
+    pat: &str,
+    host_id: i64,
+    query: &str,
+) -> Result<Vec<StreamItemUpsert>, GitHubError> {
+    Ok(fetch_project_items(host, pat, query)?
+        .into_iter()
+        .map(|item| super::legacy::into_upsert(host_id, item, false))
+        .collect())
+}
+
+pub(crate) fn fetch_project_items(
     host: &HostConfig,
     pat: &str,
     query: &str,
@@ -280,7 +293,6 @@ fn project_item_to_fetched(
         reviewers: Vec::new(),
         participants: Vec::new(),
         mentions: Vec::new(),
-        graphql_enriched: false,
     }))
 }
 

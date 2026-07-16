@@ -4,6 +4,7 @@ use super::graphql_types::*;
 use crate::github::FetchedStreamItem;
 use crate::github::{client, GitHubError};
 use crate::models::{HostConfig, ItemPerson, ItemReview, ItemType};
+use crate::storage::items::StreamItemUpsert;
 
 const ITEM_ENRICHMENT_QUERY: &str = r#"
 query ItemEnrichment($ids: [ID!]!) {
@@ -106,16 +107,47 @@ impl ReviewSignal {
 pub fn enrich_items(
     host: &HostConfig,
     pat: &str,
-    items: &mut [FetchedStreamItem],
+    items: &mut [StreamItemUpsert],
 ) -> Result<(), GitHubError> {
-    enrich_item_iter(host, pat, items.iter_mut())
+    let mut fetched = items.iter().map(fetched_from_upsert).collect::<Vec<_>>();
+    let report = enrich_fetched_items(host, pat, &mut fetched);
+    for (item, fetched) in items.iter_mut().zip(fetched) {
+        let enriched = item
+            .node_id
+            .as_ref()
+            .is_some_and(|node_id| report.enriched_node_ids.contains(node_id));
+        apply_enrichment(item, fetched);
+        if enriched {
+            item.graphql_enriched = true;
+        }
+    }
+    report.into_result()
 }
 
-pub(crate) fn enrich_item_iter<'a>(
+pub(crate) struct EnrichmentReport {
+    pub(crate) enriched_node_ids: HashSet<String>,
+    error: Option<GitHubError>,
+}
+
+impl EnrichmentReport {
+    fn into_result(self) -> Result<(), GitHubError> {
+        self.error.map_or(Ok(()), Err)
+    }
+}
+
+pub(crate) fn enrich_fetched_items(
+    host: &HostConfig,
+    pat: &str,
+    items: &mut [FetchedStreamItem],
+) -> EnrichmentReport {
+    enrich_fetched_item_iter(host, pat, items.iter_mut())
+}
+
+pub(crate) fn enrich_fetched_item_iter<'a>(
     host: &HostConfig,
     pat: &str,
     items: impl IntoIterator<Item = &'a mut FetchedStreamItem>,
-) -> Result<(), GitHubError> {
+) -> EnrichmentReport {
     let mut items = items.into_iter().collect::<Vec<_>>();
     let mut seen_ids = HashSet::new();
     let ids = items
@@ -125,7 +157,10 @@ pub(crate) fn enrich_item_iter<'a>(
         .collect::<Vec<_>>();
 
     if ids.is_empty() {
-        return Ok(());
+        return EnrichmentReport {
+            enriched_node_ids: HashSet::new(),
+            error: None,
+        };
     }
 
     let mut enrichment_by_id = HashMap::new();
@@ -138,6 +173,7 @@ pub(crate) fn enrich_item_iter<'a>(
         }
     }
 
+    let mut enriched_node_ids = HashSet::new();
     for item in &mut items {
         let Some(node_id) = &item.node_id else {
             continue;
@@ -162,13 +198,54 @@ pub(crate) fn enrich_item_iter<'a>(
         }
         item.participants = enrichment.participants.clone();
         item.mentions = enrichment.mentions.clone();
-        item.graphql_enriched = true;
+        enriched_node_ids.insert(node_id.clone());
     }
 
-    match first_error {
-        Some(error) => Err(error),
-        None => Ok(()),
+    EnrichmentReport {
+        enriched_node_ids,
+        error: first_error,
     }
+}
+
+fn fetched_from_upsert(item: &StreamItemUpsert) -> FetchedStreamItem {
+    FetchedStreamItem {
+        node_id: item.node_id.clone(),
+        repository_owner: item.repository_owner.clone(),
+        repository_name: item.repository_name.clone(),
+        number: item.number,
+        item_type: item.item_type.clone(),
+        title: item.title.clone(),
+        author_login: item.author_login.clone(),
+        author_avatar_url: item.author_avatar_url.clone(),
+        html_url: item.html_url.clone(),
+        api_url: item.api_url.clone(),
+        state: item.state.clone(),
+        is_draft: item.is_draft,
+        is_merged: item.is_merged,
+        review_status: item.review_status.clone(),
+        comment_count: item.comment_count,
+        created_at_github: item.created_at_github.clone(),
+        updated_at_github: item.updated_at_github.clone(),
+        closed_at_github: item.closed_at_github.clone(),
+        merged_at_github: item.merged_at_github.clone(),
+        labels: item.labels.clone(),
+        assignees: item.assignees.clone(),
+        review_requests: item.review_requests.clone(),
+        reviewers: item.reviewers.clone(),
+        participants: item.participants.clone(),
+        mentions: item.mentions.clone(),
+    }
+}
+
+fn apply_enrichment(item: &mut StreamItemUpsert, fetched: FetchedStreamItem) {
+    item.is_draft = fetched.is_draft;
+    item.is_merged = fetched.is_merged;
+    item.review_status = fetched.review_status;
+    item.merged_at_github = fetched.merged_at_github;
+    item.review_requests = fetched.review_requests;
+    item.reviewers = fetched.reviewers;
+    item.participants = fetched.participants;
+    item.mentions = fetched.mentions;
 }
 
 fn fetch_item_enrichment(

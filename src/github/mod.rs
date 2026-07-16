@@ -2,6 +2,7 @@ mod client;
 pub mod discussion;
 pub mod graphql;
 mod graphql_types;
+mod legacy;
 pub mod project;
 mod project_types;
 pub mod rest;
@@ -11,7 +12,7 @@ use thiserror::Error;
 use crate::models::{AppConfig, HostConfig, ItemPerson, ItemReview, ItemType};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct FetchedStreamItem {
+pub(crate) struct FetchedStreamItem {
     pub node_id: Option<String>,
     pub repository_owner: String,
     pub repository_name: String,
@@ -37,7 +38,6 @@ pub struct FetchedStreamItem {
     pub reviewers: Vec<ItemReview>,
     pub participants: Vec<ItemPerson>,
     pub mentions: Vec<String>,
-    pub graphql_enriched: bool,
 }
 
 #[derive(Debug, Error)]
@@ -70,4 +70,24 @@ impl GitHubService {
 
 pub fn test_connection(config: &AppConfig) -> Result<(), GitHubError> {
     rest::test_connection(&config.host, &config.auth.pat)
+}
+
+#[cfg(test)]
+mod compatibility_tests {
+    use super::*;
+    use crate::storage::items::StreamItemUpsert;
+
+    type SearchFn = fn(&HostConfig, &str, i64, &str) -> Result<Vec<StreamItemUpsert>, GitHubError>;
+    type SearchPageFn =
+        fn(&HostConfig, &str, i64, &str, u16, u16) -> Result<rest::SearchPage, GitHubError>;
+
+    #[test]
+    fn public_item_api_signatures_remain_compatible() {
+        let _: SearchFn = rest::search_issues_and_pull_requests;
+        let _: SearchPageFn = rest::search_issues_and_pull_requests_page;
+        let _: SearchFn = discussion::search_discussions;
+        let _: SearchFn = project::search_project_items;
+        let _: fn(&HostConfig, &str, &mut [StreamItemUpsert]) -> Result<(), GitHubError> =
+            graphql::enrich_items;
+    }
 }

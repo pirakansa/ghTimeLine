@@ -64,7 +64,11 @@ enum PendingRefresh {
     },
 }
 
-fn into_upsert(host_id: i64, item: github::FetchedStreamItem) -> StreamItemUpsert {
+fn into_upsert(
+    host_id: i64,
+    item: github::FetchedStreamItem,
+    graphql_enriched: bool,
+) -> StreamItemUpsert {
     StreamItemUpsert {
         host_id,
         node_id: item.node_id,
@@ -92,7 +96,7 @@ fn into_upsert(host_id: i64, item: github::FetchedStreamItem) -> StreamItemUpser
         reviewers: item.reviewers,
         participants: item.participants,
         mentions: item.mentions,
-        graphql_enriched: item.graphql_enriched,
+        graphql_enriched,
     }
 }
 
@@ -113,15 +117,28 @@ fn refresh_saved_query_with_cache(
     item_cache: &mut HashMap<StreamItemKey, CachedSave>,
 ) -> Result<RefreshStats, SyncError> {
     let mut items = fetch_saved_query_items(config, storage, saved_query)?;
-    if matches!(
+    let enrichment = if matches!(
         saved_query.source,
         StreamSource::IssueOrPullRequest | StreamSource::ProjectV2
     ) {
-        let _ = github::graphql::enrich_items(&config.host, &config.auth.pat, &mut items);
-    }
+        Some(github::graphql::enrich_fetched_items(
+            &config.host,
+            &config.auth.pat,
+            &mut items,
+        ))
+    } else {
+        None
+    };
     let items = items
         .into_iter()
-        .map(|item| into_upsert(host_id, item))
+        .map(|item| {
+            let graphql_enriched = relations_are_complete(
+                saved_query.source,
+                &item,
+                enrichment.as_ref().map(|report| &report.enriched_node_ids),
+            );
+            into_upsert(host_id, item, graphql_enriched)
+        })
         .collect::<Vec<_>>();
     persist_saved_query_items(storage, saved_query, &items, item_cache)
 }
@@ -136,7 +153,7 @@ fn fetch_saved_query_items(
             let last_successful_sync_at =
                 storage.saved_query_last_successful_sync_at(saved_query.id)?;
             let query = issue_search_query(&saved_query.query, last_successful_sync_at.as_deref());
-            github::rest::search_issues_and_pull_requests_page(
+            github::rest::fetch_issues_and_pull_requests_page(
                 &config.host,
                 &config.auth.pat,
                 &query,
@@ -145,18 +162,27 @@ fn fetch_saved_query_items(
             )
             .map(|page| page.items)
         }
-        StreamSource::Discussion => github::discussion::search_discussions(
+        StreamSource::Discussion => github::discussion::fetch_discussions(
             &config.host,
             &config.auth.pat,
             &saved_query.query,
         ),
-        StreamSource::ProjectV2 => github::project::search_project_items(
-            &config.host,
-            &config.auth.pat,
-            &saved_query.query,
-        ),
+        StreamSource::ProjectV2 => {
+            github::project::fetch_project_items(&config.host, &config.auth.pat, &saved_query.query)
+        }
     }
     .map_err(SyncError::from)
+}
+
+fn relations_are_complete(
+    source: StreamSource,
+    item: &github::FetchedStreamItem,
+    enriched_node_ids: Option<&std::collections::HashSet<String>>,
+) -> bool {
+    source == StreamSource::Discussion
+        || item.node_id.as_ref().is_some_and(|node_id| {
+            enriched_node_ids.is_some_and(|enriched| enriched.contains(node_id))
+        })
 }
 
 fn issue_search_query(base_query: &str, last_successful_sync_at: Option<&str>) -> String {
@@ -264,7 +290,8 @@ pub fn refresh_saved_queries(
             PendingRefresh::Fetched { .. } => None,
         })
         .flat_map(|items| items.iter_mut());
-    let _ = github::graphql::enrich_item_iter(&config.host, &config.auth.pat, successful_items);
+    let enrichment =
+        github::graphql::enrich_fetched_item_iter(&config.host, &config.auth.pat, successful_items);
 
     let mut item_cache = HashMap::new();
     pending
@@ -274,7 +301,14 @@ pub fn refresh_saved_queries(
                 PendingRefresh::Fetched { query, items } => {
                     let items = items
                         .into_iter()
-                        .map(|item| into_upsert(host_id, item))
+                        .map(|item| {
+                            let graphql_enriched = relations_are_complete(
+                                query.source,
+                                &item,
+                                Some(&enrichment.enriched_node_ids),
+                            );
+                            into_upsert(host_id, item, graphql_enriched)
+                        })
                         .collect::<Vec<_>>();
                     (
                         query.id,

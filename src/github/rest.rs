@@ -1,6 +1,7 @@
 use crate::github::FetchedStreamItem;
 use crate::github::{client, GitHubError};
 use crate::models::{HostConfig, ItemPerson, ItemType};
+use crate::storage::items::StreamItemUpsert;
 
 pub const SEARCH_PER_PAGE: u16 = 100;
 const SEARCH_SORT: &str = "updated";
@@ -15,24 +16,61 @@ pub fn test_connection(host: &HostConfig, pat: &str) -> Result<(), GitHubError> 
 pub fn search_issues_and_pull_requests(
     host: &HostConfig,
     pat: &str,
+    host_id: i64,
     query: &str,
-) -> Result<Vec<FetchedStreamItem>, GitHubError> {
-    Ok(search_issues_and_pull_requests_page(host, pat, query, 1, SEARCH_PER_PAGE)?.items)
+) -> Result<Vec<StreamItemUpsert>, GitHubError> {
+    Ok(fetch_issues_and_pull_requests(host, pat, query)?
+        .into_iter()
+        .map(|item| super::legacy::into_upsert(host_id, item, false))
+        .collect())
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SearchPage {
-    pub items: Vec<FetchedStreamItem>,
+    pub items: Vec<StreamItemUpsert>,
     pub total_count: i64,
 }
 
 pub fn search_issues_and_pull_requests_page(
     host: &HostConfig,
     pat: &str,
+    host_id: i64,
     query: &str,
     page: u16,
     per_page: u16,
 ) -> Result<SearchPage, GitHubError> {
+    let page = fetch_issues_and_pull_requests_page(host, pat, query, page, per_page)?;
+    Ok(SearchPage {
+        items: page
+            .items
+            .into_iter()
+            .map(|item| super::legacy::into_upsert(host_id, item, false))
+            .collect(),
+        total_count: page.total_count,
+    })
+}
+
+pub(crate) fn fetch_issues_and_pull_requests(
+    host: &HostConfig,
+    pat: &str,
+    query: &str,
+) -> Result<Vec<FetchedStreamItem>, GitHubError> {
+    Ok(fetch_issues_and_pull_requests_page(host, pat, query, 1, SEARCH_PER_PAGE)?.items)
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct FetchedSearchPage {
+    pub(crate) items: Vec<FetchedStreamItem>,
+    pub(crate) total_count: i64,
+}
+
+pub(crate) fn fetch_issues_and_pull_requests_page(
+    host: &HostConfig,
+    pat: &str,
+    query: &str,
+    page: u16,
+    per_page: u16,
+) -> Result<FetchedSearchPage, GitHubError> {
     let endpoint = format!(
         "{}?q={}&sort={SEARCH_SORT}&order={SEARCH_ORDER}&per_page={per_page}&page={page}",
         api_url(host, "search/issues"),
@@ -50,7 +88,7 @@ pub fn api_url(host: &HostConfig, path: &str) -> String {
     format!("{base}{path}")
 }
 
-fn parse_search_response(host: &HostConfig, body: &str) -> Result<SearchPage, GitHubError> {
+fn parse_search_response(host: &HostConfig, body: &str) -> Result<FetchedSearchPage, GitHubError> {
     let response =
         serde_json::from_str::<SearchResponse>(body).map_err(|error| GitHubError::Parse {
             host: host.name.clone(),
@@ -63,7 +101,7 @@ fn parse_search_response(host: &HostConfig, body: &str) -> Result<SearchPage, Gi
         .map(|item| search_item_to_fetched(host, item))
         .collect::<Result<Vec<_>, _>>()?;
 
-    Ok(SearchPage {
+    Ok(FetchedSearchPage {
         items,
         total_count: response.total_count,
     })
@@ -118,7 +156,6 @@ fn search_item_to_fetched(
         reviewers: Vec::new(),
         participants: Vec::new(),
         mentions: Vec::new(),
-        graphql_enriched: false,
     })
 }
 
