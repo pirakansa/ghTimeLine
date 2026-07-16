@@ -583,6 +583,37 @@ fn saved_query_updates_are_persisted() {
 }
 
 #[test]
+fn saved_query_content_and_enabled_state_are_saved_together() {
+    let storage = Storage::in_memory().expect("storage");
+    let config = AppConfig::default_with_pat("token".to_owned());
+    let host_id = storage.ensure_host(&config.host).expect("host");
+    let query_id = storage
+        .add_saved_query_configured(
+            host_id,
+            "Old",
+            "is:open",
+            StreamSource::IssueOrPullRequest,
+            false,
+        )
+        .expect("query");
+
+    storage
+        .update_saved_query_configured(
+            query_id,
+            "Reviews",
+            "is:pr review-requested:@me",
+            StreamSource::IssueOrPullRequest,
+            true,
+        )
+        .expect("update query");
+
+    let queries = storage.list_saved_queries(host_id).expect("queries");
+    assert_eq!(queries[0].name, "Reviews");
+    assert_eq!(queries[0].query, "is:pr review-requested:@me");
+    assert!(queries[0].enabled);
+}
+
+#[test]
 fn saved_query_enabled_state_is_persisted() {
     let storage = Storage::in_memory().expect("storage");
     let config = AppConfig::default_with_pat("token".to_owned());

@@ -423,6 +423,29 @@ fn polling_interval_change_updates_runtime_and_yaml_config() {
 }
 
 #[test]
+fn failed_config_write_keeps_runtime_config_unchanged() {
+    let (mut app, _) = app_with_one_item();
+    let AppMode::Main(runtime) = &app.mode else {
+        panic!("app should be in main mode");
+    };
+    let original_interval = runtime.config.refresh.polling_interval_seconds;
+    let unwritable_path = temp_config_path();
+    std::fs::create_dir_all(&unwritable_path).expect("config path should be a directory");
+    app.config_path = unwritable_path;
+
+    app.update_polling_interval(90);
+
+    let AppMode::Main(runtime) = &app.mode else {
+        panic!("app should be in main mode");
+    };
+    assert_eq!(
+        runtime.config.refresh.polling_interval_seconds,
+        original_interval
+    );
+    assert!(app.status.starts_with("Could not save polling interval:"));
+}
+
+#[test]
 fn export_queries_writes_yaml_without_runtime_fields() {
     let (mut app, _) = app_with_one_item();
     let Selection::SavedQuery(query_id) = app.stream.selection else {

@@ -63,21 +63,14 @@ impl GhStreamApp {
         }
 
         if let AppMode::Main(runtime) = &mut self.mode {
-            match runtime
-                .storage
-                .add_saved_query_for_source(runtime.host_id, name, query, source)
-            {
+            match runtime.storage.add_saved_query_configured(
+                runtime.host_id,
+                name,
+                query,
+                source,
+                enabled,
+            ) {
                 Ok(id) => {
-                    if !enabled {
-                        if let Err(err) = runtime.storage.set_saved_query_enabled(id, false) {
-                            Self::replace_status(
-                                &mut self.status,
-                                &mut self.status_history,
-                                format!("Could not disable saved query: {err}"),
-                            );
-                            return;
-                        }
-                    }
                     self.stream.selection = Selection::SavedQuery(id);
                     self.stream.reset_item_list_scroll = true;
                     Self::replace_status(
@@ -117,20 +110,13 @@ impl GhStreamApp {
         if let AppMode::Main(runtime) = &mut self.mode {
             match runtime
                 .storage
-                .update_saved_query_for_source(id, name, query, source)
+                .update_saved_query_configured(id, name, query, source, enabled)
             {
-                Ok(()) => match runtime.storage.set_saved_query_enabled(id, enabled) {
-                    Ok(()) => Self::replace_status(
-                        &mut self.status,
-                        &mut self.status_history,
-                        "Saved query updated.",
-                    ),
-                    Err(err) => Self::replace_status_error(
-                        &mut self.status,
-                        &mut self.status_history,
-                        format!("Could not update saved query: {err}"),
-                    ),
-                },
+                Ok(()) => Self::replace_status(
+                    &mut self.status,
+                    &mut self.status_history,
+                    "Saved query updated.",
+                ),
                 Err(err) => Self::replace_status_error(
                     &mut self.status,
                     &mut self.status_history,

@@ -162,6 +162,17 @@ impl Storage {
         query: &str,
         source: StreamSource,
     ) -> Result<i64> {
+        self.add_saved_query_configured(host_id, name, query, source, true)
+    }
+
+    pub fn add_saved_query_configured(
+        &self,
+        host_id: i64,
+        name: &str,
+        query: &str,
+        source: StreamSource,
+        enabled: bool,
+    ) -> Result<i64> {
         let now = Utc::now().to_rfc3339();
         let next_position = self
             .connection()
@@ -175,13 +186,14 @@ impl Storage {
 
         self.connection().execute(
             "INSERT INTO saved_queries (
-                host_id, name, query, resource_type, position, created_at, updated_at
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
+                host_id, name, query, resource_type, enabled, position, created_at, updated_at
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)",
             params![
                 host_id,
                 name.trim(),
                 query.trim(),
                 source.as_db_value(),
+                if enabled { 1 } else { 0 },
                 next_position,
                 now
             ],
@@ -207,15 +219,32 @@ impl Storage {
         query: &str,
         source: StreamSource,
     ) -> Result<()> {
+        let enabled = self.connection().query_row(
+            "SELECT enabled FROM saved_queries WHERE id = ?1",
+            params![saved_query_id],
+            |row| row.get::<_, i64>(0),
+        )? == 1;
+        self.update_saved_query_configured(saved_query_id, name, query, source, enabled)
+    }
+
+    pub fn update_saved_query_configured(
+        &self,
+        saved_query_id: i64,
+        name: &str,
+        query: &str,
+        source: StreamSource,
+        enabled: bool,
+    ) -> Result<()> {
         let now = Utc::now().to_rfc3339();
         self.connection().execute(
             "UPDATE saved_queries
-             SET name = ?1, query = ?2, resource_type = ?3, updated_at = ?4
-             WHERE id = ?5",
+             SET name = ?1, query = ?2, resource_type = ?3, enabled = ?4, updated_at = ?5
+             WHERE id = ?6",
             params![
                 name.trim(),
                 query.trim(),
                 source.as_db_value(),
+                if enabled { 1 } else { 0 },
                 now,
                 saved_query_id
             ],
