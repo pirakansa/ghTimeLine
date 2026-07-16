@@ -144,6 +144,7 @@ fn atomic_write_with(
         let mut temporary = create_temporary_file(&temporary_path)?;
         temporary.write_all(content)?;
         temporary.sync_all()?;
+        drop(temporary);
         replace(&temporary_path, path)?;
         Ok(())
     })();
@@ -322,6 +323,39 @@ mod tests {
             .filter(|entry| entry.file_name().to_string_lossy().ends_with(".tmp"))
             .count();
         assert_eq!(temporary_files, 0);
+        fs::remove_dir_all(directory).expect("cleanup");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn atomic_write_closes_temporary_file_before_replace() {
+        use std::os::windows::fs::OpenOptionsExt;
+
+        let directory = std::env::temp_dir().join(format!(
+            "ghtl-config-handle-test-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system time")
+                .as_nanos()
+        ));
+        fs::create_dir_all(&directory).expect("test directory");
+        let path = directory.join("config.yml");
+
+        atomic_write_with(&path, b"replacement", |temporary_path, path| {
+            let exclusive = OpenOptions::new()
+                .read(true)
+                .share_mode(0)
+                .open(temporary_path)?;
+            drop(exclusive);
+            fs::rename(temporary_path, path)
+        })
+        .expect("atomic write");
+
+        assert_eq!(
+            fs::read_to_string(&path).expect("written config"),
+            "replacement"
+        );
         fs::remove_dir_all(directory).expect("cleanup");
     }
 
