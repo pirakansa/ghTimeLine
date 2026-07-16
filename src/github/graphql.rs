@@ -1,9 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
 use super::graphql_types::*;
+use crate::github::FetchedStreamItem;
 use crate::github::{client, GitHubError};
 use crate::models::{HostConfig, ItemPerson, ItemReview, ItemType};
-use crate::storage::items::StreamItemUpsert;
 
 const ITEM_ENRICHMENT_QUERY: &str = r#"
 query ItemEnrichment($ids: [ID!]!) {
@@ -106,7 +106,7 @@ impl ReviewSignal {
 pub fn enrich_items(
     host: &HostConfig,
     pat: &str,
-    items: &mut [StreamItemUpsert],
+    items: &mut [FetchedStreamItem],
 ) -> Result<(), GitHubError> {
     enrich_item_iter(host, pat, items.iter_mut())
 }
@@ -114,7 +114,7 @@ pub fn enrich_items(
 pub(crate) fn enrich_item_iter<'a>(
     host: &HostConfig,
     pat: &str,
-    items: impl IntoIterator<Item = &'a mut StreamItemUpsert>,
+    items: impl IntoIterator<Item = &'a mut FetchedStreamItem>,
 ) -> Result<(), GitHubError> {
     let mut items = items.into_iter().collect::<Vec<_>>();
     let mut seen_ids = HashSet::new();

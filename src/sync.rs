@@ -56,12 +56,44 @@ struct CachedSave {
 enum PendingRefresh {
     Fetched {
         query: SavedQuery,
-        items: Vec<StreamItemUpsert>,
+        items: Vec<github::FetchedStreamItem>,
     },
     Failed {
         query_id: i64,
         error: SyncError,
     },
+}
+
+fn into_upsert(host_id: i64, item: github::FetchedStreamItem) -> StreamItemUpsert {
+    StreamItemUpsert {
+        host_id,
+        node_id: item.node_id,
+        repository_owner: item.repository_owner,
+        repository_name: item.repository_name,
+        number: item.number,
+        item_type: item.item_type,
+        title: item.title,
+        author_login: item.author_login,
+        author_avatar_url: item.author_avatar_url,
+        html_url: item.html_url,
+        api_url: item.api_url,
+        state: item.state,
+        is_draft: item.is_draft,
+        is_merged: item.is_merged,
+        review_status: item.review_status,
+        comment_count: item.comment_count,
+        created_at_github: item.created_at_github,
+        updated_at_github: item.updated_at_github,
+        closed_at_github: item.closed_at_github,
+        merged_at_github: item.merged_at_github,
+        labels: item.labels,
+        assignees: item.assignees,
+        review_requests: item.review_requests,
+        reviewers: item.reviewers,
+        participants: item.participants,
+        mentions: item.mentions,
+        graphql_enriched: item.graphql_enriched,
+    }
 }
 
 pub fn refresh_saved_query(
@@ -80,22 +112,25 @@ fn refresh_saved_query_with_cache(
     saved_query: &SavedQuery,
     item_cache: &mut HashMap<StreamItemKey, CachedSave>,
 ) -> Result<RefreshStats, SyncError> {
-    let mut items = fetch_saved_query_items(config, storage, host_id, saved_query)?;
+    let mut items = fetch_saved_query_items(config, storage, saved_query)?;
     if matches!(
         saved_query.source,
         StreamSource::IssueOrPullRequest | StreamSource::ProjectV2
     ) {
         let _ = github::graphql::enrich_items(&config.host, &config.auth.pat, &mut items);
     }
+    let items = items
+        .into_iter()
+        .map(|item| into_upsert(host_id, item))
+        .collect::<Vec<_>>();
     persist_saved_query_items(storage, saved_query, &items, item_cache)
 }
 
 fn fetch_saved_query_items(
     config: &AppConfig,
     storage: &Storage,
-    host_id: i64,
     saved_query: &SavedQuery,
-) -> Result<Vec<StreamItemUpsert>, SyncError> {
+) -> Result<Vec<github::FetchedStreamItem>, SyncError> {
     match saved_query.source {
         StreamSource::IssueOrPullRequest => {
             let last_successful_sync_at =
@@ -104,7 +139,6 @@ fn fetch_saved_query_items(
             github::rest::search_issues_and_pull_requests_page(
                 &config.host,
                 &config.auth.pat,
-                host_id,
                 &query,
                 ISSUE_SEARCH_PAGE,
                 github::rest::SEARCH_PER_PAGE,
@@ -114,13 +148,11 @@ fn fetch_saved_query_items(
         StreamSource::Discussion => github::discussion::search_discussions(
             &config.host,
             &config.auth.pat,
-            host_id,
             &saved_query.query,
         ),
         StreamSource::ProjectV2 => github::project::search_project_items(
             &config.host,
             &config.auth.pat,
-            host_id,
             &saved_query.query,
         ),
     }
@@ -204,7 +236,7 @@ pub fn refresh_saved_queries(
         .iter()
         .filter(|query| query.enabled)
         .map(
-            |query| match fetch_saved_query_items(config, storage, host_id, query) {
+            |query| match fetch_saved_query_items(config, storage, query) {
                 Ok(items) => PendingRefresh::Fetched {
                     query: query.clone(),
                     items,
@@ -239,10 +271,16 @@ pub fn refresh_saved_queries(
         .into_iter()
         .map(|refresh| {
             let (query_id, result) = match refresh {
-                PendingRefresh::Fetched { query, items } => (
-                    query.id,
-                    persist_saved_query_items(storage, &query, &items, &mut item_cache),
-                ),
+                PendingRefresh::Fetched { query, items } => {
+                    let items = items
+                        .into_iter()
+                        .map(|item| into_upsert(host_id, item))
+                        .collect::<Vec<_>>();
+                    (
+                        query.id,
+                        persist_saved_query_items(storage, &query, &items, &mut item_cache),
+                    )
+                }
                 PendingRefresh::Failed { query_id, error } => (query_id, Err(error)),
             };
             if let Err(error) = &result {

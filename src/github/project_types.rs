@@ -1,5 +1,5 @@
 use crate::github::project::ProjectLocator;
-use crate::storage::items::StreamItemUpsert;
+use crate::github::FetchedStreamItem;
 
 const PROJECT_ITEMS_FRAGMENT: &str = r#"
 fragment ProjectItems on ProjectV2 {
@@ -174,7 +174,7 @@ pub(super) struct ProjectVariables<'a> {
 
 #[derive(Debug, Default)]
 pub(super) struct ProjectItemsPage {
-    pub(super) items: Vec<StreamItemUpsert>,
+    pub(super) items: Vec<FetchedStreamItem>,
     pub(super) has_next_page: bool,
     pub(super) end_cursor: Option<String>,
 }

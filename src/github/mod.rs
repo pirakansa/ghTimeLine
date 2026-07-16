@@ -8,7 +8,37 @@ pub mod rest;
 
 use thiserror::Error;
 
-use crate::models::{AppConfig, HostConfig};
+use crate::models::{AppConfig, HostConfig, ItemPerson, ItemReview, ItemType};
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FetchedStreamItem {
+    pub node_id: Option<String>,
+    pub repository_owner: String,
+    pub repository_name: String,
+    pub number: i64,
+    pub item_type: ItemType,
+    pub title: String,
+    pub author_login: Option<String>,
+    pub author_avatar_url: Option<String>,
+    pub html_url: String,
+    pub api_url: Option<String>,
+    pub state: String,
+    pub is_draft: Option<bool>,
+    pub is_merged: Option<bool>,
+    pub review_status: Option<String>,
+    pub comment_count: i64,
+    pub created_at_github: String,
+    pub updated_at_github: String,
+    pub closed_at_github: Option<String>,
+    pub merged_at_github: Option<String>,
+    pub labels: Vec<String>,
+    pub assignees: Vec<ItemPerson>,
+    pub review_requests: Vec<ItemPerson>,
+    pub reviewers: Vec<ItemReview>,
+    pub participants: Vec<ItemPerson>,
+    pub mentions: Vec<String>,
+    pub graphql_enriched: bool,
+}
 
 #[derive(Debug, Error)]
 pub enum GitHubError {
