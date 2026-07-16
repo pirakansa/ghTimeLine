@@ -1,11 +1,14 @@
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use thiserror::Error;
 
 use crate::models::{AppConfig, HostKind};
 
 const APP_DIR_NAME: &str = "ghtl";
+static TEMP_FILE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Error)]
 pub enum ConfigError {
@@ -71,8 +74,100 @@ pub fn write_config(path: &Path, config: &AppConfig) -> Result<()> {
         fs::create_dir_all(parent)?;
     }
     let content = serde_yaml::to_string(&normalized)?;
-    fs::write(path, content)?;
-    Ok(())
+    atomic_write(path, content.as_bytes())
+}
+
+fn atomic_write(path: &Path, content: &[u8]) -> Result<()> {
+    atomic_write_with(path, content, platform_replace)
+}
+
+#[cfg(not(windows))]
+fn platform_replace(from: &Path, to: &Path) -> std::io::Result<()> {
+    fs::rename(from, to)
+}
+
+#[cfg(windows)]
+fn platform_replace(from: &Path, to: &Path) -> std::io::Result<()> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::{ReplaceFileW, REPLACEFILE_WRITE_THROUGH};
+
+    if !to.exists() {
+        return fs::rename(from, to);
+    }
+
+    let from = from
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    let to = to
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    // SAFETY: Both paths are NUL-terminated UTF-16 buffers that remain alive for the call,
+    // and the optional backup/exclusion arguments are intentionally null.
+    let replaced = unsafe {
+        ReplaceFileW(
+            to.as_ptr(),
+            from.as_ptr(),
+            std::ptr::null(),
+            REPLACEFILE_WRITE_THROUGH,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+        )
+    };
+    if replaced == 0 {
+        Err(std::io::Error::last_os_error())
+    } else {
+        Ok(())
+    }
+}
+
+fn atomic_write_with(
+    path: &Path,
+    content: &[u8],
+    replace: impl FnOnce(&Path, &Path) -> std::io::Result<()>,
+) -> Result<()> {
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("config.yml");
+    let sequence = TEMP_FILE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    let temporary_path = parent.join(format!(
+        ".{file_name}.{}.{sequence}.tmp",
+        std::process::id()
+    ));
+
+    let result = (|| {
+        let mut temporary = create_temporary_file(&temporary_path)?;
+        temporary.write_all(content)?;
+        temporary.sync_all()?;
+        replace(&temporary_path, path)?;
+        Ok(())
+    })();
+
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary_path);
+    }
+    result
+}
+
+#[cfg(unix)]
+fn create_temporary_file(path: &Path) -> std::io::Result<fs::File> {
+    use std::os::unix::fs::OpenOptionsExt;
+
+    OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(path)
+}
+
+#[cfg(not(unix))]
+fn create_temporary_file(path: &Path) -> std::io::Result<fs::File> {
+    OpenOptions::new().write(true).create_new(true).open(path)
 }
 
 pub fn validate_host_config(
@@ -165,6 +260,8 @@ fn is_hex_color(value: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
     use super::*;
     use crate::models::{AppConfig, HostKind};
 
@@ -190,5 +287,67 @@ mod tests {
             .expect_err("missing PAT must be rejected");
 
         assert!(err.to_string().contains("auth.pat"));
+    }
+
+    #[test]
+    fn failed_atomic_write_preserves_existing_config() {
+        let directory = std::env::temp_dir().join(format!(
+            "ghtl-config-test-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system time")
+                .as_nanos()
+        ));
+        fs::create_dir_all(&directory).expect("test directory");
+        let path = directory.join("config.yml");
+        fs::write(&path, "original").expect("existing config");
+
+        let error = atomic_write_with(&path, b"replacement", |_, _| {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "injected replacement failure",
+            ))
+        })
+        .expect_err("replacement must fail");
+
+        assert_eq!(
+            fs::read_to_string(&path).expect("existing config"),
+            "original"
+        );
+        assert!(error.to_string().contains("injected replacement failure"));
+        let temporary_files = fs::read_dir(&directory)
+            .expect("directory entries")
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| entry.file_name().to_string_lossy().ends_with(".tmp"))
+            .count();
+        assert_eq!(temporary_files, 0);
+        fs::remove_dir_all(directory).expect("cleanup");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn atomic_write_keeps_config_private() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let directory = std::env::temp_dir().join(format!(
+            "ghtl-config-permissions-test-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system time")
+                .as_nanos()
+        ));
+        fs::create_dir_all(&directory).expect("test directory");
+        let path = directory.join("config.yml");
+
+        atomic_write(&path, b"secret").expect("atomic write");
+
+        let mode = fs::metadata(&path)
+            .expect("config metadata")
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600);
+        fs::remove_dir_all(directory).expect("cleanup");
     }
 }
