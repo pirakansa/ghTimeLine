@@ -41,12 +41,21 @@ impl GhStreamApp {
 
     /// Check if a background refresh has completed and apply the result.
     pub(super) fn poll_refresh_result(&mut self) {
-        let outcome = match &self.refresh_rx {
-            Some(rx) => match rx.try_recv() {
-                Ok(outcome) => outcome,
-                Err(_) => return,
-            },
-            None => return,
+        let Some(rx) = &self.refresh_rx else {
+            return;
+        };
+        let outcome = match rx.try_recv() {
+            Ok(outcome) => outcome,
+            Err(mpsc::TryRecvError::Empty) => return,
+            Err(mpsc::TryRecvError::Disconnected) => {
+                self.refresh_rx = None;
+                Self::replace_status_error(
+                    &mut self.status,
+                    &mut self.status_history,
+                    "Refresh failed because the background worker exited without a result. Try refreshing again.",
+                );
+                return;
+            }
         };
         self.refresh_rx = None;
         Self::replace_status(
@@ -194,6 +203,34 @@ mod tests {
     use super::*;
     use crate::models::AppConfig;
     use crate::storage::Storage;
+
+    #[test]
+    fn refresh_stays_busy_until_worker_disconnects_without_a_result() {
+        let config = AppConfig::default_with_pat("ghp_test".to_owned());
+        let storage = Storage::in_memory().expect("storage");
+        let mut app = GhStreamApp::from_storage(config, storage, "Manual refresh: refreshing...")
+            .expect("app");
+        let (tx, rx) = mpsc::channel();
+        app.refresh_rx = Some(rx);
+
+        app.poll_refresh_result();
+
+        assert!(app.refresh_rx.is_some());
+        assert_eq!(app.status, "Manual refresh: refreshing...");
+        assert_eq!(app.status_history.len(), 1);
+
+        drop(tx);
+        app.poll_refresh_result();
+
+        assert!(app.refresh_rx.is_none());
+        assert_eq!(
+            app.status,
+            "Refresh failed because the background worker exited without a result. Try refreshing again."
+        );
+        let entry = app.status_history.last().expect("refresh error");
+        assert_eq!(entry.message, app.status);
+        assert!(matches!(entry.level, crate::app::StatusLevel::Error));
+    }
 
     #[test]
     fn polling_schedules_repaints_at_each_deadline() {

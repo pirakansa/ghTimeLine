@@ -92,6 +92,9 @@ flow.
    list snapshot and show an update banner until the user selects **Show
    updates** or otherwise reloads the view.
 
+If a refresh worker exits before reporting a result, the app records an error
+and allows the next manual or scheduled refresh to proceed.
+
 The app must not assume polling can infer every GitHub state transition. Cached
 matches may remain when an item stops appearing in a later search result.
 
