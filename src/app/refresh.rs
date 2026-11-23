@@ -26,17 +26,17 @@ impl GhStreamApp {
         };
         let interval =
             Duration::from_secs(u64::from(runtime.config.refresh.polling_interval_seconds));
-        if self.last_poll_at.is_none() {
-            self.last_poll_at = Some(Instant::now());
-            return;
-        }
-        if self
-            .last_poll_at
-            .is_none_or(|last_poll_at| last_poll_at.elapsed() >= interval)
-        {
-            self.last_poll_at = Some(Instant::now());
+        let now = Instant::now();
+        let last_poll_at = *self.last_poll_at.get_or_insert(now);
+        let elapsed = now.duration_since(last_poll_at);
+        let delay = if elapsed >= interval {
+            self.last_poll_at = Some(now);
             self.refresh_all_queries("Polling refresh", ctx.clone());
-        }
+            interval
+        } else {
+            interval - elapsed
+        };
+        ctx.request_repaint_after(delay);
     }
 
     /// Check if a background refresh has completed and apply the result.
@@ -191,7 +191,42 @@ fn refresh_status(
 
 #[cfg(test)]
 mod tests {
-    use super::refresh_status;
+    use super::*;
+    use crate::models::AppConfig;
+    use crate::storage::Storage;
+
+    #[test]
+    fn polling_schedules_repaints_at_each_deadline() {
+        let mut config = AppConfig::default_with_pat("ghp_test".to_owned());
+        config.refresh.polling_interval_seconds = 60;
+        let storage = Storage::in_memory().expect("storage");
+        let mut app = GhStreamApp::from_storage(config, storage, "Ready").expect("app");
+        let scheduled_delay = |app: &mut GhStreamApp| {
+            let ctx = egui::Context::default();
+            let (tx, rx) = mpsc::channel();
+            ctx.set_request_repaint_callback(move |request| {
+                tx.send(request.delay).expect("repaint receiver");
+            });
+            app.maybe_poll(&ctx);
+            rx.try_recv().expect("scheduled repaint")
+        };
+
+        assert!((Duration::from_secs(59)..=Duration::from_secs(60))
+            .contains(&scheduled_delay(&mut app)));
+        assert_eq!(app.status, "Ready");
+
+        let last_poll_at = Instant::now() - Duration::from_secs(30);
+        app.last_poll_at = Some(last_poll_at);
+        assert!((Duration::from_secs(29)..=Duration::from_secs(30))
+            .contains(&scheduled_delay(&mut app)));
+        assert_eq!(app.last_poll_at, Some(last_poll_at));
+        assert_eq!(app.status, "Ready");
+
+        app.last_poll_at = Some(Instant::now() - Duration::from_secs(60));
+        assert!((Duration::from_secs(59)..=Duration::from_secs(60))
+            .contains(&scheduled_delay(&mut app)));
+        assert_eq!(app.status, "Polling refresh: no saved queries to refresh.");
+    }
 
     #[test]
     fn refresh_status_reports_processed_and_changed_counts() {
