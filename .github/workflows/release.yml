@@ -71,9 +71,7 @@ jobs:
       - name: Install cross-compilers
         run: sudo apt-get update && sudo apt-get install --yes gcc-aarch64-linux-gnu gcc-mingw-w64-x86-64 libclang-dev libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev libxkbcommon-x11-dev
 
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
-
+      # Build from scratch to keep artifacts tied to this runner's toolchain and sysroot.
       - name: Run tests
         run: vorbere run test
 
